@@ -37,8 +37,8 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-xl font-semibold mb-2">4. Tus derechos</h2>
           <p>
             Puedes solicitar la eliminación o modificación de tus datos en cualquier momento escribiéndonos a{" "}
-            <a href="mailto:valenciagirlscollective@gmail.com" className="underline text-[#50415b]">
-              valenciagirlscollective@gmail.com
+            <a href="mailto:["contac@girls-collective.com" className="underline text-[#50415b]">
+              contac@girls-collective.com
             </a>.
           </p>
         </section>

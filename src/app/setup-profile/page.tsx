@@ -112,10 +112,10 @@ export default function OnboardingPage() {
       let avatar_url: string | null = null;
       if (avatarFile) {
         const path = `${user.id}/${Date.now()}_${avatarFile.name}`;
-        const { error: upErr } = await supabase.storage.from("avatars").upload(path, avatarFile, { upsert: true });
+        const { error: upErr } = await supabase.storage.from("Avatars").upload(path, avatarFile, { upsert: true });
         if (upErr) throw upErr;
 
-        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+        const { data: pub } = supabase.storage.from("Avatars").getPublicUrl(path);
         avatar_url = pub?.publicUrl ?? null;
       }
 
