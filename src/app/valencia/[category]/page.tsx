@@ -207,10 +207,12 @@ export default function CategoryPage({
           <p className="max-w-3xl text-base md:text-lg leading-relaxed">
             Ya sea que quieras unirte a un grupo ya creado o iniciar uno nuevo,
             aquí puedes hacerlo a tu ritmo, sin presiones. Conecta desde lo que te
-            inspira, propone planes o simplemente mira qué está pasando cerca de ti.
+            inspira, propone planes o simplemente mira qué está pasando cerca de ti. 
             <br />
             <br />
-            Dentro podrás filtrar por ubicaciones o por edades si así lo prefieres.
+            Dentro podrás filtrar por <u>ubicaciones o por edades</u> si así lo prefieres.
+            <br />
+            Sigue los grupos que quieras para poder verlos en tu cuenta.
           </p>
         </header>
 

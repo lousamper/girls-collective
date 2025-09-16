@@ -11,7 +11,6 @@ export default function AuthPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  // When logged in, check profile completeness
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -35,10 +34,9 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gcBackground text-gcText flex items-center justify-center font-montserrat">
+    <main className="min-h-screen bg-gcBackground text-gcText flex flex-col items-center justify-center font-montserrat px-4">
       {!user ? (
         <Dialog defaultOpen>
-          {/* No DialogHeader here; AuthForm shows its own title/description */}
           <DialogContent className="max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <AuthForm />
           </DialogContent>
@@ -49,3 +47,4 @@ export default function AuthPage() {
     </main>
   );
 }
+

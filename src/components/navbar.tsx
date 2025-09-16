@@ -72,6 +72,21 @@ export default function Navbar() {
             </Link>
           </li>
 
+          {/* Mensajes (solo logueada) */}
+          {user && (
+            <li>
+              <Link
+                href="/dm"
+                className={`rounded-full border bg-white px-5 py-2 shadow-sm hover:opacity-90 ${
+                  isActive("/dm") ? "underline underline-offset-4" : ""
+                }`}
+                title="Mensajes directos"
+              >
+                Mensajes
+              </Link>
+            </li>
+          )}
+
           {/* Admin chip */}
           {isAdmin && (
             <li>
@@ -94,8 +109,17 @@ export default function Navbar() {
           </li>
         </ul>
 
-        {/* Mobile CTA */}
-        <div className="md:hidden">
+        {/* Mobile CTA(s) */}
+        <div className="md:hidden flex items-center gap-2">
+          {user && (
+            <Link
+              href="/dm"
+              className="rounded-full border bg-white px-4 py-2 text-sm shadow-sm hover:opacity-90"
+              title="Mensajes directos"
+            >
+              Mensajes
+            </Link>
+          )}
           <Link
             href={user ? "/profile" : "/auth"}
             className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-4 py-2 shadow-md hover:opacity-90"

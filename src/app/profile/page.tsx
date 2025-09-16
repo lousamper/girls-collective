@@ -28,11 +28,10 @@ type CityRow = { id: string; slug: string; name: string };
 
 // ---- helpers: sanitize avatar path ----
 function sanitizeFileName(name: string) {
-  // quita espacios, caracteres invisibles, y deja solo [a-z0-9._-]
   const base = name
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\u200B-\u200D\uFEFF]/g, ""); // zero-width
+    .replace(/[\u200B-\u200D\uFEFF]/g, "");
   const parts = base.split(".");
   const ext = parts.length > 1 ? parts.pop()!.toLowerCase().replace(/[^a-z0-9]/g, "") : "jpg";
   const stem = parts.join(".").toLowerCase().replace(/[^a-z0-9._-]/g, "-");
@@ -297,9 +296,18 @@ export default function ProfilePage() {
               <div className="mt-2">
                 <input
                   type="file"
-                  accept="image/*"
-                  onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                  accept="image/jpeg,image/png"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    if (!f) { setAvatarFile(null); return; }
+                    const okType = ["image/jpeg","image/png"].includes(f.type);
+                    const okSize = f.size <= 2 * 1024 * 1024; // 2MB
+                    if (!okType) { alert("Debe ser .jpg o .png"); return; }
+                    if (!okSize) { alert("Tamaño máximo 2MB"); return; }
+                    setAvatarFile(f);
+                  }}
                 />
+                <p className="text-xs opacity-70 mt-1">Debe ser .jpg o .png · Máx 2MB</p>
               </div>
             </div>
 
@@ -451,5 +459,6 @@ export default function ProfilePage() {
     </main>
   );
 }
+
 
 

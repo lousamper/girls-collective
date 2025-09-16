@@ -1,59 +1,82 @@
 "use client";
-import { use, useEffect, useState, useRef } from "react";
-import { useAuth } from "@/lib/auth";
-import { supabase } from "@/lib/supabaseClient";
-import { getOrCreateThread } from "@/lib/dm";
 
-type Msg = { id: string; sender_id: string; content: string; created_at: string };
+import { useEffect, useRef, useState, use } from "react";
+import { useAuth } from "@/lib/auth";
+import { getUserByUsername, fetchDMHistory, sendDM, DMRow } from "@/lib/dm";
 
 export default function DMPage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = use(params);
   const { user, loading } = useAuth();
-  const [threadId, setThreadId] = useState<string | null>(null);
-  const [other, setOther] = useState<{ id: string; username: string } | null>(null);
-  const [msgs, setMsgs] = useState<Msg[]>([]);
+
+  const [other, setOther] = useState<{ id: string; username: string | null } | null>(null);
+  const [msgs, setMsgs] = useState<DMRow[]>([]);
   const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
   const listRef = useRef<HTMLDivElement>(null);
 
+  function scrollToBottom() {
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }
+
   useEffect(() => {
-    if (!user || loading) return;
+    if (loading) return;
+    if (!user) return;
+
     (async () => {
-      // buscar perfil por username
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("id,username")
-        .ilike("username", username)
-        .maybeSingle();
-      if (!p?.id) return;
-      setOther(p);
+      setErr("");
 
-      const tid = await getOrCreateThread(user.id, p.id);
-      setThreadId(tid);
+      // 1) Resolve target user from username
+      const uname = decodeURIComponent(username);
+      const { data: prof, error: pErr } = await getUserByUsername(uname);
+      if (pErr || !prof) {
+        setErr("Usuario no encontrado.");
+        return;
+      }
+      if (prof.id === user.id) {
+        setErr("No puedes enviarte mensajes a ti misma.");
+        return;
+      }
+      setOther(prof);
 
-      // cargar mensajes
-      const { data: rows } = await supabase
-        .from("direct_messages")
-        .select("id,sender_id,content,created_at")
-        .eq("thread_id", tid)
-        .order("created_at", { ascending: true });
-      setMsgs(rows ?? []);
-      setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: "smooth" }), 0);
+      // 2) Load history (me ↔ other)
+      const { data, error } = await fetchDMHistory(user.id, prof.id);
+      if (error) {
+        setErr(error.message ?? "No se pudieron cargar los mensajes.");
+        return;
+      }
+      setMsgs(data ?? []);
+
+      requestAnimationFrame(scrollToBottom);
     })();
   }, [user, loading, username]);
 
-  async function send(e: React.FormEvent) {
+  async function onSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !threadId || !text.trim()) return;
-    const payload = { thread_id: threadId, sender_id: user.id, content: text.trim() };
-    const { data, error } = await supabase
-      .from("direct_messages")
-      .insert(payload)
-      .select("id,sender_id,content,created_at")
-      .single();
-    if (!error && data) {
-      setMsgs(prev => [...prev, data]);
+    if (!user || !other) return;
+    const body = text.trim();
+    if (!body) return;
+
+    setBusy(true);
+    setErr("");
+    try {
+      const { error } = await sendDM(user.id, other.id, body);
+      if (error) throw error;
+
+      // optimistic append
+      const now = new Date().toISOString();
+      setMsgs((prev) => [
+        ...prev,
+        { id: `tmp-${now}`, sender_id: user.id, recipient_id: other.id, body, created_at: now },
+      ]);
       setText("");
-      setTimeout(() => listRef.current?.scrollTo({ top: 999999, behavior: "smooth" }), 0);
+      requestAnimationFrame(scrollToBottom);
+    } catch (e: any) {
+      setErr(e.message ?? "No se pudo enviar el mensaje.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -63,15 +86,25 @@ export default function DMPage({ params }: { params: Promise<{ username: string 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="font-dmserif text-3xl mb-4">Chat con @{other?.username ?? "..."}</h1>
+        <h1 className="font-dmserif text-3xl mb-4">
+          Chat con @{other?.username ?? decodeURIComponent(username)}
+        </h1>
 
-        <div ref={listRef} className="bg-white rounded-2xl p-4 shadow-md max-h-[60vh] overflow-y-auto space-y-3">
-          {msgs.map(m => {
+        {err && <p className="text-red-600 mb-3">{err}</p>}
+
+        <div
+          ref={listRef}
+          className="bg-white rounded-2xl p-4 shadow-md max-h-[60vh] overflow-y-auto space-y-3"
+        >
+          {msgs.map((m) => {
             const mine = m.sender_id === user.id;
             return (
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className={`rounded-2xl px-4 py-2 ${mine ? "bg-gcBackgroundAlt2" : "bg-gcBackgroundAlt/30"}`}>
-                  {m.content}
+                  <div className="text-xs opacity-70 mb-1" title={new Date(m.created_at).toLocaleString()}>
+                    {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </div>
+                  <div className="whitespace-pre-wrap">{m.body}</div>
                 </div>
               </div>
             );
@@ -79,18 +112,20 @@ export default function DMPage({ params }: { params: Promise<{ username: string 
           {msgs.length === 0 && <div className="opacity-70">Empieza la conversación ✨</div>}
         </div>
 
-        <form onSubmit={send} className="mt-3 flex gap-2">
+        <form onSubmit={onSend} className="mt-3 flex gap-2">
           <input
             className="flex-1 rounded-xl border p-3 bg-white"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Escribe un mensaje…"
+            maxLength={1000}
           />
           <button
             type="submit"
-            className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 shadow-md hover:opacity-90"
+            disabled={busy || !text.trim() || !other}
+            className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 shadow-md hover:opacity-90 disabled:opacity-60"
           >
-            Enviar
+            {busy ? "Enviando…" : "Enviar"}
           </button>
         </form>
       </div>

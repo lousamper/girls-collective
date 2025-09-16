@@ -305,7 +305,7 @@ export default function GroupPage({
     setOpenProfile({ username });
     const { data } = await supabase
       .from("profiles")
-      .select("username,bio,avatar_url,city_id")
+      .select("id,username,bio,avatar_url,city_id") // ⬅️ include id for the DM button logic
       .ilike("username", username)
       .maybeSingle();
     setOpenProfile({ username, data });
@@ -337,7 +337,7 @@ export default function GroupPage({
 
   async function sendMessage(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !group) return;
+    if (!user || !group || !following) return; // <-- block when not following
     if (!msgText.trim()) return;
     setSending(true);
     try {
@@ -776,7 +776,7 @@ export default function GroupPage({
                     </div>
                   </div>
 
-                  {/* Actions row — Likes → Responder → Editar */}
+                  {/* Actions row — Likes → Responder → Editar → Mensaje */}
                   {!pollForMsg && (
                     <div
                       className={`mt-1 flex items-center gap-4 text-sm opacity-90 ${
@@ -792,6 +792,17 @@ export default function GroupPage({
                         <CornerUpRight className="w-4 h-4" />
                         Responder
                       </button>
+
+                      {/* show DM link for other users' messages */}
+                      {!mine && m.sender_profile?.username && (
+                        <Link
+                          href={`/dm/${encodeURIComponent(m.sender_profile.username)}`}
+                          className="underline hover:opacity-80"
+                          title="Enviar mensaje directo"
+                        >
+                          Mensaje
+                        </Link>
+                      )}
 
                       {mine && (
                         <button onClick={() => startEdit(m.id, m.content)} className="inline-flex items-center gap-1 hover:opacity-80" title="Editar">
@@ -864,7 +875,7 @@ export default function GroupPage({
               <div className="truncate">
                 Respondiendo a <strong>{replyTo.sender_profile?.username ?? "Usuaria"}</strong>:{" "}
                 <span className="italic">
-                  {replyTo.content.slice(0, 80)}{replyTo.content.length > 80 ? "…": ""}
+                  {replyTo.content.slice(0, 80)}{replyTo.content.length > 80 ? "…" : ""}
                 </span>
               </div>
               <button className="underline ml-3 shrink-0" onClick={() => setReplyTo(null)}>Cancelar</button>
@@ -873,6 +884,16 @@ export default function GroupPage({
 
           {/* Composer */}
           <form onSubmit={sendMessage} className="mt-2 flex flex-col gap-3">
+            {/* HINT when not following */}
+            {!following && (
+              <div className="text-sm opacity-80">
+                Únete al grupo para poder publicar.{" "}
+                <button type="button" onClick={toggleFollow} className="underline">
+                  Seguir grupo
+                </button>
+              </div>
+            )}
+
             <textarea
               className="w-full rounded-xl border p-3"
               rows={3}
@@ -882,7 +903,7 @@ export default function GroupPage({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (!sending && msgText.trim()) sendMessage(e as any);
+                  if (!sending && msgText.trim() && following) sendMessage(e as any); // <-- gate on following
                 }
               }}
               maxLength={1000}
@@ -919,7 +940,7 @@ export default function GroupPage({
 
               <button
                 type="submit"
-                disabled={sending || !msgText.trim()}
+                disabled={sending || !msgText.trim() || !following}
                 className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
               >
                 {sending ? "Enviando…" : "Enviar"}
@@ -1166,6 +1187,16 @@ export default function GroupPage({
               <div>
                 <div className="font-semibold">@{openProfile.data.username}</div>
                 <div className="text-sm opacity-80">{openProfile.data.bio ?? "—"}</div>
+
+                {/* DM button only for other users */}
+                {openProfile.data.id && openProfile.data.username && openProfile.data.id !== user?.id && (
+                  <Link
+                    href={`/dm/${encodeURIComponent(openProfile.data.username)}`}
+                    className="inline-block mt-3 rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 text-sm shadow-md hover:opacity-90"
+                  >
+                    Enviar mensaje
+                  </Link>
+                )}
               </div>
             </div>
           )}
@@ -1243,8 +1274,3 @@ function Pill({
     </button>
   );
 }
-
-
-
-
-

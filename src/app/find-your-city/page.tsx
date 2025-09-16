@@ -31,15 +31,11 @@ export default function FindYourCityPage() {
       const { data } = await supabase
         .from("cities")
         .select("id,name,slug,is_active")
-        .order("name"); // base order from DB
+        .order("name");
 
       if (data) {
         const soonSlugs = new Set(["madrid", "santander", "sevilla"]);
 
-        // client-side sort:
-        // 1) Valencia first
-        // 2) Active cities before inactive
-        // 3) Then alphabetical by name
         const sorted = [...data].sort((a, b) => {
           if (a.slug === "valencia" && b.slug !== "valencia") return -1;
           if (b.slug === "valencia" && a.slug !== "valencia") return 1;
@@ -85,15 +81,25 @@ export default function FindYourCityPage() {
 
     try {
       const { error } = await supabase.from("city_waitlist").insert({
-        city: cityInput.trim(),
+        city_name: cityInput.trim(),   // <-- matches your table
         email: emailInput.trim(),
       });
-      if (error) throw error;
-      setSuccess("¡Gracias! Te avisaremos cuando tu ciudad esté disponible 💌");
-      setCityInput("");
-      setEmailInput("");
-    } catch (err: any) {
-      setError("Error al enviar. Inténtalo de nuevo.");
+
+      if (error) {
+        // Show friendly message if it's a duplicate (unique violation)
+        if ((error as any).code === "23505") {
+          setSuccess("¡Genial! Ya estabas en la lista para esa ciudad 💌");
+          setCityInput("");
+          setEmailInput("");
+        } else {
+          console.error("Insert error:", error);
+          setError("Error al enviar. Inténtalo de nuevo.");
+        }
+      } else {
+        setSuccess("¡Gracias! Te avisaremos cuando tu ciudad esté disponible 💌");
+        setCityInput("");
+        setEmailInput("");
+      }
     } finally {
       setSending(false);
     }
@@ -170,7 +176,7 @@ export default function FindYourCityPage() {
               <label htmlFor="waitlist-city" className="block text-sm mb-1">
                 Tu ciudad:
               </label>
-            <input
+              <input
                 id="waitlist-city"
                 type="text"
                 className="w-full rounded-xl border p-3"

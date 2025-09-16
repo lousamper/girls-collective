@@ -14,7 +14,7 @@ export default function OnboardingPage() {
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [birthYear, setBirthYear] = useState(""); // new state
+  const [birthYear, setBirthYear] = useState("");
   const [cities, setCities] = useState<City[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [cityId, setCityId] = useState<string>("");
@@ -34,12 +34,10 @@ export default function OnboardingPage() {
     }
   }, [loading, user, router]);
 
-  // Autofocus on username
   useEffect(() => {
     usernameRef.current?.focus();
   }, []);
 
-  // Load cities
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("cities").select("id,name,slug").order("name");
@@ -47,7 +45,6 @@ export default function OnboardingPage() {
     })();
   }, []);
 
-  // Load ALL categories (global)
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("categories").select("id,name").order("name");
@@ -55,7 +52,6 @@ export default function OnboardingPage() {
     })();
   }, []);
 
-  // Load existing profile if reopening setup
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -71,7 +67,6 @@ export default function OnboardingPage() {
         setBirthYear(data.birth_year ? String(data.birth_year) : "");
       }
 
-      // Load interests
       const { data: cats } = await supabase
         .from("profile_categories")
         .select("category_id")
@@ -80,7 +75,6 @@ export default function OnboardingPage() {
         setSelectedCats(cats.map((c) => c.category_id));
       }
 
-      // Load custom interest
       const { data: custom } = await supabase
         .from("profile_custom_interests")
         .select("interest")
@@ -108,7 +102,6 @@ export default function OnboardingPage() {
     setUsernameError("");
 
     try {
-      // 1) Upload avatar (optional)
       let avatar_url: string | null = null;
       if (avatarFile) {
         const path = `${user.id}/${Date.now()}_${avatarFile.name}`;
@@ -119,7 +112,6 @@ export default function OnboardingPage() {
         avatar_url = pub?.publicUrl ?? null;
       }
 
-      // 2) Upsert profile
       const { error: profErr } = await supabase.from("profiles").upsert({
         id: user.id,
         username: username.trim(),
@@ -129,25 +121,20 @@ export default function OnboardingPage() {
         avatar_url,
       });
       if (profErr) {
-        if (profErr.code === "23505") {
+        if ((profErr as any).code === "23505") {
           setUsernameError("Este nombre de usuario ya está en uso.");
           return;
         }
         throw profErr;
       }
 
-      // 3) Save categories
       await supabase.from("profile_categories").delete().eq("profile_id", user.id);
       if (selectedCats.length) {
-        const rows = selectedCats.map((cid) => ({
-          profile_id: user.id,
-          category_id: cid,
-        }));
+        const rows = selectedCats.map((cid) => ({ profile_id: user.id, category_id: cid }));
         const { error: catErr } = await supabase.from("profile_categories").insert(rows);
         if (catErr) throw catErr;
       }
 
-      // 4) Save custom interest
       await supabase.from("profile_custom_interests").delete().eq("profile_id", user.id);
       if (customInterest.trim()) {
         await supabase.from("profile_custom_interests").insert({
@@ -233,10 +220,23 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* Avatar */}
+          {/* Avatar (only validation + hint added) */}
           <div>
             <label className="block text-sm mb-1">Foto de perfil (opcional)</label>
-            <input type="file" accept="image/*" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
+            <input
+              type="file"
+              accept="image/jpeg,image/png"
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                if (!f) { setAvatarFile(null); return; }
+                const okType = ["image/jpeg","image/png"].includes(f.type);
+                const okSize = f.size <= 2 * 1024 * 1024; // 2MB
+                if (!okType) { alert("Debe ser .jpg o .png"); return; }
+                if (!okSize) { alert("Tamaño máximo 2MB"); return; }
+                setAvatarFile(f);
+              }}
+            />
+            <p className="text-xs opacity-70 mt-1">Debe ser .jpg o .png · Máx 2MB</p>
           </div>
 
           {/* Categories */}
