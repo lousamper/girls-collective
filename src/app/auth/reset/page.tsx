@@ -13,8 +13,9 @@ export default function ResetPasswordPage() {
   const [pwd2, setPwd2] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false); // ✅ busy state
 
-  // ✅ NEW: exchange the code in the email link for a temporary session
+  // Exchange the code from the email link for a temporary session (required by Supabase)
   useEffect(() => {
     (async () => {
       try {
@@ -24,7 +25,7 @@ export default function ResetPasswordPage() {
         if (code) {
           await supabase.auth.exchangeCodeForSession(code);
         } else if (href) {
-          // fallback in case the provider puts tokens directly in the URL
+          // fallback if tokens are placed directly in the URL
           await supabase.auth.exchangeCodeForSession(href);
         }
       } catch {
@@ -37,22 +38,27 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setMsg("");
     setErr("");
+    setBusy(true);
 
-    if (pwd1 !== pwd2) {
-      setErr("Las contraseñas no coinciden.");
-      return;
-    }
-    if (!strongPwd(pwd1)) {
-      setErr("La contraseña no cumple los requisitos (8+, mayúsculas, minúsculas y números).");
-      return;
-    }
     try {
+      if (pwd1 !== pwd2) {
+        setErr("Las contraseñas no coinciden.");
+        return;
+      }
+      if (!strongPwd(pwd1)) {
+        setErr("La contraseña no cumple los requisitos (8+, mayúsculas, minúsculas y números).");
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({ password: pwd1 });
       if (error) throw error;
+
       setMsg("Contraseña actualizada ✅. Ahora puedes iniciar sesión.");
       setTimeout(() => router.push("/auth"), 1000);
-    } catch (e: any) {
-      setErr(e.message ?? "No se pudo actualizar la contraseña.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -74,6 +80,7 @@ export default function ResetPasswordPage() {
           value={pwd1}
           onChange={(e) => setPwd1(e.target.value)}
           required
+          disabled={busy}
         />
         <input
           type="password"
@@ -82,14 +89,16 @@ export default function ResetPasswordPage() {
           value={pwd2}
           onChange={(e) => setPwd2(e.target.value)}
           required
+          disabled={busy}
         />
 
         <div className="flex justify-end">
           <button
             type="submit"
-            className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
+            disabled={busy}
+            className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
           >
-            Guardar
+            {busy ? "Guardando…" : "Guardar"}
           </button>
         </div>
 
