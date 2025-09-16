@@ -40,16 +40,12 @@ const CATEGORY_COPY: Record<string, { title: string }> = {
 const DEMO_EVENTS: Record<string, PromoCard[]> = {
   arte: [
     { img: "/events/arte/event-1.jpg", url: "https://example.com/event-1" },
-    { img: "/events/arte/event-2.jpg", url: "https://example.com/event-2" },
-    { img: "/events/arte/event-3.jpg", url: "https://example.com/event-3" },
   ],
 };
 
 const DEMO_PLACES: Record<string, PromoCard[]> = {
   arte: [
     { img: "/places/arte/place-1.jpg", url: "https://example.com/place-1" },
-    { img: "/places/arte/place-2.jpg", url: "https://example.com/place-2" },
-    { img: "/places/arte/place-3.jpg", url: "https://example.com/place-3" },
   ],
 };
 
