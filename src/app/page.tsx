@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 export default function HomePage() {
   // contact form state
@@ -14,7 +15,7 @@ export default function HomePage() {
   const [ok, setOk] = useState("");
   const [err, setErr] = useState("");
 
-  async function handleContact(e: FormEvent) {
+  async function handleContact(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSending(true);
     setOk("");
@@ -31,7 +32,9 @@ export default function HomePage() {
       setName("");
       setEmail("");
       setMsg("");
-    } catch (e: any) {
+    } catch (error) {
+      // keep it generic for users, but log details for you
+      console.error("contact_messages insert failed:", error as PostgrestError);
       setErr("No se pudo enviar. Intenta de nuevo.");
     } finally {
       setSending(false);
@@ -170,19 +173,18 @@ export default function HomePage() {
 
       {/* ======================== */}
       {/* Section 4: Vibes hero */}
-      {/* UPDATED: shows entire 950x500 artwork; full screen height; centered; no crop */}
       {/* ======================== */}
       <section className="w-full flex items-center justify-center bg-gcBackground">
-      <div className="w-[950px] max-w-[95vw]">
-        <Image
-          src="/home/vibes-hero.jpg"
-          alt="Vibes"
-          width={950}
-          height={500}
-          className="w-full h-auto"
-    />
-  </div>
-</section>
+        <div className="w-[950px] max-w-[95vw]">
+          <Image
+            src="/home/vibes-hero.jpg"
+            alt="Vibes"
+            width={950}
+            height={500}
+            className="w-full h-auto"
+          />
+        </div>
+      </section>
 
       {/* ======================== */}
       {/* Section 5: CONTACT (centered) */}
