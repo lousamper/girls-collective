@@ -73,8 +73,8 @@ export default function DMPage({ params }: { params: Promise<{ username: string 
       ]);
       setText("");
       requestAnimationFrame(scrollToBottom);
-    } catch (e: any) {
-      setErr(e.message ?? "No se pudo enviar el mensaje.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -132,3 +132,4 @@ export default function DMPage({ params }: { params: Promise<{ username: string 
     </main>
   );
 }
+
