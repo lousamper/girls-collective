@@ -10,7 +10,7 @@ export default function ForgotPasswordPage() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function handleResetPassword(e: React.FormEvent) {
+  async function handleResetPassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(""); setErr(""); setBusy(true);
     try {
@@ -25,8 +25,9 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
       setMsg("Te hemos enviado un correo con instrucciones 💌");
       setEmail("");
-    } catch (e: any) {
-      setErr(e.message ?? "No se pudo enviar el correo.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setErr(message || "No se pudo enviar el correo.");
     } finally {
       setBusy(false);
     }
