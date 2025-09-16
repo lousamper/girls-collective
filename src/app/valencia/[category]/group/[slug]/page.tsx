@@ -224,7 +224,7 @@ export default function GroupPage({
 
     // attach profiles
     const ids = Array.from(new Set((rows ?? []).map((r) => r.sender_id)));
-    let profiles: Record<string, { username: string | null; avatar_url: string | null }> = {};
+    const profiles: Record<string, { username: string | null; avatar_url: string | null }> = {};
     if (ids.length) {
       const { data: profs } = await supabase
         .from("profiles")
@@ -478,7 +478,6 @@ export default function GroupPage({
   }
 
   // ===== Polls =====
-  const canCreatePoll = !!user;
 
   async function loadPolls(groupId: string) {
     const { data: pollsData, error: pErr } = await supabase
