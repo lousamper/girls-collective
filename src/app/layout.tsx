@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Montserrat, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+
+// ⬇️ Use relative imports so they work on Vercel regardless of tsconfig alias
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 
 const montserrat = Montserrat({
   subsets: ["latin"],

@@ -42,8 +42,7 @@ export default function PrivacyPolicyPage() {
               className="underline text-[#50415b]"
             >
               contact@girls-collective.com
-            </a>
-            .
+            </a>.
           </p>
         </section>
 
@@ -61,3 +60,4 @@ export default function PrivacyPolicyPage() {
     </main>
   );
 }
+
