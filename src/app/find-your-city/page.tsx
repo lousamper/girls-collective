@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 type City = { id: string; name: string; slug: string; is_active: boolean; soon?: boolean };
 
@@ -31,7 +32,8 @@ export default function FindYourCityPage() {
       const { data } = await supabase
         .from("cities")
         .select("id,name,slug,is_active")
-        .order("name");
+        .order("name")
+        .returns<Array<Omit<City, "soon">>>(); // type the rows we expect
 
       if (data) {
         const soonSlugs = new Set(["madrid", "santander", "sevilla"]);
@@ -81,18 +83,19 @@ export default function FindYourCityPage() {
 
     try {
       const { error } = await supabase.from("city_waitlist").insert({
-        city_name: cityInput.trim(),   // <-- matches your table
+        city_name: cityInput.trim(),
         email: emailInput.trim(),
       });
 
-      if (error) {
-        // Show friendly message if it's a duplicate (unique violation)
-        if ((error as any).code === "23505") {
+      const pgErr = error as PostgrestError | null;
+
+      if (pgErr) {
+        if (pgErr.code === "23505") {
           setSuccess("¡Genial! Ya estabas en la lista para esa ciudad 💌");
           setCityInput("");
           setEmailInput("");
         } else {
-          console.error("Insert error:", error);
+          console.error("Insert error:", pgErr);
           setError("Error al enviar. Inténtalo de nuevo.");
         }
       } else {
@@ -116,7 +119,6 @@ export default function FindYourCityPage() {
 
         {/* Horizontal carousel */}
         <div className="relative">
-          {/* Left / Right buttons — yellow arrows only */}
           <button
             aria-label="Anterior"
             onClick={scrollLeft}
@@ -143,7 +145,6 @@ export default function FindYourCityPage() {
                 className="relative shrink-0 w-[260px] snap-start rounded-[30px] overflow-hidden shadow-lg hover:scale-[1.02] transition"
                 title={city.name}
               >
-                {/* 4:5 aspect ratio wrapper */}
                 <div className="relative w-full" style={{ paddingTop: "125%" }}>
                   <img
                     src={`/cities/${city.slug}.jpg`}
@@ -161,7 +162,7 @@ export default function FindYourCityPage() {
           </div>
         </div>
 
-        {/* Waitlist form (always visible) */}
+        {/* Waitlist form */}
         <div className="mt-12 max-w-md mx-auto text-center">
           <p className="mb-6 leading-relaxed">
             ¿No encuentras tu ciudad? <br />
