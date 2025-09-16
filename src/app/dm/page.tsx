@@ -13,6 +13,19 @@ type InboxItem = {
   last_at: string | null;
 };
 
+type DirectMessage = {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  body: string;
+  created_at: string;
+};
+
+type ProfileLite = {
+  id: string;
+  username: string | null;
+};
+
 export default function DMInboxPage() {
   const { user, loading } = useAuth();
   const [items, setItems] = useState<InboxItem[]>([]);
@@ -37,21 +50,20 @@ export default function DMInboxPage() {
         return;
       }
 
-      // 2) Group by "other user" and keep the latest message per conversation
-      const latestByOther: Record<
-        string,
-        { last_text: string; last_at: string }
-      > = {};
+      const rows = (dms ?? []) as DirectMessage[];
 
-      (dms ?? []).forEach((m: any) => {
+      // 2) Group by "other user" and keep the latest message per conversation
+      const latestByOther: Record<string, { last_text: string; last_at: string }> = {};
+
+      rows.forEach((m) => {
         const otherId = m.sender_id === user.id ? m.recipient_id : m.sender_id;
         if (!otherId) return;
 
         // First time we see this other user, it's already the newest because of ORDER BY desc
         if (!latestByOther[otherId]) {
           latestByOther[otherId] = {
-            last_text: m.body as string,
-            last_at: m.created_at as string,
+            last_text: m.body,
+            last_at: m.created_at,
           };
         }
       });
@@ -73,8 +85,9 @@ export default function DMInboxPage() {
         // still show conversations without usernames
       }
 
+      const profRows = (profs ?? []) as ProfileLite[];
       const usernameMap: Record<string, string | null> = {};
-      (profs ?? []).forEach((p: any) => {
+      profRows.forEach((p) => {
         usernameMap[p.id] = p.username ?? null;
       });
 
@@ -137,4 +150,3 @@ export default function DMInboxPage() {
     </main>
   );
 }
-
