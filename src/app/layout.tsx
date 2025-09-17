@@ -1,3 +1,4 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Montserrat, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
@@ -20,6 +21,25 @@ const dmSerif = DM_Serif_Display({
 export const metadata: Metadata = {
   title: "Girls Collective",
   description: "Una comunidad para crear amistades reales, a tu ritmo.",
+  icons: {
+    // Si tienes /public/favicon.ico, este será el principal
+    icon: ["/favicon.ico?v=2", "/icon.png?v=2"], // usa /icon.png si no tienes .ico
+    shortcut: "/favicon.ico?v=2",
+    apple: "/apple-icon.png?v=2", // asegúrate de tener src/app/apple-icon.png o /public/apple-icon.png
+  },
+  openGraph: {
+    title: "Girls Collective",
+    description: "Encuentra tu tribu, estés donde estés 💜",
+    url: "https://www.girls-collective.com",
+    siteName: "Girls Collective",
+    images: [{ url: "/og.jpg", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Girls Collective",
+    description: "Encuentra tu tribu, estés donde estés 💜",
+    images: ["/og.jpg"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

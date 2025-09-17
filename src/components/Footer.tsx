@@ -50,9 +50,14 @@ export default function Footer() {
         <div className="text-center opacity-80">
           © 2025 GirlsCollective. All rights reserved.
         </div>
+        {/* Row 3: Marca */}
+        <div className="text-center opacity-80">
+          <span className="tracking-wide">Girls Collective™</span>
+        </div>
       </div>
     </footer>
   );
 }
+
 
 
