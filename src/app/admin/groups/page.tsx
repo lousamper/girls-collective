@@ -131,7 +131,6 @@ export default function AdminModerationPage() {
     if (!user || !isAdmin) return;
     fetchPendingGroups();
     fetchPendingEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isAdmin]);
 
   // Approve/delete group

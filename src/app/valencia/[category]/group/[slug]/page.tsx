@@ -49,6 +49,14 @@ type PollWithCounts = PollRow & {
   isClosed: boolean;
 };
 
+type ProfilePreview = {
+  id: string;
+  username: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  city_id: string | null;
+};
+
 export default function GroupPage({
   params,
 }: {
@@ -159,7 +167,7 @@ export default function GroupPage({
         if (!g?.id) throw new Error("Grupo no encontrado");
         setGroup(g);
 
-        // following? (existence only, select minimal)
+        // following? (existence only)
         const { data: mem } = await supabase
           .from("group_members")
           .select("group_id")
@@ -179,8 +187,8 @@ export default function GroupPage({
         setAges(ags);
 
         await Promise.all([loadMessages(g.id, "all", "all"), loadPolls(g.id)]);
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        console.error(err);
       } finally {
         setLoadingData(false);
       }
@@ -230,9 +238,12 @@ export default function GroupPage({
         .from("profiles")
         .select("id, username, avatar_url")
         .in("id", ids);
-      (profs ?? []).forEach((p: any) => {
-        profiles[p.id] = { username: p.username, avatar_url: p.avatar_url };
-      });
+
+      (profs ?? []).forEach(
+        (p: { id: string; username: string | null; avatar_url: string | null }) => {
+          profiles[p.id] = { username: p.username, avatar_url: p.avatar_url };
+        }
+      );
     }
 
     setMessages((rows ?? []).map((m) => ({ ...m, sender_profile: profiles[m.sender_id] ?? null })));
@@ -299,16 +310,17 @@ export default function GroupPage({
   }
 
   // clickable @mentions → profile sheet
-  const [openProfile, setOpenProfile] = useState<null | { username: string; data?: any }>(null);
+  const [openProfile, setOpenProfile] =
+    useState<null | { username: string; data?: ProfilePreview }>(null);
 
   async function openUserSheet(username: string) {
     setOpenProfile({ username });
     const { data } = await supabase
       .from("profiles")
-      .select("id,username,bio,avatar_url,city_id") // ⬅️ include id for the DM button logic
+      .select("id,username,bio,avatar_url,city_id")
       .ilike("username", username)
       .maybeSingle();
-    setOpenProfile({ username, data });
+    setOpenProfile({ username, data: (data ?? undefined) as ProfilePreview | undefined });
   }
 
   function renderText(body: string) {
@@ -335,9 +347,10 @@ export default function GroupPage({
     return m ? m[1] : null;
   }
 
-  async function sendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user || !group || !following) return; // <-- block when not following
+  // NOTE: widened the event type to avoid `as any` elsewhere
+  async function sendMessage(e?: React.FormEvent | React.KeyboardEvent) {
+    e?.preventDefault?.();
+    if (!user || !group || !following) return;
     if (!msgText.trim()) return;
     setSending(true);
     try {
@@ -355,8 +368,8 @@ export default function GroupPage({
       setReplyTo(null);
       await loadMessages(group.id, selLoc, selAge);
       requestAnimationFrame(scrollToBottom);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
     } finally {
       setSending(false);
     }
@@ -373,8 +386,8 @@ export default function GroupPage({
       }
       const entry = likes[mid] ?? { count: 0, mine: false };
       setLikes({ ...likes, [mid]: { count: entry.count + (mine ? -1 : 1), mine: !mine } });
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -388,8 +401,8 @@ export default function GroupPage({
       if (error) throw error;
       setEditingId(null);
       if (group) await loadMessages(group.id, selLoc, selAge);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -425,7 +438,7 @@ export default function GroupPage({
           .from("group_members")
           .upsert(
             { group_id: group.id, profile_id: user.id },
-            { onConflict: "group_id,profile_id" } as any
+            { onConflict: "group_id,profile_id" }
           );
         if (error) throw error;
       }
@@ -438,8 +451,9 @@ export default function GroupPage({
         .maybeSingle();
       if (mErr) throw mErr;
       setFollowing(!!mem);
-    } catch (e: any) {
-      console.error("toggleFollow error:", e?.message ?? e);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("toggleFollow error:", msg);
       alert("No se pudo actualizar el seguimiento del grupo.");
     } finally {
       setFollowBusy(false);
@@ -472,13 +486,13 @@ export default function GroupPage({
       const ags = (sgs ?? []).filter((s) => s.type === "age") as SubgroupRow[];
       setLocations(locs);
       setAges(ags);
-    } catch (err: any) {
-      setSgMsg(err.message ?? "No se pudo crear el subgrupo.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo crear el subgrupo.";
+      setSgMsg(msg);
     }
   }
 
   // ===== Polls =====
-
   async function loadPolls(groupId: string) {
     const { data: pollsData, error: pErr } = await supabase
       .from("polls")
@@ -509,7 +523,7 @@ export default function GroupPage({
       .in("poll_id", pollIds);
 
     const byPoll: Record<string, PollWithCounts> = {};
-    for (const p of pollsData!) {
+    for (const p of pollsData ?? []) {
       const options = (opts ?? [])
         .filter((o) => o.poll_id === p.id)
         .map((o) => {
@@ -584,8 +598,9 @@ export default function GroupPage({
       setPollOptions(["", ""]);
       await Promise.all([loadPolls(group.id), loadMessages(group.id, selLoc, selAge)]);
       requestAnimationFrame(scrollToBottom);
-    } catch (e: any) {
-      setPollMsg(e.message ?? "No se pudo crear la encuesta.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo crear la encuesta.";
+      setPollMsg(msg);
     }
   }
 
@@ -606,8 +621,8 @@ export default function GroupPage({
         await supabase.from("poll_votes").insert({ poll_id: p.id, option_id: optionId, voter_id: user.id });
       }
       await loadPolls(group.id);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -639,8 +654,9 @@ export default function GroupPage({
       setEvDesc("");
       setEvLoc("");
       setEvWhen("");
-    } catch (err: any) {
-      setEvMsg(err.message ?? "No se pudo crear el evento.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo crear el evento.";
+      setEvMsg(msg);
     }
   }
 
@@ -902,7 +918,7 @@ export default function GroupPage({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (!sending && msgText.trim() && following) sendMessage(e as any); // <-- gate on following
+                  if (!sending && msgText.trim() && following) sendMessage(e);
                 }
               }}
               maxLength={1000}

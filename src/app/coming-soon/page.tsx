@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function ComingSoonPage() {
