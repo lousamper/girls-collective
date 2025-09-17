@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -108,7 +107,9 @@ export default function ProfilePage() {
         .from("group_members")
         .select("group_id")
         .eq("profile_id", user.id);
-      const groupIds = (mems ?? []).map((m: any) => m.group_id);
+
+      const groupIds = (mems ?? []).map((m: { group_id: string }) => m.group_id);
+
       if (groupIds.length) {
         const { data: groups } = await supabase
           .from("groups")
@@ -124,7 +125,7 @@ export default function ProfilePage() {
             .select("id, slug, name")
             .in("id", catIds);
           const m: Record<string, Category> = {};
-          (cats ?? []).forEach((c) => (m[c.id] = c));
+          (cats ?? []).forEach((c: Category) => (m[c.id] = c));
           setCatMap(m);
         }
         const cIds = Array.from(new Set((groups ?? []).map((g) => g.city_id)));
@@ -134,7 +135,7 @@ export default function ProfilePage() {
             .select("id, slug, name")
             .in("id", cIds);
           const m2: Record<string, CityRow> = {};
-          (cts ?? []).forEach((c) => (m2[c.id] = c));
+          (cts ?? []).forEach((c: CityRow) => (m2[c.id] = c));
           setCityMap(m2);
         }
       } else {
@@ -220,8 +221,9 @@ export default function ProfilePage() {
       if (profErr) throw profErr;
 
       setMsg("Perfil actualizado ✅");
-    } catch (e: any) {
-      setErr(e.message ?? "No se pudo guardar.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo guardar.";
+      setErr(msg);
     } finally {
       setSaving(false);
     }
@@ -242,8 +244,9 @@ export default function ProfilePage() {
       setPwd1("");
       setPwd2("");
       setPwdMsg("Contraseña actualizada ✅");
-    } catch (e: any) {
-      setPwdErr(e.message ?? "No se pudo actualizar la contraseña.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo actualizar la contraseña.";
+      setPwdErr(msg);
     }
   }
 
@@ -255,8 +258,11 @@ export default function ProfilePage() {
 
   // Solicitar eliminación manual
   async function requestDeleteAccount() {
-    const { data: sess } = await supabase.auth.getUser();
-    const email = (sess as any)?.user?.email ?? null;
+    const {
+      data: { user: current },
+    } = await supabase.auth.getUser();
+    const email = current?.email ?? null;
+
     const { error } = await supabase.from("contact_messages").insert({
       name: "Delete Account Request",
       email,
@@ -299,11 +305,20 @@ export default function ProfilePage() {
                   accept="image/jpeg,image/png"
                   onChange={(e) => {
                     const f = e.target.files?.[0] || null;
-                    if (!f) { setAvatarFile(null); return; }
-                    const okType = ["image/jpeg","image/png"].includes(f.type);
+                    if (!f) {
+                      setAvatarFile(null);
+                      return;
+                    }
+                    const okType = ["image/jpeg", "image/png"].includes(f.type);
                     const okSize = f.size <= 2 * 1024 * 1024; // 2MB
-                    if (!okType) { alert("Debe ser .jpg o .png"); return; }
-                    if (!okSize) { alert("Tamaño máximo 2MB"); return; }
+                    if (!okType) {
+                      alert("Debe ser .jpg o .png");
+                      return;
+                    }
+                    if (!okSize) {
+                      alert("Tamaño máximo 2MB");
+                      return;
+                    }
                     setAvatarFile(f);
                   }}
                 />
@@ -336,7 +351,9 @@ export default function ProfilePage() {
                 >
                   <option value="">Selecciona tu ciudad</option>
                   {cities.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -405,17 +422,13 @@ export default function ProfilePage() {
         <section className="bg-white rounded-2xl p-6 shadow-md mt-6">
           <h2 className="font-dmserif text-2xl mb-4">Mis grupos</h2>
 
-          {myGroups.length === 0 && (
-            <p className="opacity-70">Todavía no te has unido a ningún grupo.</p>
-          )}
+          {myGroups.length === 0 && <p className="opacity-70">Todavía no te has unido a ningún grupo.</p>}
 
           <ul className="grid md:grid-cols-2 gap-3">
             {myGroups.map((g) => {
               const cat = catMap[g.category_id];
               const city = cityMap[g.city_id];
-              const href = cat && city
-                ? `/${city.slug}/${cat.slug}/group/${g.slug}`
-                : "#";
+              const href = cat && city ? `/${city.slug}/${cat.slug}/group/${g.slug}` : "#";
               return (
                 <li key={g.id} className="border rounded-xl p-3 flex items-center justify-between">
                   <div>
@@ -425,7 +438,9 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   {cat && city ? (
-                    <Link href={href} className="underline">Ir al grupo</Link>
+                    <Link href={href} className="underline">
+                      Ir al grupo
+                    </Link>
                   ) : (
                     <span className="text-sm opacity-60">—</span>
                   )}
@@ -459,6 +474,7 @@ export default function ProfilePage() {
     </main>
   );
 }
+
 
 
 
