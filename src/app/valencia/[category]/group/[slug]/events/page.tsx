@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
 
 type Group = { id: string; name: string; slug: string };
+
 type EventRow = {
   id: string;
   title: string;
@@ -13,7 +14,7 @@ type EventRow = {
   location: string | null;
   starts_at: string;
   is_approved: boolean;
-  creator_id: string;
+  creator_id: string | null;
 };
 
 export default function EventsPage({
@@ -79,7 +80,7 @@ export default function EventsPage({
         .eq("group_id", g.id)
         .order("starts_at", { ascending: true });
 
-      const list = (rows ?? []).filter((ev) => {
+      const list = (rows ?? []).filter((ev: EventRow) => {
         if (ev.is_approved) return true;
         if (!user) return false;
         if (isAdmin) return true;
@@ -99,10 +100,12 @@ export default function EventsPage({
 
         const cMap: Record<string, number> = {};
         const gMap: Record<string, boolean> = {};
-        (attRows ?? []).forEach((r) => {
-          cMap[r.event_id] = (cMap[r.event_id] ?? 0) + 1;
-          if (r.profile_id === user.id) gMap[r.event_id] = true;
-        });
+        (attRows ?? []).forEach(
+          (r: { event_id: string; profile_id: string }) => {
+            cMap[r.event_id] = (cMap[r.event_id] ?? 0) + 1;
+            if (r.profile_id === user.id) gMap[r.event_id] = true;
+          }
+        );
         // asegurar key con 0 si no hay filas
         ids.forEach((id) => {
           if (!(id in cMap)) cMap[id] = 0;
@@ -142,17 +145,22 @@ export default function EventsPage({
 
   async function approveEvent(id: string) {
     if (!isAdmin) return;
-    setBusy(`approve-${id}`); setMsg("");
+    setBusy(`approve-${id}`);
+    setMsg("");
     try {
       const { error } = await supabase
         .from("community_events")
         .update({ is_approved: true })
         .eq("id", id);
       if (error) throw error;
-      setEvents(prev => prev.map(e => e.id === id ? { ...e, is_approved: true } : e));
+      setEvents((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, is_approved: true } : e))
+      );
       setMsg("Evento aprobado ✅");
-    } catch (e: any) {
-      setMsg(e.message ?? "No se pudo aprobar el evento.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo aprobar el evento.";
+      setMsg(message);
     } finally {
       setBusy(null);
     }
@@ -171,7 +179,10 @@ export default function EventsPage({
           .match({ event_id: id, profile_id: user.id });
         if (error) throw error;
         setGoingMap({ ...goingMap, [id]: false });
-        setCountMap({ ...countMap, [id]: Math.max(0, (countMap[id] ?? 1) - 1) });
+        setCountMap({
+          ...countMap,
+          [id]: Math.max(0, (countMap[id] ?? 1) - 1),
+        });
       } else {
         const { error } = await supabase
           .from("community_event_attendees")
@@ -185,21 +196,36 @@ export default function EventsPage({
     }
   }
 
-  if (loading) return <main className="min-h-screen grid place-items-center">Cargando…</main>;
-  if (!group) return <main className="min-h-screen grid place-items-center">Grupo no encontrado</main>;
+  if (loading)
+    return <main className="min-h-screen grid place-items-center">Cargando…</main>;
+  if (!group)
+    return (
+      <main className="min-h-screen grid place-items-center">
+        Grupo no encontrado
+      </main>
+    );
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-6xl mx-auto px-6 py-10">
         <header className="mb-6 flex items-start justify-between">
-          <h1 className="font-dmserif text-3xl md:text-4xl">Eventos de {group.name}</h1>
-          <Link href={`/${"valencia"}/${category}/group/${slug}`} className="underline">Volver al grupo</Link>
+          <h1 className="font-dmserif text-3xl md:text-4xl">
+            Eventos de {group.name}
+          </h1>
+          <Link
+            href={`/${"valencia"}/${category}/group/${slug}`}
+            className="underline"
+          >
+            Volver al grupo
+          </Link>
         </header>
 
         {msg && <p className="mb-3 text-sm">{msg}</p>}
 
         {events.length === 0 ? (
-          <p className="opacity-70">No hay eventos todavía. ¡Crea el primero desde el grupo! ✨</p>
+          <p className="opacity-70">
+            No hay eventos todavía. ¡Crea el primero desde el grupo! ✨
+          </p>
         ) : (
           <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {events.map((ev) => {
@@ -210,18 +236,31 @@ export default function EventsPage({
               const count = countMap[ev.id] ?? 0;
 
               return (
-                <li key={ev.id} className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between">
+                <li
+                  key={ev.id}
+                  className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between"
+                >
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-semibold">{ev.title}</h3>
                       {!ev.is_approved && (
-                        <span className="text-xs border px-2 py-0.5 rounded-full">Borrador</span>
+                        <span className="text-xs border px-2 py-0.5 rounded-full">
+                          Borrador
+                        </span>
                       )}
                     </div>
                     <div className="text-sm opacity-80">
-                      {when.toLocaleDateString()} • {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {when.toLocaleDateString()} •{" "}
+                      {when.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
-                    {ev.location && <div className="text-sm opacity-80 mt-1">📍 {ev.location}</div>}
+                    {ev.location && (
+                      <div className="text-sm opacity-80 mt-1">
+                        📍 {ev.location}
+                      </div>
+                    )}
                     {ev.description && <p className="mt-3">{ev.description}</p>}
                   </div>
 
@@ -238,7 +277,13 @@ export default function EventsPage({
                         className={`rounded-full px-4 py-1.5 text-sm border shadow-sm hover:opacity-90 ${
                           going ? "bg-gcBackgroundAlt2" : "bg-white"
                         } ${!ev.is_approved ? "opacity-60 cursor-not-allowed" : ""}`}
-                        title={ev.is_approved ? (going ? "Cancelar asistencia" : "Confirmar asistencia") : "Pendiente de aprobación"}
+                        title={
+                          ev.is_approved
+                            ? going
+                              ? "Cancelar asistencia"
+                              : "Confirmar asistencia"
+                            : "Pendiente de aprobación"
+                        }
                       >
                         {busy === `going-${ev.id}` ? "…" : going ? "Ya vas" : "Asistiré"}
                       </button>

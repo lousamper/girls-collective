@@ -38,15 +38,11 @@ const CATEGORY_COPY: Record<string, { title: string }> = {
 };
 
 const DEMO_EVENTS: Record<string, PromoCard[]> = {
-  arte: [
-    { img: "/events/arte/event-1.jpg", url: "https://example.com/event-1" },
-  ],
+  arte: [{ img: "/events/arte/event-1.jpg", url: "https://example.com/event-1" }],
 };
 
 const DEMO_PLACES: Record<string, PromoCard[]> = {
-  arte: [
-    { img: "/places/arte/place-1.jpg", url: "https://example.com/place-1" },
-  ],
+  arte: [{ img: "/places/arte/place-1.jpg", url: "https://example.com/place-1" }],
 };
 
 function slugify(input: string) {
@@ -179,8 +175,10 @@ export default function CategoryPage({
       setGDesc("");
       setOpen(false);
       fetchGroups();
-    } catch (err: any) {
-      setSubmitMsg(err.message ?? "No se pudo crear el grupo.");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo crear el grupo.";
+      setSubmitMsg(msg);
     } finally {
       setSubmitting(false);
     }
@@ -289,7 +287,7 @@ export default function CategoryPage({
               </div>
             </Link>
 
-            {/* Cards demo que ya tenías */}
+            {/* Cards demo */}
             {events.map((ev, idx) => (
               <a
                 key={idx}
@@ -398,6 +396,7 @@ export default function CategoryPage({
     </main>
   );
 }
+
 
 
 

@@ -13,7 +13,7 @@ type EventRow = {
   location: string | null;
   starts_at: string;
   is_approved: boolean;
-  creator_id: string;
+  creator_id: string | null;
   group_id: string;
 };
 
@@ -66,7 +66,9 @@ export default function CategoryEventsPage({
           .select("group_id")
           .eq("profile_id", user.id);
 
-        const followedIds = (mems ?? []).map((m: any) => m.group_id);
+        const followedIds = (mems ?? []).map(
+          (m: { group_id: string }) => m.group_id
+        );
         if (!followedIds.length) {
           setEvents([]);
           setGroups({});
@@ -82,7 +84,7 @@ export default function CategoryEventsPage({
           .eq("category_id", cat.id)
           .eq("is_approved", true);
 
-        const validGroupIds = (gRows ?? []).map((g) => g.id);
+        const validGroupIds = (gRows ?? []).map((g: GroupLite) => g.id);
         if (!validGroupIds.length) {
           setEvents([]);
           setGroups({});
@@ -91,7 +93,9 @@ export default function CategoryEventsPage({
 
         // keep a map for titles/links
         const gMap: Record<string, GroupLite> = {};
-        (gRows ?? []).forEach((g) => (gMap[g.id] = g));
+        (gRows ?? []).forEach((g: GroupLite) => {
+          gMap[g.id] = g;
+        });
         setGroups(gMap);
 
         // 4) events for those groups
@@ -104,7 +108,7 @@ export default function CategoryEventsPage({
           .in("group_id", validGroupIds)
           .order("starts_at", { ascending: true });
 
-        setEvents(evs ?? []);
+        setEvents((evs ?? []) as EventRow[]);
       } finally {
         setLoadingData(false);
       }
@@ -193,3 +197,4 @@ export default function CategoryEventsPage({
     </main>
   );
 }
+
