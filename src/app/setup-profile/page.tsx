@@ -120,9 +120,12 @@ export default function OnboardingPage() {
         birth_year: birthYear ? parseInt(birthYear) : null,
         avatar_url,
       });
+
       if (profErr) {
-        if ((profErr as any).code === "23505") {
+        const code = (profErr as { code?: unknown }).code;
+        if (typeof code === "string" && code === "23505") {
           setUsernameError("Este nombre de usuario ya está en uso.");
+          setSaving(false);
           return;
         }
         throw profErr;
@@ -144,8 +147,9 @@ export default function OnboardingPage() {
       }
 
       router.push("/find-your-city");
-    } catch (err: any) {
-      setError(err.message ?? "Algo salió mal. Inténtalo de nuevo.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Algo salió mal. Inténtalo de nuevo.";
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -220,7 +224,7 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* Avatar (only validation + hint added) */}
+          {/* Avatar */}
           <div>
             <label className="block text-sm mb-1">Foto de perfil (opcional)</label>
             <input
@@ -317,3 +321,4 @@ export default function OnboardingPage() {
     </main>
   );
 }
+
