@@ -187,7 +187,7 @@ export default function GroupPage({
         setAges(ags);
 
         await Promise.all([loadMessages(g.id, "all", "all"), loadPolls(g.id)]);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error(err);
       } finally {
         setLoadingData(false);
@@ -347,7 +347,7 @@ export default function GroupPage({
     return m ? m[1] : null;
   }
 
-  // NOTE: widened the event type to avoid `as any` elsewhere
+  // NOTE: accepts submit or Enter key
   async function sendMessage(e?: React.FormEvent | React.KeyboardEvent) {
     e?.preventDefault?.();
     if (!user || !group || !following) return;
@@ -368,7 +368,7 @@ export default function GroupPage({
       setReplyTo(null);
       await loadMessages(group.id, selLoc, selAge);
       requestAnimationFrame(scrollToBottom);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
     } finally {
       setSending(false);
@@ -386,7 +386,7 @@ export default function GroupPage({
       }
       const entry = likes[mid] ?? { count: 0, mine: false };
       setLikes({ ...likes, [mid]: { count: entry.count + (mine ? -1 : 1), mine: !mine } });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
     }
   }
@@ -401,7 +401,7 @@ export default function GroupPage({
       if (error) throw error;
       setEditingId(null);
       if (group) await loadMessages(group.id, selLoc, selAge);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
     }
   }
@@ -451,7 +451,7 @@ export default function GroupPage({
         .maybeSingle();
       if (mErr) throw mErr;
       setFollowing(!!mem);
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("toggleFollow error:", msg);
       alert("No se pudo actualizar el seguimiento del grupo.");
@@ -486,7 +486,7 @@ export default function GroupPage({
       const ags = (sgs ?? []).filter((s) => s.type === "age") as SubgroupRow[];
       setLocations(locs);
       setAges(ags);
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "No se pudo crear el subgrupo.";
       setSgMsg(msg);
     }
@@ -598,7 +598,7 @@ export default function GroupPage({
       setPollOptions(["", ""]);
       await Promise.all([loadPolls(group.id), loadMessages(group.id, selLoc, selAge)]);
       requestAnimationFrame(scrollToBottom);
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "No se pudo crear la encuesta.";
       setPollMsg(msg);
     }
@@ -621,7 +621,7 @@ export default function GroupPage({
         await supabase.from("poll_votes").insert({ poll_id: p.id, option_id: optionId, voter_id: user.id });
       }
       await loadPolls(group.id);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
     }
   }
@@ -654,7 +654,7 @@ export default function GroupPage({
       setEvDesc("");
       setEvLoc("");
       setEvWhen("");
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "No se pudo crear el evento.";
       setEvMsg(msg);
     }
