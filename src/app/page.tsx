@@ -125,9 +125,10 @@ export default function HomePage() {
             <span className="text-gcCTA">
               {t(
                 "home.about.p1.h2",
-                "Sabemos lo difícil que puede ser hacer nuevas amistades"
+                "Sabemos lo difícil que puede ser hacer nuevas amistades" 
               )}
             </span>{" "}
+            <br />
             {t("home.about.p1.l9", "cuando todo va tan rápido.")}
           </p>
         </div>

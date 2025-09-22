@@ -112,12 +112,12 @@ export const DICT = {
       contact: "Contact",
       messages: "Messages",
       admin: "Admin",
-      join: "Join!",
+      join: "JOIN!",
       account: "My account",
       accountShort: "Account",
     },
     common: {
-      join: "Join!",
+      join: "JOIN!",
       form: {
         nameLabel: "Your name:",
         emailLabel: "Your email:",
@@ -130,7 +130,7 @@ export const DICT = {
     home: {
       // keep simple keys
       tagline: "where girls connect, thrive & vibe✨",
-      heroTitle: "Your safe space to find your tribe in a new city.",
+      heroTitle: "Your safe space to find your tribe in that new city.",
 
       // optional richer hero block
       hero: {
