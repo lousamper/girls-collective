@@ -10,6 +10,9 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { getLang, getDict, t as tt } from "@/lib/i18n";
 import type { Lang } from "@/lib/dictionaries";
 
+// ⬇️ NEW: Vercel Analytics custom events
+import { track } from "@vercel/analytics";
+
 export default function HomePage() {
   // contact form state
   const [name, setName] = useState("");
@@ -39,6 +42,9 @@ export default function HomePage() {
         message: msg.trim(),
       });
       if (error) throw error;
+
+      // ⬇️ NEW: custom event on success
+      track("contact_submit", { page: "home" });
 
       setOk(t("home.contact.ok", "¡Gracias! Te responderemos muy pronto 💌"));
       setName("");
@@ -88,6 +94,7 @@ export default function HomePage() {
               <div className="flex justify-center">
                 <Link
                   href="/auth"
+                  onClick={() => track("cta_join_click", { page: "home" })} // ⬅️ NEW
                   className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
                   aria-label={t("common.join", "¡ÚNETE!")}
                 >
@@ -125,7 +132,7 @@ export default function HomePage() {
             <span className="text-gcCTA">
               {t(
                 "home.about.p1.h2",
-                "Sabemos lo difícil que puede ser hacer nuevas amistades" 
+                "Sabemos lo difícil que puede ser hacer nuevas amistades"
               )}
             </span>{" "}
             <br />
@@ -296,3 +303,4 @@ export default function HomePage() {
     </main>
   );
 }
+

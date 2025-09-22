@@ -7,6 +7,10 @@ import "./globals.css";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
+// ⬇️ NEW: Vercel Analytics + Speed Insights
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+
 const montserrat = Montserrat({
   subsets: ["latin"],
   variable: "--font-montserrat",
@@ -51,6 +55,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="flex-1">{children}</main>
           <Footer />
         </div>
+
+        {/* ⬇️ NEW: drop these at the end of body */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
