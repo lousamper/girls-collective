@@ -33,7 +33,6 @@ export default function HomePage() {
       setEmail("");
       setMsg("");
     } catch (error) {
-      // keep it generic for users, but log details for you
       console.error("contact_messages insert failed:", error as PostgrestError);
       setErr("No se pudo enviar. Intenta de nuevo.");
     } finally {
@@ -44,14 +43,13 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       {/* ======================== */}
-      {/* Section 1: HERO (full-width split, bg #fef8f4) */}
-      {/* UPDATED: forces a true 50/50 split and full height on desktop */}
+      {/* Section 1: HERO */}
+      {/* Video hidden on mobile; text shows full width on mobile */}
       {/* ======================== */}
       <section className="w-full bg-gcBackgroundAlt2">
-        {/* min height: comfy on mobile, full screen on md+ */}
         <div className="grid md:grid-cols-2 min-h-[70vh] md:min-h-screen">
-          {/* Left: video fills the half completely */}
-          <div className="relative">
+          {/* Left: video (desktop only) */}
+          <div className="relative hidden md:block">
             <video
               className="absolute inset-0 w-full h-full object-cover"
               src="/home/hero.mp4"
@@ -63,14 +61,12 @@ export default function HomePage() {
             />
           </div>
 
-          {/* Right: centered content */}
+          {/* Right: centered content (mobile & desktop) */}
           <div className="flex items-center justify-center px-6 py-10">
             <div className="text-center max-w-xl">
-              {/* small, DM Serif, not bold */}
               <p className="font-dmserif text-base md:text-lg mb-3">
                 where girls connect, thrive & vibe✨
               </p>
-              {/* big, Montserrat bold */}
               <h1 className="font-montserrat font-bold text-2xl md:text-4xl mb-6">
                 Tu espacio seguro para encontrar tu tribu en esa nueva ciudad.
               </h1>
@@ -90,10 +86,13 @@ export default function HomePage() {
       </section>
 
       {/* ======================== */}
-      {/* Section 2: ABOUT (part 1) */}
+      {/* Section 2: ABOUT (text → image) */}
       {/* ======================== */}
-      <section id="about" className="max-w-6xl mx-auto px-6 py-14 grid md:grid-cols-2 gap-10 items-center">
-        {/* Left: text (right aligned on desktop), tighter line-height */}
+      <section
+        id="about"
+        className="max-w-6xl mx-auto px-6 py-14 grid md:grid-cols-2 gap-10 items-center"
+      >
+        {/* Text first on mobile (as-is) */}
         <div className="md:order-1 text-right">
           <p className="text-[20px] md:text-[30px] font-semibold leading-tight">
             Sabemos lo que es <br />
@@ -114,7 +113,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Right: image (no corners/borders/shadows) */}
+        {/* Image second */}
         <div className="md:order-2">
           <Image
             src="/home/sec2.jpg"
@@ -128,22 +127,11 @@ export default function HomePage() {
       </section>
 
       {/* ======================== */}
-      {/* Section 3: ABOUT (part 2) */}
+      {/* Section 3: ABOUT (make it text → image on mobile) */}
       {/* ======================== */}
       <section className="max-w-6xl mx-auto px-6 pb-14 grid md:grid-cols-2 gap-10 items-center">
-        {/* Left: image (no corners/borders/shadows) */}
-        <div>
-          <Image
-            src="/home/sec3.jpg"
-            alt="Comunidad"
-            width={1600}
-            height={1066}
-            className="w-full h-[340px] md:h-[520px] object-cover"
-          />
-        </div>
-
-        {/* Right: text + yellow CTA */}
-        <div>
+        {/* Text FIRST on mobile, SECOND on desktop */}
+        <div className="order-1 md:order-2">
           <p className="text-[20px] md:text-[30px] font-semibold leading-tight">
             Por eso, creamos un espacio para que conectes desde lo auténtico y formes vínculos reales.
             <br />
@@ -169,6 +157,17 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
+
+        {/* Image SECOND on mobile, FIRST on desktop */}
+        <div className="order-2 md:order-1">
+          <Image
+            src="/home/sec3.jpg"
+            alt="Comunidad"
+            width={1600}
+            height={1066}
+            className="w-full h-[340px] md:h-[520px] object-cover"
+          />
+        </div>
       </section>
 
       {/* ======================== */}
@@ -187,7 +186,7 @@ export default function HomePage() {
       </section>
 
       {/* ======================== */}
-      {/* Section 5: CONTACT (centered) */}
+      {/* Section 5: CONTACT */}
       {/* ======================== */}
       <section id="contact" className="max-w-6xl mx-auto px-6 py-14">
         <div className="text-center max-w-3xl mx-auto mb-6">
@@ -201,7 +200,6 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* centered form like Find Your City */}
         <form
           onSubmit={handleContact}
           className="bg-white/90 rounded-2xl p-6 shadow-md flex flex-col gap-4 max-w-md mx-auto text-left"
