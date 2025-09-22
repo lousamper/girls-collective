@@ -1,4 +1,3 @@
-// src/app/auth/callback/page.tsx
 "use client";
 
 import { Suspense, useEffect } from "react";
@@ -27,21 +26,28 @@ function AuthCallbackInner() {
   const params = useSearchParams();
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       try {
         const code = params.get("code");
         if (code) {
-          // ✅ espera un string
+          // espera un string
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) console.warn("exchangeCodeForSession:", error.message);
         } else if (typeof window !== "undefined") {
           // algunos providers devuelven todo en la URL
-          await supabase.auth.exchangeCodeForSession(window.location.href);
+          const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          if (error) console.warn("exchangeCodeForSession(url):", error.message);
         }
       } finally {
-        router.replace("/auth");
+        if (!cancelled) router.replace("/auth");
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [params, router]);
 
   return (
@@ -50,4 +56,5 @@ function AuthCallbackInner() {
     </main>
   );
 }
+
 

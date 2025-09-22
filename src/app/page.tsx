@@ -1,10 +1,14 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import type { PostgrestError } from "@supabase/supabase-js";
+
+// i18n helpers
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
 
 export default function HomePage() {
   // contact form state
@@ -14,6 +18,14 @@ export default function HomePage() {
   const [sending, setSending] = useState(false);
   const [ok, setOk] = useState("");
   const [err, setErr] = useState("");
+
+  // language (read cookie once; no other changes)
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => {
+    setLang(getLang());
+  }, []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
   async function handleContact(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -65,19 +77,22 @@ export default function HomePage() {
           <div className="flex items-center justify-center px-6 py-10">
             <div className="text-center max-w-xl">
               <p className="font-dmserif text-base md:text-lg mb-3">
-                where girls connect, thrive & vibe✨
+                {t("home.tagline", "where girls connect, thrive & vibe✨")}
               </p>
               <h1 className="font-montserrat font-bold text-2xl md:text-4xl mb-6">
-                Tu espacio seguro para encontrar tu tribu en esa nueva ciudad.
+                {t(
+                  "home.heroTitle",
+                  "Tu espacio seguro para encontrar tu tribu en esa nueva ciudad."
+                )}
               </h1>
 
               <div className="flex justify-center">
                 <Link
                   href="/auth"
                   className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
-                  aria-label="Únete"
+                  aria-label={t("common.join", "¡ÚNETE!")}
                 >
-                  ¡ÚNETE!
+                  {t("common.join", "¡ÚNETE!")}
                 </Link>
               </div>
             </div>
@@ -151,9 +166,9 @@ export default function HomePage() {
             <Link
               href="/auth"
               className="rounded-full bg-gcCTA text-gcText font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
-              aria-label="Únete"
+              aria-label={t("common.join", "¡ÚNETE!")}
             >
-              ¡ÚNETE!
+              {t("common.join", "¡ÚNETE!")}
             </Link>
           </div>
         </div>
@@ -191,7 +206,7 @@ export default function HomePage() {
       <section id="contact" className="max-w-6xl mx-auto px-6 py-14">
         <div className="text-center max-w-3xl mx-auto mb-6">
           <h2 className="font-dmserif text-1xl md:text-2xl mb-3">
-            ¿Quieres sumar tu energía a esta comunidad?
+            {t("home.contact.title", "¿Quieres sumar tu energía a esta comunidad?")}
           </h2>
           <p className="text-base leading-relaxed">
             Tanto si eres una marca con ganas de colaborar, una organizadora con planes en mente o
@@ -205,7 +220,7 @@ export default function HomePage() {
           className="bg-white/90 rounded-2xl p-6 shadow-md flex flex-col gap-4 max-w-md mx-auto text-left"
         >
           <div>
-            <label className="block text-sm mb-1">Tu nombre:</label>
+            <label className="block text-sm mb-1">{t("common.form.nameLabel", "Tu nombre:")}</label>
             <input
               className="w-full rounded-xl border p-3"
               value={name}
@@ -216,7 +231,7 @@ export default function HomePage() {
           </div>
 
           <div>
-            <label className="block text-sm mb-1">Tu correo:</label>
+            <label className="block text-sm mb-1">{t("common.form.emailLabel", "Tu correo:")}</label>
             <input
               type="email"
               className="w-full rounded-xl border p-3"
@@ -228,7 +243,7 @@ export default function HomePage() {
           </div>
 
           <div>
-            <label className="block text-sm mb-1">Tu mensaje:</label>
+            <label className="block text-sm mb-1">{t("common.form.messageLabel", "Tu mensaje:")}</label>
             <textarea
               className="w-full rounded-xl border p-3"
               rows={5}
@@ -244,7 +259,7 @@ export default function HomePage() {
             disabled={sending}
             className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
           >
-            {sending ? "Enviando…" : "Enviar"}
+            {sending ? t("common.form.submitting", "Enviando…") : t("common.form.submit", "Enviar")}
           </button>
 
           {ok && <p className="text-green-700 text-sm">{ok}</p>}
@@ -252,7 +267,7 @@ export default function HomePage() {
         </form>
 
         <div className="text-sm mt-3 opacity-80 text-center">
-          O escríbenos a{" "}
+          {t("common.form.orWriteUs", "O escríbenos a")}{" "}
           <a className="underline" href="mailto:contact@girls-collective.com">
             contact@girls-collective.com
           </a>
