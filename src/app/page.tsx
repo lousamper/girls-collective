@@ -19,7 +19,7 @@ export default function HomePage() {
   const [ok, setOk] = useState("");
   const [err, setErr] = useState("");
 
-  // language (read cookie once; no other changes)
+  // language (read cookie once)
   const [lang, setLang] = useState<Lang>("es");
   useEffect(() => {
     setLang(getLang());
@@ -40,13 +40,13 @@ export default function HomePage() {
       });
       if (error) throw error;
 
-      setOk("¡Gracias! Te responderemos muy pronto 💌");
+      setOk(t("home.contact.ok", "¡Gracias! Te responderemos muy pronto 💌"));
       setName("");
       setEmail("");
       setMsg("");
     } catch (error) {
       console.error("contact_messages insert failed:", error as PostgrestError);
-      setErr("No se pudo enviar. Intenta de nuevo.");
+      setErr(t("home.contact.error", "No se pudo enviar. Intenta de nuevo."));
     } finally {
       setSending(false);
     }
@@ -56,7 +56,6 @@ export default function HomePage() {
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       {/* ======================== */}
       {/* Section 1: HERO */}
-      {/* Video hidden on mobile; text shows full width on mobile */}
       {/* ======================== */}
       <section className="w-full bg-gcBackgroundAlt2">
         <div className="grid md:grid-cols-2 min-h-[70vh] md:min-h-screen">
@@ -110,21 +109,26 @@ export default function HomePage() {
         {/* Text first on mobile (as-is) */}
         <div className="md:order-1 text-right">
           <p className="text-[20px] md:text-[30px] font-semibold leading-tight">
-            Sabemos lo que es <br />
-            <span className="text-gcCTA">empezar de nuevo.</span>
+            {t("home.about.p1.l1", "Sabemos lo que es")} <br />
+            <span className="text-gcCTA">
+              {t("home.about.p1.h1", "empezar de nuevo.")}
+            </span>
             <br />
-            Mudarte a otra ciudad, <br />
-            integrarte, adaptarte, <br />
-            reorganizar tu vida… <br />
+            {t("home.about.p1.l3", "Mudarte a otra ciudad,")} <br />
+            {t("home.about.p1.l4", "integrarte, adaptarte,")} <br />
+            {t("home.about.p1.l5", "reorganizar tu vida…")} <br />
             <br />
-            y, entre todo eso, buscar <br />
-            con quién compartirla.
+            {t("home.about.p1.l6", "y, entre todo eso, buscar")} <br />
+            {t("home.about.p1.l7", "con quién compartirla.")}
             <br />
             <br />
             <span className="text-gcCTA">
-              Sabemos lo difícil que puede ser hacer nuevas amistades
+              {t(
+                "home.about.p1.h2",
+                "Sabemos lo difícil que puede ser hacer nuevas amistades"
+              )}
             </span>{" "}
-            cuando todo va tan rápido.
+            {t("home.about.p1.l9", "cuando todo va tan rápido.")}
           </p>
         </div>
 
@@ -132,7 +136,7 @@ export default function HomePage() {
         <div className="md:order-2">
           <Image
             src="/home/sec2.jpg"
-            alt="Conexión"
+            alt={t("home.images.connAlt", "Conexión")}
             width={1600}
             height={1066}
             className="w-full h-[340px] md:h-[520px] object-cover"
@@ -148,17 +152,20 @@ export default function HomePage() {
         {/* Text FIRST on mobile, SECOND on desktop */}
         <div className="order-1 md:order-2">
           <p className="text-[20px] md:text-[30px] font-semibold leading-tight">
-            Por eso, creamos un espacio para que conectes desde lo auténtico y formes vínculos reales.
+            {t(
+              "home.about.p2.l1",
+              "Por eso, creamos un espacio para que conectes desde lo auténtico y formes vínculos reales."
+            )}
             <br />
             <br />
-            De esos que se quedan.
+            {t("home.about.p2.l2", "De esos que se quedan.")}
             <br />
             <br />
-            <span className="text-gcCTA">¿Y lo mejor?</span>
+            <span className="text-gcCTA">{t("home.about.p2.h1", "¿Y lo mejor?")}</span>
             <br />
             <span className="text-gcCTA">
-              tú eliges <br />
-              cómo, cuándo y con quién.
+              {t("home.about.p2.h2_line1", "tú eliges")} <br />
+              {t("home.about.p2.h2_line2", "cómo, cuándo y con quién.")}
             </span>
           </p>
 
@@ -177,7 +184,7 @@ export default function HomePage() {
         <div className="order-2 md:order-1">
           <Image
             src="/home/sec3.jpg"
-            alt="Comunidad"
+            alt={t("home.images.commAlt", "Comunidad")}
             width={1600}
             height={1066}
             className="w-full h-[340px] md:h-[520px] object-cover"
@@ -192,7 +199,7 @@ export default function HomePage() {
         <div className="w-[950px] max-w-[95vw]">
           <Image
             src="/home/vibes-hero.jpg"
-            alt="Vibes"
+            alt={t("home.images.vibesAlt", "Vibes")}
             width={950}
             height={500}
             className="w-full h-auto"
@@ -209,9 +216,10 @@ export default function HomePage() {
             {t("home.contact.title", "¿Quieres sumar tu energía a esta comunidad?")}
           </h2>
           <p className="text-base leading-relaxed">
-            Tanto si eres una marca con ganas de colaborar, una organizadora con planes en mente o
-            simplemente una girl con dudas o ideas... <br />
-            Escríbenos y te respondemos pronto 💌
+            {t(
+              "home.contact.text",
+              "Tanto si eres una marca con ganas de colaborar, una organizadora con planes en mente o simplemente una girl con dudas o ideas... \nEscríbenos y te respondemos pronto 💌"
+            )}
           </p>
         </div>
 
@@ -220,18 +228,22 @@ export default function HomePage() {
           className="bg-white/90 rounded-2xl p-6 shadow-md flex flex-col gap-4 max-w-md mx-auto text-left"
         >
           <div>
-            <label className="block text-sm mb-1">{t("common.form.nameLabel", "Tu nombre:")}</label>
+            <label className="block text-sm mb-1">
+              {t("common.form.nameLabel", "Tu nombre:")}
+            </label>
             <input
               className="w-full rounded-xl border p-3"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Tu nombre"
+              placeholder={t("common.form.nameLabel", "Tu nombre:")}
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm mb-1">{t("common.form.emailLabel", "Tu correo:")}</label>
+            <label className="block text-sm mb-1">
+              {t("common.form.emailLabel", "Tu correo:")}
+            </label>
             <input
               type="email"
               className="w-full rounded-xl border p-3"
@@ -243,13 +255,18 @@ export default function HomePage() {
           </div>
 
           <div>
-            <label className="block text-sm mb-1">{t("common.form.messageLabel", "Tu mensaje:")}</label>
+            <label className="block text-sm mb-1">
+              {t("common.form.messageLabel", "Tu mensaje:")}
+            </label>
             <textarea
               className="w-full rounded-xl border p-3"
               rows={5}
               value={msg}
               onChange={(e) => setMsg(e.target.value)}
-              placeholder="Cuéntanos en qué podemos colaborar o ayudarte ✨"
+              placeholder={t(
+                "home.contact.placeholder",
+                "Cuéntanos en qué podemos colaborar o ayudarte ✨"
+              )}
               required
             />
           </div>
@@ -259,7 +276,9 @@ export default function HomePage() {
             disabled={sending}
             className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
           >
-            {sending ? t("common.form.submitting", "Enviando…") : t("common.form.submit", "Enviar")}
+            {sending
+              ? t("common.form.submitting", "Enviando…")
+              : t("common.form.submit", "Enviar")}
           </button>
 
           {ok && <p className="text-green-700 text-sm">{ok}</p>}
