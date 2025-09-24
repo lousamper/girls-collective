@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Bell, User } from "lucide-react";
 import { getLang, setLang as setLangCookie, getDict, t as tt } from "@/lib/i18n";
 import type { Lang } from "@/lib/dictionaries";
 
@@ -16,6 +16,7 @@ export default function Navbar() {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0); // 🔔 placeholder unread badge
 
   // language
   const [lang, setLangState] = useState<Lang>("es");
@@ -45,6 +46,22 @@ export default function Navbar() {
     };
   }, [user]);
 
+  // 🔔 TODO: when you add a `notifications` table, replace with a real count query.
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    // Example schema idea:
+    // const { count } = await supabase
+    //   .from("notifications")
+    //   .select("*", { count: "exact", head: true })
+    //   .eq("user_id", user.id)
+    //   .is("read_at", null);
+    // setUnreadCount(count ?? 0);
+    setUnreadCount(0);
+  }, [user]);
+
   const isActive = (href: string) => pathname === href || pathname.startsWith(href);
 
   function switchLang(next: Lang) {
@@ -54,7 +71,7 @@ export default function Navbar() {
     if (typeof window !== "undefined") window.location.reload();
   }
 
-  // body scroll lock while menu is open
+  // lock body scroll while drawer is open
   useEffect(() => {
     if (!mobileOpen) return;
     const prev = document.body.style.overflow;
@@ -92,7 +109,7 @@ export default function Navbar() {
           <span className="sr-only">Girls Collective</span>
         </Link>
 
-        {/* ===== Mobile center: logo (visually centered) ===== */}
+        {/* ===== Mobile center: logo ===== */}
         <Link
           href="/"
           className="md:hidden absolute left-1/2 -translate-x-1/2 flex items-center"
@@ -131,6 +148,21 @@ export default function Navbar() {
             </Link>
           </li>
 
+          {/* Mis grupos (only when logged in) */}
+          {user && (
+            <li>
+              <Link
+                href="/profile#groups"
+                className={`hover:opacity-80 transition ${
+                  isActive("/profile") ? "underline underline-offset-4" : ""
+                }`}
+              >
+                {t("nav.myGroups", "Mis grupos")}
+              </Link>
+            </li>
+          )}
+
+          {/* Mensajes (logged in) */}
           {user && (
             <li>
               <Link
@@ -145,6 +177,23 @@ export default function Navbar() {
             </li>
           )}
 
+          {/* Notifications bell (both states; if not logged, sends to /auth) */}
+          <li className="relative">
+            <Link
+              href={user ? "/notifications" : "/auth"}
+              className="p-2 hover:opacity-80"
+              title={t("nav.notifications", "Notificaciones")}
+              aria-label={t("nav.notifications", "Notificaciones")}
+            >
+              <span className="relative inline-block">
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+                )}
+              </span>
+            </Link>
+          </li>
+
           {isAdmin && (
             <li>
               <Link
@@ -156,7 +205,7 @@ export default function Navbar() {
             </li>
           )}
 
-          {/* Language toggle */}
+          {/* Language toggle (desktop) */}
           <li className="ml-2 flex items-center gap-2 text-sm">
             <button
               onClick={() => switchLang("es")}
@@ -185,25 +234,27 @@ export default function Navbar() {
           </li>
         </ul>
 
-        {/* Mobile right: tiny language toggle */}
-        <div className="md:hidden flex items-center gap-2">
-          <div className="flex items-center gap-1 text-xs">
-            <button
-              onClick={() => switchLang("es")}
-              className={`px-1.5 py-0.5 rounded ${lang === "es" ? "bg-white" : "hover:opacity-80"}`}
-              aria-pressed={lang === "es"}
-            >
-              ES
-            </button>
-            <span className="opacity-50">|</span>
-            <button
-              onClick={() => switchLang("en")}
-              className={`px-1.5 py-0.5 rounded ${lang === "en" ? "bg-white" : "hover:opacity-80"}`}
-              aria-pressed={lang === "en"}
-            >
-              EN
-            </button>
-          </div>
+        {/* Mobile right: icons (Notifications + Profile). Language lives in the drawer. */}
+        <div className="md:hidden flex items-center gap-1">
+          <Link
+            href={user ? "/notifications" : "/auth"}
+            aria-label={t("nav.notifications", "Notificaciones")}
+            className="p-2"
+          >
+            <span className="relative inline-block">
+              <Bell className="w-6 h-6" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+              )}
+            </span>
+          </Link>
+          <Link
+            href={user ? "/profile" : "/auth"}
+            aria-label={user ? t("nav.accountShort") : t("nav.join")}
+            className="p-2"
+          >
+            <User className="w-6 h-6" />
+          </Link>
         </div>
       </nav>
 
@@ -254,21 +305,32 @@ export default function Navbar() {
               </Link>
             </li>
             <li>
-              <Link href="/#contact" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg.black/5">
+              <Link href="/#contact" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
                 {t("nav.contact")}
               </Link>
             </li>
 
             {user && (
-              <li>
-                <Link
-                  href="/dm"
-                  onClick={closeMenu}
-                  className="block rounded-xl px-4 py-3 hover:bg-black/5"
-                >
-                  {t("nav.messages")}
-                </Link>
-              </li>
+              <>
+                <li>
+                  <Link
+                    href="/profile#groups"
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
+                    {t("nav.myGroups", "Mis grupos")}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/dm"
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
+                    {t("nav.messages")}
+                  </Link>
+                </li>
+              </>
             )}
 
             {isAdmin && (
@@ -297,7 +359,7 @@ export default function Navbar() {
               </button>
               <button
                 onClick={() => switchLang("en")}
-                className={`px-3 py-1.5 rounded-full border ${lang === "en" ? "bg-gcBackgroundAlt2" : "bg.white"}`}
+                className={`px-3 py-1.5 rounded-full border ${lang === "en" ? "bg-gcBackgroundAlt2" : "bg-white"}`}
                 aria-pressed={lang === "en"}
               >
                 EN

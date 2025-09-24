@@ -11,7 +11,9 @@ export const DICT = {
       admin: "Admin",
       join: "¡ÚNETE!",
       account: "Mi cuenta",
-      accountShort: "Cuenta",
+      accountShort: "Mi cuenta",
+      myGroups: "Mis grupos",
+      notifications: "Notificaciones",
     },
     common: {
       join: "¡ÚNETE!",
@@ -113,8 +115,10 @@ export const DICT = {
       messages: "Messages",
       admin: "Admin",
       join: "JOIN!",
-      account: "My account",
-      accountShort: "Account",
+      account: "My profile",
+      accountShort: "My profile",
+      myGroups: "My groups", 
+      notifications: "Notifications",
     },
     common: {
       join: "JOIN!",

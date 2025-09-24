@@ -1,9 +1,24 @@
+// src/components/AuthForm.tsx
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+const PW_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+function friendlyAuthError(err: unknown): string {
+  if (!(err instanceof Error)) return "Algo salió mal.";
+  const m = err.message || "";
+
+  if (/Invalid login credentials/i.test(m)) return "Correo o contraseña incorrectos.";
+  if (/Email not confirmed/i.test(m)) return "Confirma tu correo para iniciar sesión.";
+  if (/User already registered/i.test(m)) return "Ya existe una cuenta con ese correo.";
+  if (/Password should be at least/i.test(m)) return "La contraseña no cumple los requisitos.";
+  // fallback: show Spanish generic
+  return "No se pudo completar la operación. Intenta de nuevo.";
+}
 
 export default function AuthForm() {
   const [email, setEmail] = useState("");
@@ -19,6 +34,13 @@ export default function AuthForm() {
 
     try {
       if (mode === "signup") {
+        // ✅ Client-side policy so you get a nice Spanish message
+        if (!PW_RULE.test(password)) {
+          setMessage(
+            "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números."
+          );
+          return;
+        }
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         setMessage("Revisa tu correo para confirmar el registro.");
@@ -28,8 +50,7 @@ export default function AuthForm() {
         setMessage("Has iniciado sesión con éxito!");
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Algo salió mal.";
-      setMessage(msg);
+      setMessage(friendlyAuthError(err));
     } finally {
       setLoading(false);
     }
@@ -65,18 +86,15 @@ export default function AuthForm() {
           required
         />
 
-        {/* 👇 Extra row under the password field */}
+        {/* Under password: link for login, helper text for signup */}
         {mode === "login" ? (
-          <div className="text-left">
-            <Link
-              href="/auth/forgot"
-              className="text-sm text-purple-700 underline hover:opacity-80"
-            >
+          <div className="text-left -mt-1">
+            <Link href="/auth/forgot" className="text-sm underline hover:opacity-80">
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
         ) : (
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-gray-600 -mt-1">
             La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números.
           </p>
         )}
@@ -105,5 +123,6 @@ export default function AuthForm() {
     </div>
   );
 }
+
 
 
