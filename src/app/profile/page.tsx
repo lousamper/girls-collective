@@ -14,7 +14,6 @@ type Profile = {
   city_id: string | null;
   avatar_url: string | null;
 };
-
 type Group = {
   id: string;
   slug: string;
@@ -24,6 +23,9 @@ type Group = {
 };
 type Category = { id: string; slug: string; name: string };
 type CityRow = { id: string; slug: string; name: string };
+
+// Cambia esto si tu tabla join se llama distinto
+const PROFILE_CATS_TABLE = "profile_categories";
 
 // ---- helpers: sanitize avatar path ----
 function sanitizeFileName(name: string) {
@@ -46,19 +48,37 @@ export default function ProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // perfil básico
   const [profile, setProfile] = useState<Profile | null>(null);
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [cityId, setCityId] = useState<string>("");
+
+  // avatar
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFileName, setAvatarFileName] = useState<string>(""); // para mostrar nombre
 
+  // catálogos
   const [cities, setCities] = useState<City[]>([]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+
+  // intereses del perfil
+  const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
+  const [interestMsg, setInterestMsg] = useState("");
+  const [interestErr, setInterestErr] = useState("");
+
+  // grupos del perfil
+  const [myGroups, setMyGroups] = useState<Group[]>([]);
+  const [catMap, setCatMap] = useState<Record<string, Category>>({});
+  const [cityMap, setCityMap] = useState<Record<string, CityRow>>({});
+
+  // guardado perfil
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
-  // username validation
+  // validación username
   const [nameChecking, setNameChecking] = useState(false);
   const [nameError, setNameError] = useState<string>("");
 
@@ -68,26 +88,25 @@ export default function ProfilePage() {
   const [pwdMsg, setPwdMsg] = useState("");
   const [pwdErr, setPwdErr] = useState("");
 
-  // memberships
-  const [myGroups, setMyGroups] = useState<Group[]>([]);
-  const [catMap, setCatMap] = useState<Record<string, Category>>({});
-  const [cityMap, setCityMap] = useState<Record<string, CityRow>>({});
-
+  // redirect si no hay user
   useEffect(() => {
     if (!loading && !user) router.push("/auth");
   }, [loading, user, router]);
 
-  // Load cities + profile + groups
+  // carga inicial: ciudades, categorías, perfil, intereses, grupos
   useEffect(() => {
     (async () => {
       if (!user) return;
 
-      const { data: cityRows } = await supabase
-        .from("cities")
-        .select("id,name,slug")
-        .order("name");
+      // ciudades
+      const { data: cityRows } = await supabase.from("cities").select("id,name,slug").order("name");
       setCities(cityRows ?? []);
 
+      // categorías (para intereses y para mapear grupos)
+      const { data: allCats } = await supabase.from("categories").select("id,slug,name").order("name");
+      setAllCategories(allCats ?? []);
+
+      // perfil
       const { data: prof } = await supabase
         .from("profiles")
         .select("id, username, bio, city_id, avatar_url")
@@ -102,14 +121,20 @@ export default function ProfilePage() {
         setAvatarPreview(prof.avatar_url ?? null);
       }
 
-      // memberships → groups (by profile_id)
+      // intereses del usuario
+      const { data: myCats } = await supabase
+        .from(PROFILE_CATS_TABLE)
+        .select("category_id")
+        .eq("profile_id", user.id);
+      setSelectedCatIds((myCats ?? []).map((r: { category_id: string }) => r.category_id));
+
+      // memberships → grupos (by profile_id)
       const { data: mems } = await supabase
         .from("group_members")
         .select("group_id")
         .eq("profile_id", user.id);
 
       const groupIds = (mems ?? []).map((m: { group_id: string }) => m.group_id);
-
       if (groupIds.length) {
         const { data: groups } = await supabase
           .from("groups")
@@ -117,23 +142,18 @@ export default function ProfilePage() {
           .in("id", groupIds);
         setMyGroups(groups ?? []);
 
-        // fetch needed categories + cities maps
+        // maps para info de grupo
         const catIds = Array.from(new Set((groups ?? []).map((g) => g.category_id)));
         if (catIds.length) {
-          const { data: cats } = await supabase
-            .from("categories")
-            .select("id, slug, name")
-            .in("id", catIds);
           const m: Record<string, Category> = {};
-          (cats ?? []).forEach((c: Category) => (m[c.id] = c));
+          (allCats ?? []).forEach((c) => {
+            if (catIds.includes(c.id)) m[c.id] = c;
+          });
           setCatMap(m);
         }
         const cIds = Array.from(new Set((groups ?? []).map((g) => g.city_id)));
         if (cIds.length) {
-          const { data: cts } = await supabase
-            .from("cities")
-            .select("id, slug, name")
-            .in("id", cIds);
+          const { data: cts } = await supabase.from("cities").select("id, slug, name").in("id", cIds);
           const m2: Record<string, CityRow> = {};
           (cts ?? []).forEach((c: CityRow) => (m2[c.id] = c));
           setCityMap(m2);
@@ -144,15 +164,16 @@ export default function ProfilePage() {
     })();
   }, [user]);
 
-  // Preview avatar
+  // preview avatar
   useEffect(() => {
     if (!avatarFile) return;
     const url = URL.createObjectURL(avatarFile);
     setAvatarPreview(url);
+    setAvatarFileName(avatarFile.name || "");
     return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
 
-  // Username unique check
+  // unique username
   useEffect(() => {
     if (!user) return;
     if (!username.trim()) {
@@ -185,6 +206,25 @@ export default function ProfilePage() {
     [user, username, nameError, cityId]
   );
 
+  function onAvatarChange(f: File | null) {
+    if (!f) {
+      setAvatarFile(null);
+      setAvatarFileName("");
+      return;
+    }
+    const okType = ["image/jpeg", "image/png"].includes(f.type);
+    const okSize = f.size <= 2 * 1024 * 1024; // 2MB
+    if (!okType) {
+      alert("Debe ser .jpg o .png");
+      return;
+    }
+    if (!okSize) {
+      alert("Tamaño máximo 2MB");
+      return;
+    }
+    setAvatarFile(f);
+  }
+
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
@@ -197,7 +237,7 @@ export default function ProfilePage() {
       if (avatarFile) {
         const path = safeStoragePath(user.id, avatarFile);
         const { error: upErr } = await supabase.storage
-          .from("Avatars") // <- bucket con A mayúscula
+          .from("Avatars") // bucket con A mayúscula
           .upload(path, avatarFile, {
             upsert: true,
             cacheControl: "3600",
@@ -221,14 +261,37 @@ export default function ProfilePage() {
       if (profErr) throw profErr;
 
       setMsg("Perfil actualizado ✅");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "No se pudo guardar.";
-      setErr(msg);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "No se pudo guardar.";
+      setErr(m);
     } finally {
       setSaving(false);
     }
   }
 
+  // intereses
+  function toggleCat(id: string) {
+    setSelectedCatIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  async function saveInterests() {
+    if (!user) return;
+    setInterestMsg("");
+    setInterestErr("");
+    try {
+      await supabase.from(PROFILE_CATS_TABLE).delete().eq("profile_id", user.id);
+      if (selectedCatIds.length) {
+        await supabase.from(PROFILE_CATS_TABLE).insert(
+          selectedCatIds.map((category_id) => ({ profile_id: user.id, category_id }))
+        );
+      }
+      setInterestMsg("Intereses actualizados ✅");
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "No se pudieron actualizar los intereses.";
+      setInterestErr(m);
+    }
+  }
+
+  // contraseña
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     setPwdMsg("");
@@ -244,19 +307,17 @@ export default function ProfilePage() {
       setPwd1("");
       setPwd2("");
       setPwdMsg("Contraseña actualizada ✅");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "No se pudo actualizar la contraseña.";
-      setPwdErr(msg);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "No se pudo actualizar la contraseña.";
+      setPwdErr(m);
     }
   }
 
-  // Cerrar sesión
+  // sesiones / seguridad
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/auth");
   }
-
-  // Solicitar eliminación manual
   async function requestDeleteAccount() {
     const {
       data: { user: current },
@@ -285,9 +346,8 @@ export default function ProfilePage() {
         <h1 className="text-3xl font-dmserif mb-2">Mi perfil</h1>
         <p className="mb-6">Gestiona tu información y tus grupos 💜</p>
 
-        {/* Profile card */}
+        {/* ===== Perfil (bio, ciudad, avatar) ===== */}
         <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-6 shadow-md flex flex-col gap-5">
-          {/* Avatar + username/bio/city */}
           <div className="flex flex-col md:flex-row gap-6">
             {/* Avatar */}
             <div className="shrink-0">
@@ -299,34 +359,29 @@ export default function ProfilePage() {
                   <span className="text-sm opacity-60">Sin foto</span>
                 )}
               </div>
-              <div className="mt-2">
+
+              {/* Botón custom "Cargar foto" */}
+              <div className="mt-3">
                 <input
+                  id="avatar-input"
                   type="file"
                   accept="image/jpeg,image/png"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0] || null;
-                    if (!f) {
-                      setAvatarFile(null);
-                      return;
-                    }
-                    const okType = ["image/jpeg", "image/png"].includes(f.type);
-                    const okSize = f.size <= 2 * 1024 * 1024; // 2MB
-                    if (!okType) {
-                      alert("Debe ser .jpg o .png");
-                      return;
-                    }
-                    if (!okSize) {
-                      alert("Tamaño máximo 2MB");
-                      return;
-                    }
-                    setAvatarFile(f);
-                  }}
+                  className="sr-only"
+                  onChange={(e) => onAvatarChange(e.target.files?.[0] || null)}
                 />
-                <p className="text-xs opacity-70 mt-1">Debe ser .jpg o .png · Máx 2MB</p>
+                <label
+                  htmlFor="avatar-input"
+                  className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-4 py-1.5 text-sm shadow-md hover:opacity-90 cursor-pointer"
+                >
+                  Cargar foto
+                </label>
+                <div className="text-xs opacity-70 mt-1">
+                  {avatarFileName ? avatarFileName : "JPG o PNG · Máx 2MB"}
+                </div>
               </div>
             </div>
 
-            {/* Fields */}
+            {/* Campos */}
             <div className="flex-1 grid gap-4">
               <div>
                 <label className="block text-sm mb-1">Nombre de usuario *</label>
@@ -371,7 +426,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Buttons: left on mobile, right on desktop */}
+          {/* Botón: izquierda en móvil, derecha en desktop */}
           <div className="flex gap-3 justify-start md:justify-end">
             <button
               type="submit"
@@ -386,7 +441,45 @@ export default function ProfilePage() {
           {err && <p className="text-sm text-red-600">{err}</p>}
         </form>
 
-        {/* ======= Mis grupos (moved up, under bio) ======= */}
+        {/* ===== Tus intereses (debajo de bio) ===== */}
+        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 text-center">
+          <h2 className="font-dmserif text-2xl mb-4">Tus intereses</h2>
+
+          <div className="flex flex-wrap gap-2 justify-center">
+            {allCategories.map((c) => {
+              const active = selectedCatIds.includes(c.id);
+              return (
+                <label
+                  key={c.id}
+                  className={`cursor-pointer select-none px-3 py-1.5 rounded-full border text-sm
+                    ${active ? "bg-gcBackgroundAlt2 border-gcText" : "bg-white hover:bg-black/5"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={active}
+                    onChange={() => toggleCat(c.id)}
+                  />
+                  {c.name}
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={saveInterests}
+              className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
+            >
+              Actualizar intereses
+            </button>
+          </div>
+
+          {interestMsg && <p className="text-sm text-green-700 mt-2">{interestMsg}</p>}
+          {interestErr && <p className="text-sm text-red-600 mt-2">{interestErr}</p>}
+        </section>
+
+        {/* ===== Mis grupos ===== */}
         <section className="bg-white rounded-2xl p-6 shadow-md mt-6">
           <h2 className="font-dmserif text-2xl mb-4">Mis grupos</h2>
 
@@ -418,10 +511,10 @@ export default function ProfilePage() {
           </ul>
         </section>
 
-        {/* ======= Cambiar contraseña (centered on desktop) ======= */}
-        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto">
+        {/* ===== Cambiar contraseña (centrado) ===== */}
+        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto text-center">
           <h2 className="font-dmserif text-2xl mb-4">Cambiar contraseña</h2>
-          <form onSubmit={handleChangePassword} className="grid gap-3 max-w-md">
+          <form onSubmit={handleChangePassword} className="grid gap-3 max-w-md mx-auto">
             <input
               type="password"
               className="w-full rounded-xl border p-3"
@@ -438,8 +531,7 @@ export default function ProfilePage() {
               onChange={(e) => setPwd2(e.target.value)}
               required
             />
-            {/* Buttons: left on mobile, right on desktop */}
-            <div className="flex justify-start md:justify-end">
+            <div className="flex justify-center">
               <button
                 type="submit"
                 className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
@@ -452,18 +544,16 @@ export default function ProfilePage() {
           {pwdErr && <p className="text-sm text-red-600 mt-2">{pwdErr}</p>}
         </section>
 
-        {/* Zona de seguridad */}
-        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto">
+        {/* ===== Zona de seguridad (mismo formato centrado) ===== */}
+        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto text-center">
           <h2 className="font-dmserif text-2xl mb-3">Zona de seguridad</h2>
-          <div className="flex flex-wrap gap-3 justify-start md:justify-end">
+          <div className="flex flex-wrap gap-3 justify-center">
             <button
               onClick={handleSignOut}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 shadow-md hover:opacity-90"
             >
               Cerrar sesión
             </button>
-
-            {/* Opcional: solicitud de eliminación (manual por ahora) */}
             <button
               onClick={requestDeleteAccount}
               className="rounded-full bg-red-600 text-white font-montserrat px-6 py-2 shadow-md hover:opacity-90"

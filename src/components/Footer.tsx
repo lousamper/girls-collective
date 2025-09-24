@@ -18,12 +18,13 @@ export default function Footer() {
   return (
     <footer className="mt-16 border-t border-white/20 bg-gcBackground/60">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-4 text-sm">
-        {/* Row 1: Privacy + Icons */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        {/* Row 1: Privacy + Icons (mobile-friendly) */}
+        <div className="flex flex-wrap items-center justify-between gap-y-2">
+          {/* Left: links keep together and don’t wrap mid-word */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <Link
               href="/privacy-policy"
-              className="underline underline-offset-4 hover:opacity-80"
+              className="whitespace-nowrap text-[13px] md:text-sm underline underline-offset-4 hover:opacity-80"
             >
               Política de Privacidad
             </Link>
@@ -31,13 +32,14 @@ export default function Footer() {
             <button
               type="button"
               onClick={reopenCookiePrefs}
-              className="underline underline-offset-4 hover:opacity-80"
+              className="whitespace-nowrap text-[13px] md:text-sm underline underline-offset-4 hover:opacity-80"
               aria-label="Abrir preferencias de cookies"
             >
               Preferencias de cookies
             </button>
           </div>
 
+          {/* Right: social icons */}
           <div className="flex gap-4">
             <Link
               href="https://www.instagram.com/girlscollective_yourcity"
@@ -46,12 +48,7 @@ export default function Footer() {
               aria-label="Instagram"
               className="rounded-full overflow-hidden hover:opacity-80 transition"
             >
-              <Image
-                src="/icons/instagram.png"
-                alt="Instagram"
-                width={24}
-                height={24}
-              />
+              <Image src="/icons/instagram.png" alt="Instagram" width={24} height={24} />
             </Link>
             <Link
               href="https://www.tiktok.com/@valenciagirlscollective"
@@ -60,12 +57,7 @@ export default function Footer() {
               aria-label="TikTok"
               className="rounded-full overflow-hidden hover:opacity-80 transition"
             >
-              <Image
-                src="/icons/tiktok.png"
-                alt="TikTok"
-                width={24}
-                height={24}
-              />
+              <Image src="/icons/tiktok.png" alt="TikTok" width={24} height={24} />
             </Link>
           </div>
         </div>
@@ -83,5 +75,6 @@ export default function Footer() {
     </footer>
   );
 }
+
 
 
