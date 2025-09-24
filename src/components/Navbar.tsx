@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Menu, X, Bell, User } from "lucide-react";
+import { Menu, X, Bell, User, MessageSquare } from "lucide-react";
 import { getLang, setLang as setLangCookie, getDict, t as tt } from "@/lib/i18n";
 import type { Lang } from "@/lib/dictionaries";
 
@@ -16,7 +16,7 @@ export default function Navbar() {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0); // 🔔 placeholder unread badge
+  const [unreadCount, setUnreadCount] = useState(0); // placeholder badge
 
   // language
   const [lang, setLangState] = useState<Lang>("es");
@@ -46,21 +46,8 @@ export default function Navbar() {
     };
   }, [user]);
 
-  // 🔔 TODO: when you add a `notifications` table, replace with a real count query.
-  useEffect(() => {
-    if (!user) {
-      setUnreadCount(0);
-      return;
-    }
-    // Example schema idea:
-    // const { count } = await supabase
-    //   .from("notifications")
-    //   .select("*", { count: "exact", head: true })
-    //   .eq("user_id", user.id)
-    //   .is("read_at", null);
-    // setUnreadCount(count ?? 0);
-    setUnreadCount(0);
-  }, [user]);
+  // fake unread count for now
+  useEffect(() => setUnreadCount(0), [user]);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href);
 
@@ -71,7 +58,7 @@ export default function Navbar() {
     if (typeof window !== "undefined") window.location.reload();
   }
 
-  // lock body scroll while drawer is open
+  // body lock when drawer open
   useEffect(() => {
     if (!mobileOpen) return;
     const prev = document.body.style.overflow;
@@ -83,49 +70,32 @@ export default function Navbar() {
 
   const closeMenu = () => setMobileOpen(false);
 
+  // shared button so icons align perfectly
+  const iconBtn =
+    "inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-black/10";
+
   return (
     <header className="w-full sticky top-0 z-50 bg-gcBackground/80 backdrop-blur border-b border-white/20">
       <nav className="relative max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* ===== Mobile left: burger ===== */}
+        {/* Mobile left: burger */}
         <div className="md:hidden">
-          <button
-            onClick={() => setMobileOpen(true)}
-            aria-label="Abrir menú"
-            className="p-2 -ml-2"
-          >
+          <button onClick={() => setMobileOpen(true)} aria-label="Abrir menú" className="p-2 -ml-2">
             <Menu className="w-6 h-6" />
           </button>
         </div>
 
-        {/* ===== Desktop left: logo ===== */}
+        {/* Desktop left: logo */}
         <Link href="/" className="hidden md:flex items-center gap-3">
-          <Image
-            src="/logo-gc.png"
-            alt="Girls Collective"
-            width={160}
-            height={30}
-            priority
-          />
+          <Image src="/logo-gc.png" alt="Girls Collective" width={160} height={30} priority />
           <span className="sr-only">Girls Collective</span>
         </Link>
 
-        {/* ===== Mobile center: logo ===== */}
-        <Link
-          href="/"
-          className="md:hidden absolute left-1/2 -translate-x-1/2 flex items-center"
-          aria-label="Inicio"
-        >
-          <Image
-            src="/logo-gc.png"
-            alt="Girls Collective"
-            width={120}
-            height={22}
-            priority
-          />
+        {/* Mobile center: logo */}
+        <Link href="/" className="md:hidden absolute left-1/2 -translate-x-1/2 flex items-center" aria-label="Inicio">
+          <Image src="/logo-gc.png" alt="Girls Collective" width={120} height={22} priority />
         </Link>
 
-        {/* ===== Right side ===== */}
-        {/* Desktop menu */}
+        {/* Right side (desktop) */}
         <ul className="hidden md:flex items-center gap-6 font-montserrat">
           <li>
             <Link href="/#about" className="hover:opacity-80 transition">
@@ -135,9 +105,7 @@ export default function Navbar() {
           <li>
             <Link
               href="/find-your-city"
-              className={`hover:opacity-80 transition ${
-                isActive("/find-your-city") ? "underline underline-offset-4" : ""
-              }`}
+              className={`hover:opacity-80 transition ${isActive("/find-your-city") ? "underline underline-offset-4" : ""}`}
             >
               {t("nav.cities")}
             </Link>
@@ -148,42 +116,34 @@ export default function Navbar() {
             </Link>
           </li>
 
-          {/* Mis grupos (only when logged in) */}
+          {/* Mis grupos */}
           {user && (
             <li>
               <Link
-                href="/profile#groups"
-                className={`hover:opacity-80 transition ${
-                  isActive("/profile") ? "underline underline-offset-4" : ""
-                }`}
+                href="/my-groups"
+                className={`hover:opacity-80 transition ${isActive("/my-groups") ? "underline underline-offset-4" : ""}`}
               >
                 {t("nav.myGroups", "Mis grupos")}
               </Link>
             </li>
           )}
 
-          {/* Mensajes (logged in) */}
+          {/* Messages icon */}
           {user && (
             <li>
-              <Link
-                href="/dm"
-                className={`rounded-full border bg-white px-5 py-2 shadow-sm hover:opacity-90 ${
-                  isActive("/dm") ? "underline underline-offset-4" : ""
-                }`}
-                title={t("nav.messages")}
-              >
-                {t("nav.messages")}
+              <Link href="/dm" title={t("nav.messages")} aria-label={t("nav.messages")} className={iconBtn}>
+                <MessageSquare className="w-5 h-5" />
               </Link>
             </li>
           )}
 
-          {/* Notifications bell (both states; if not logged, sends to /auth) */}
-          <li className="relative">
+          {/* Notifications bell */}
+          <li>
             <Link
               href={user ? "/notifications" : "/auth"}
-              className="p-2 hover:opacity-80"
               title={t("nav.notifications", "Notificaciones")}
               aria-label={t("nav.notifications", "Notificaciones")}
+              className={iconBtn}
             >
               <span className="relative inline-block">
                 <Bell className="w-5 h-5" />
@@ -205,7 +165,7 @@ export default function Navbar() {
             </li>
           )}
 
-          {/* Language toggle (desktop) */}
+          {/* Language toggle */}
           <li className="ml-2 flex items-center gap-2 text-sm">
             <button
               onClick={() => switchLang("es")}
@@ -234,15 +194,15 @@ export default function Navbar() {
           </li>
         </ul>
 
-        {/* Mobile right: icons (Notifications + Profile). Language lives in the drawer. */}
+        {/* Mobile right: notif + profile icons (aligned) */}
         <div className="md:hidden flex items-center gap-1">
           <Link
             href={user ? "/notifications" : "/auth"}
             aria-label={t("nav.notifications", "Notificaciones")}
-            className="p-2"
+            className={iconBtn}
           >
-            <span className="relative inline-block">
-              <Bell className="w-6 h-6" />
+            <span className="relative inline-flex items-center justify-center">
+              <Bell className="w-5 h-5" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
               )}
@@ -251,14 +211,13 @@ export default function Navbar() {
           <Link
             href={user ? "/profile" : "/auth"}
             aria-label={user ? t("nav.accountShort") : t("nav.join")}
-            className="p-2"
+            className={iconBtn}
           >
-            <User className="w-6 h-6" />
+            <User className="w-5 h-5" />
           </Link>
         </div>
       </nav>
 
-      {/* ===== Mobile slide-over menu (SOLID SHEET) ===== */}
       {/* Overlay */}
       <button
         onClick={closeMenu}
@@ -268,16 +227,15 @@ export default function Navbar() {
         }`}
       />
 
-      {/* Panel */}
+      {/* Drawer */}
       <div
         role="dialog"
         aria-modal="true"
         onKeyDown={(e) => e.key === "Escape" && closeMenu()}
         tabIndex={-1}
-        className={`md:hidden fixed right-0 top-0 z-50 h-dvh w-[78%] max-w-[340px]
-                    bg-white text-gcText border-l shadow-2xl
-                    transition-transform duration-300
-                    ${mobileOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={`md:hidden fixed right-0 top-0 z-50 h-dvh w-[78%] max-w-[340px] bg-white text-gcText border-l shadow-2xl transition-transform duration-300 ${
+          mobileOpen ? "translate-x-0" : "translate-x-full"
+        }`}
       >
         <div className="flex items-center justify-between p-4 border-b">
           <Link href="/" onClick={closeMenu} className="flex items-center gap-2" aria-label="Inicio">
@@ -296,11 +254,7 @@ export default function Navbar() {
               </Link>
             </li>
             <li>
-              <Link
-                href="/find-your-city"
-                onClick={closeMenu}
-                className="block rounded-xl px-4 py-3 hover:bg-black/5"
-              >
+              <Link href="/find-your-city" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
                 {t("nav.cities")}
               </Link>
             </li>
@@ -313,20 +267,12 @@ export default function Navbar() {
             {user && (
               <>
                 <li>
-                  <Link
-                    href="/profile#groups"
-                    onClick={closeMenu}
-                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
-                  >
+                  <Link href="/my-groups" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
                     {t("nav.myGroups", "Mis grupos")}
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    href="/dm"
-                    onClick={closeMenu}
-                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
-                  >
+                  <Link href="/dm" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
                     {t("nav.messages")}
                   </Link>
                 </li>
@@ -335,18 +281,14 @@ export default function Navbar() {
 
             {isAdmin && (
               <li>
-                <Link
-                  href="/admin/groups"
-                  onClick={closeMenu}
-                  className="block rounded-xl px-4 py-3 hover:bg-black/5"
-                >
+                <Link href="/admin/groups" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
                   {t("nav.admin")}
                 </Link>
               </li>
             )}
           </ul>
 
-          {/* Language inside drawer (secondary) */}
+          {/* Language inside drawer */}
           <div className="mt-4 border-t pt-4">
             <div className="text-xs opacity-60 mb-2">Idioma</div>
             <div className="flex gap-2">
@@ -367,7 +309,6 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* CTA */}
           <div className="mt-6">
             <Link
               href={user ? "/profile" : "/auth"}
@@ -384,3 +325,4 @@ export default function Navbar() {
     </header>
   );
 }
+

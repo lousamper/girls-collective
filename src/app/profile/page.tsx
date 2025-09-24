@@ -371,7 +371,8 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end">
+          {/* Buttons: left on mobile, right on desktop */}
+          <div className="flex gap-3 justify-start md:justify-end">
             <button
               type="submit"
               disabled={!canSave || saving}
@@ -385,40 +386,7 @@ export default function ProfilePage() {
           {err && <p className="text-sm text-red-600">{err}</p>}
         </form>
 
-        {/* Change password */}
-        <section className="bg-white rounded-2xl p-6 shadow-md mt-6">
-          <h2 className="font-dmserif text-2xl mb-4">Cambiar contraseña</h2>
-          <form onSubmit={handleChangePassword} className="grid gap-3 max-w-md">
-            <input
-              type="password"
-              className="w-full rounded-xl border p-3"
-              placeholder="Nueva contraseña"
-              value={pwd1}
-              onChange={(e) => setPwd1(e.target.value)}
-              required
-            />
-            <input
-              type="password"
-              className="w-full rounded-xl border p-3"
-              placeholder="Confirmar nueva contraseña"
-              value={pwd2}
-              onChange={(e) => setPwd2(e.target.value)}
-              required
-            />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
-              >
-                Actualizar
-              </button>
-            </div>
-          </form>
-          {pwdMsg && <p className="text-sm text-green-700 mt-2">{pwdMsg}</p>}
-          {pwdErr && <p className="text-sm text-red-600 mt-2">{pwdErr}</p>}
-        </section>
-
-        {/* My groups */}
+        {/* ======= Mis grupos (moved up, under bio) ======= */}
         <section className="bg-white rounded-2xl p-6 shadow-md mt-6">
           <h2 className="font-dmserif text-2xl mb-4">Mis grupos</h2>
 
@@ -450,10 +418,44 @@ export default function ProfilePage() {
           </ul>
         </section>
 
+        {/* ======= Cambiar contraseña (centered on desktop) ======= */}
+        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto">
+          <h2 className="font-dmserif text-2xl mb-4">Cambiar contraseña</h2>
+          <form onSubmit={handleChangePassword} className="grid gap-3 max-w-md">
+            <input
+              type="password"
+              className="w-full rounded-xl border p-3"
+              placeholder="Nueva contraseña"
+              value={pwd1}
+              onChange={(e) => setPwd1(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              className="w-full rounded-xl border p-3"
+              placeholder="Confirmar nueva contraseña"
+              value={pwd2}
+              onChange={(e) => setPwd2(e.target.value)}
+              required
+            />
+            {/* Buttons: left on mobile, right on desktop */}
+            <div className="flex justify-start md:justify-end">
+              <button
+                type="submit"
+                className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
+              >
+                Actualizar
+              </button>
+            </div>
+          </form>
+          {pwdMsg && <p className="text-sm text-green-700 mt-2">{pwdMsg}</p>}
+          {pwdErr && <p className="text-sm text-red-600 mt-2">{pwdErr}</p>}
+        </section>
+
         {/* Zona de seguridad */}
-        <section className="bg-white rounded-2xl p-6 shadow-md mt-6">
+        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto">
           <h2 className="font-dmserif text-2xl mb-3">Zona de seguridad</h2>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 justify-start md:justify-end">
             <button
               onClick={handleSignOut}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 shadow-md hover:opacity-90"
@@ -466,7 +468,7 @@ export default function ProfilePage() {
               onClick={requestDeleteAccount}
               className="rounded-full bg-red-600 text-white font-montserrat px-6 py-2 shadow-md hover:opacity-90"
             >
-              Solicitar eliminación de cuenta
+              Eliminar cuenta
             </button>
           </div>
         </section>
@@ -474,7 +476,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-
-
-
-
