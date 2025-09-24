@@ -1,18 +1,42 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 
 export default function Footer() {
+  function reopenCookiePrefs() {
+    try {
+      // Limpia consentimiento guardado y recarga para mostrar el banner de nuevo
+      localStorage.removeItem("gc-cookie-consent");
+      document.cookie = "gc-cookie-consent=; Max-Age=0; path=/";
+      location.reload();
+    } catch {
+      location.reload();
+    }
+  }
+
   return (
     <footer className="mt-16 border-t border-white/20 bg-gcBackground/60">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-4 text-sm">
         {/* Row 1: Privacy + Icons */}
         <div className="flex items-center justify-between">
-          <Link
-            href="/privacy-policy"
-            className="underline underline-offset-4 hover:opacity-80"
-          >
-            Política de Privacidad
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/privacy-policy"
+              className="underline underline-offset-4 hover:opacity-80"
+            >
+              Política de Privacidad
+            </Link>
+
+            <button
+              type="button"
+              onClick={reopenCookiePrefs}
+              className="underline underline-offset-4 hover:opacity-80"
+              aria-label="Abrir preferencias de cookies"
+            >
+              Preferencias de cookies
+            </button>
+          </div>
 
           <div className="flex gap-4">
             <Link
@@ -50,6 +74,7 @@ export default function Footer() {
         <div className="text-center opacity-80">
           © 2025 GirlsCollective. All rights reserved.
         </div>
+
         {/* Row 3: Marca */}
         <div className="text-center opacity-80">
           <span className="tracking-wide">Girls Collective™</span>
@@ -58,6 +83,5 @@ export default function Footer() {
     </footer>
   );
 }
-
 
 

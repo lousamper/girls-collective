@@ -26,14 +26,14 @@ type GroupRow = {
 type PromoCard = { img: string; url: string };
 
 const CATEGORY_COPY: Record<string, { title: string }> = {
-  arte: { title: "Explora tu lado más creativo" },
+  arte: { title: "Ispírate y explora tu lado más creativo" },
   foodies: { title: "Saborea la ciudad" },
   wellness: { title: "Conecta con tu bienestar" },
   "deporte-y-movimiento": { title: "Muévete a tu ritmo" },
-  gaming: { title: "Juega y conéctate" },
-  nightlife: { title: "Planes & bailes" },
-  viajes: { title: "Organiza nuevas aventuras" },
-  emprendedoras: { title: "Profesionales & Emprendedoras" },
+  gaming: { title: "Encuentra compañeras de gaming" },
+  nightlife: { title: "EL plan del plan del plan" },
+  viajes: { title: "A por nuevas aventuras" },
+  emprendedoras: { title: "Inspírate con nuevas ideas o simplemente desconecta en grupo" },
   naturaleza: { title: "Vive tu lado más outdoor" },
 };
 
