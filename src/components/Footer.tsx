@@ -6,7 +6,6 @@ import Image from "next/image";
 export default function Footer() {
   function reopenCookiePrefs() {
     try {
-      // Limpia consentimiento guardado y recarga para mostrar el banner de nuevo
       localStorage.removeItem("gc-cookie-consent");
       document.cookie = "gc-cookie-consent=; Max-Age=0; path=/";
       location.reload();
@@ -18,13 +17,13 @@ export default function Footer() {
   return (
     <footer className="mt-16 border-t border-white/20 bg-gcBackground/60">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-4 text-sm">
-        {/* Row 1: Privacy + Icons (mobile-friendly) */}
-        <div className="flex flex-wrap items-center justify-between gap-y-2">
-          {/* Left: links keep together and don’t wrap mid-word */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {/* Row 1: Links (left) + Socials (right) */}
+        <div className="flex items-start justify-between md:items-center">
+          {/* Left: stack on mobile, row on desktop */}
+          <div className="flex-1 min-w-0 flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
             <Link
               href="/privacy-policy"
-              className="whitespace-nowrap text-[13px] md:text-sm underline underline-offset-4 hover:opacity-80"
+              className="underline underline-offset-4 hover:opacity-80"
             >
               Política de Privacidad
             </Link>
@@ -32,7 +31,7 @@ export default function Footer() {
             <button
               type="button"
               onClick={reopenCookiePrefs}
-              className="whitespace-nowrap text-[13px] md:text-sm underline underline-offset-4 hover:opacity-80"
+              className="underline underline-offset-4 hover:opacity-80 text-left md:text-inherit"
               aria-label="Abrir preferencias de cookies"
             >
               Preferencias de cookies
@@ -40,7 +39,7 @@ export default function Footer() {
           </div>
 
           {/* Right: social icons */}
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-shrink-0">
             <Link
               href="https://www.instagram.com/girlscollective_yourcity"
               target="_blank"
@@ -75,6 +74,7 @@ export default function Footer() {
     </footer>
   );
 }
+
 
 
 
