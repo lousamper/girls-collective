@@ -61,7 +61,7 @@ export default function CookieConsent() {
                 onClick={onlyEssential}
                 className="rounded-full border px-4 py-2 text-sm hover:opacity-90"
               >
-                Solo esenciales
+                Rechazar
               </button>
               <button
                 type="button"
