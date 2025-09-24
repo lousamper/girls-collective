@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -54,6 +55,7 @@ export default function AuthForm() {
           onChange={(e) => setEmail(e.target.value)}
           required
         />
+
         <input
           type="password"
           placeholder="Contraseña"
@@ -62,10 +64,27 @@ export default function AuthForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
+
+        {/* 👇 Extra row under the password field */}
+        {mode === "login" ? (
+          <div className="text-left">
+            <Link
+              href="/auth/forgot"
+              className="text-sm text-purple-700 underline hover:opacity-80"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-600">
+            La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números.
+          </p>
+        )}
+
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-full bg-[#50415b] text-[#fef8f4] px-6 py-2 text-lg font-dmserif shadow-md hover:opacity-90"
+          className="w-full rounded-full bg-[#50415b] text-[#fef8f4] px-6 py-2 text-lg font-dmserif shadow-md hover:opacity-90 disabled:opacity-60"
         >
           {loading ? "Cargando…" : mode === "login" ? "Entrar" : "Registrarse"}
         </button>
@@ -86,4 +105,5 @@ export default function AuthForm() {
     </div>
   );
 }
+
 

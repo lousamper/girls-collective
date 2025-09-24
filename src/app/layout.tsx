@@ -10,6 +10,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from "next/script";
 import CookieConsent from "../components/CookieConsent";
+import { cookies } from "next/headers";
 
 const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-montserrat" });
 const dmSerif = DM_Serif_Display({ subsets: ["latin"], weight: "400", variable: "--font-dmserif" });
@@ -37,8 +38,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+
+  // ⬇️ await cookies() (async in your Next version)
+  const cookieStore = await cookies();
+  const consent = cookieStore.get("gc-cookie-consent")?.value;
+  const allowAnalytics = consent === "accepted";
 
   return (
     <html lang="es" className={`${montserrat.variable} ${dmSerif.variable}`}>
@@ -57,8 +63,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           `}
         </Script>
 
-        {/* Load gtag only if GA_ID exists */}
-        {GA_ID && (
+        {/* Load GA only if user accepted */}
+        {allowAnalytics && GA_ID && (
           <>
             <Script
               id="ga-loader"
