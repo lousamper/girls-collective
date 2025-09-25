@@ -25,6 +25,20 @@ export const DICT = {
         submitting: "Enviando…",
         orWriteUs: "O escríbenos a",
       },
+      // NEW
+      misc: {
+        loading: "Cargando…",
+        groupNotFound: "Grupo no encontrado",
+        backToCategory: "Volver a la categoría",
+      },
+      // NEW – for date separator helper (Hoy/Ayer/…)
+      dates: {
+        today: "Hoy",
+        yesterday: "Ayer",
+        lastWeek: "La semana pasada",
+        thisMonth: "Este mes",
+        lastMonth: "Mes pasado",
+      },
     },
     home: {
       // keep simple keys (already used)
@@ -106,13 +120,15 @@ export const DICT = {
       },
     },
 
-    // NEW: group page translations
+    // UPDATED: group page translations
     group: {
       follow: {
         follow: "Seguir grupo",
         following: "Siguiendo",
-        leaving: "Saliendo…",
         joining: "Uniéndote…",
+        leaving: "Saliendo…",
+        followTitle: "Seguir este grupo",
+        unfollowTitle: "Dejar de seguir",
       },
       filters: {
         zone: "Zona",
@@ -122,6 +138,17 @@ export const DICT = {
         createSubgroup: "Crear subgrupo",
       },
       pinned: "Fijados",
+
+      // date separator + unread
+      dateLabels: {
+        today: "Hoy",
+        yesterday: "Ayer",
+        lastWeek: "La semana pasada",
+        thisMonth: "Este mes",
+        lastMonth: "Mes pasado",
+        unread: "No leído",
+      },
+
       composer: {
         placeholder: "Escribe tu mensaje… (usa @nombre para mencionar)",
         createPoll: "Crear encuesta",
@@ -129,11 +156,14 @@ export const DICT = {
         viewAllEvents: "Ver todos los eventos",
         send: "Enviar",
         sending: "Enviando…",
-        mustFollow: "Únete al grupo para poder publicar.",
+        // sticky message above textarea (the lilac one)
+        mustFollow: "Únete al grupo para ver y publicar todos los mensajes.",
         followNow: "Seguir grupo",
         replyingTo: "Respondiendo a",
         cancel: "Cancelar",
+        seeNewArrow: "Ver mensajes nuevos ↓",
       },
+
       msg: {
         like: "Me gusta",
         reply: "Responder",
@@ -142,16 +172,18 @@ export const DICT = {
         delete: "Eliminar",
         pin: "Fijar",
         unpin: "Desfijar",
-        new: "Ver mensajes nuevos",
         first: "Sé la primera en escribir ✨",
-        adminConfirmDelete: "¿Eliminar este mensaje?",
       },
+
       polls: {
         title: "Encuestas",
         none: "No hay encuestas todavía.",
         closed: "CERRADA",
         multi: "Múltiple",
         vote: "Votar",
+        // placeholders: replace("{n}", String(n))
+        optionVotes_singular: "{n} voto",
+        optionVotes_plural: "{n} votos",
         totalVotes_singular: "{n} voto total",
         totalVotes_plural: "{n} votos totales",
         needTwoOptions: "Añade una pregunta y al menos 2 opciones.",
@@ -162,6 +194,7 @@ export const DICT = {
         remove: "Quitar",
         allowMulti: "Permitir seleccionar varias opciones",
       },
+
       events: {
         create: "Crear evento",
         title: "Título",
@@ -169,11 +202,13 @@ export const DICT = {
         location: "Ubicación",
         when: "Fecha y hora",
         needTitleDate: "Añade título y fecha.",
-        createdPending: "Eventos creados por la comunidad. (Aparecerán cuando sean aprobados.)",
+        createdPending: "Eventos creados por la comunidad.",
       },
+
       subgroups: {
         modalTitle: "Crear subgrupo",
-        modalHelp: "Crea una zona (p. ej. “Valencia Centro”) o una franja de edad (p. ej. “25–34”).",
+        modalHelp:
+          "Crea una zona (p. ej. “Valencia Centro”) o una franja de edad (p. ej. “25–34”).",
         type: "Tipo",
         name: "Nombre",
         typeLocation: "Zona",
@@ -182,6 +217,7 @@ export const DICT = {
         nameHintAge: "Ej: 25–34",
         create: "Crear",
       },
+
       profileCard: {
         title: "Perfil",
         dm: "Enviar mensaje",
@@ -212,6 +248,20 @@ export const DICT = {
         submit: "Send",
         submitting: "Sending…",
         orWriteUs: "Or write us at",
+      },
+      // NEW
+      misc: {
+        loading: "Loading…",
+        groupNotFound: "Group not found",
+        backToCategory: "Back to category",
+      },
+      // NEW – for date separator helper (Today/Yesterday/…)
+      dates: {
+        today: "Today",
+        yesterday: "Yesterday",
+        lastWeek: "Last week",
+        thisMonth: "This month",
+        lastMonth: "Last month",
       },
     },
     home: {
@@ -291,13 +341,15 @@ export const DICT = {
       },
     },
 
-    // NEW: group page translations
+    // UPDATED: group page translations
     group: {
       follow: {
         follow: "Follow group",
         following: "Following",
-        leaving: "Leaving…",
         joining: "Joining…",
+        leaving: "Leaving…",
+        followTitle: "Follow this group",
+        unfollowTitle: "Unfollow",
       },
       filters: {
         zone: "Area",
@@ -307,6 +359,16 @@ export const DICT = {
         createSubgroup: "Create subgroup",
       },
       pinned: "Pinned",
+
+      dateLabels: {
+        today: "Today",
+        yesterday: "Yesterday",
+        lastWeek: "Last week",
+        thisMonth: "This month",
+        lastMonth: "Last month",
+        unread: "Unread",
+      },
+
       composer: {
         placeholder: "Write your message… (use @name to mention)",
         createPoll: "Create poll",
@@ -314,11 +376,13 @@ export const DICT = {
         viewAllEvents: "View all events",
         send: "Send",
         sending: "Sending…",
-        mustFollow: "Join the group to post.",
+        mustFollow: "Join the group to view and post all messages.",
         followNow: "Follow group",
         replyingTo: "Replying to",
         cancel: "Cancel",
+        seeNewArrow: "See new messages ↓",
       },
+
       msg: {
         like: "Like",
         reply: "Reply",
@@ -327,16 +391,17 @@ export const DICT = {
         delete: "Delete",
         pin: "Pin",
         unpin: "Unpin",
-        new: "See new messages",
         first: "Be the first to write ✨",
-        adminConfirmDelete: "Delete this message?",
       },
+
       polls: {
         title: "Polls",
         none: "No polls yet.",
         closed: "CLOSED",
         multi: "Multiple",
         vote: "Vote",
+        optionVotes_singular: "{n} vote",
+        optionVotes_plural: "{n} votes",
         totalVotes_singular: "{n} total vote",
         totalVotes_plural: "{n} total votes",
         needTwoOptions: "Add a question and at least 2 options.",
@@ -347,6 +412,7 @@ export const DICT = {
         remove: "Remove",
         allowMulti: "Allow selecting multiple options",
       },
+
       events: {
         create: "Create event",
         title: "Title",
@@ -354,11 +420,13 @@ export const DICT = {
         location: "Location",
         when: "Date & time",
         needTitleDate: "Add a title and date.",
-        createdPending: "Community-created events. (They’ll appear once approved.)",
+        createdPending: "Community-created events.",
       },
+
       subgroups: {
-        modalTitle: "Create a filter",
-        modalHelp: "Create an area filter (e.g., “City Center”) or an age range filter (e.g., “25–34”).",
+        modalTitle: "Create subgroup",
+        modalHelp:
+          "Create an area filter (e.g., “City Center”) or an age range filter (e.g., “25–34”).",
         type: "Type",
         name: "Name",
         typeLocation: "Area",
@@ -367,6 +435,7 @@ export const DICT = {
         nameHintAge: "e.g., 25–34",
         create: "Create",
       },
+
       profileCard: {
         title: "Profile",
         dm: "Send message",

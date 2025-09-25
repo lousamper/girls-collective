@@ -61,6 +61,17 @@ type ProfilePreview = {
   gallery?: string[]; // URLs
 };
 
+/** ✅ Typed DB row for profiles to avoid `any` */
+type ProfileRowDB = {
+  id: string;
+  username: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  city_id: string | null;
+  favorite_emoji: string | null;
+  quote: string | null;
+};
+
 export default function GroupPage({
   params,
 }: {
@@ -367,7 +378,7 @@ export default function GroupPage({
       .from("profiles")
       .select("id,username,bio,avatar_url,city_id,favorite_emoji,quote")
       .ilike("username", username)
-      .maybeSingle();
+      .maybeSingle<ProfileRowDB>(); // ✅ typed result
 
     const preview: ProfilePreview | undefined = prof
       ? {
@@ -376,8 +387,8 @@ export default function GroupPage({
           bio: prof.bio,
           avatar_url: prof.avatar_url,
           city_id: prof.city_id,
-          favorite_emoji: (prof as any).favorite_emoji ?? null,
-          quote: (prof as any).quote ?? null,
+          favorite_emoji: prof.favorite_emoji ?? null, // ✅ no any
+          quote: prof.quote ?? null,                   // ✅ no any
         }
       : undefined;
 
