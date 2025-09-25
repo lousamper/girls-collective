@@ -1311,7 +1311,7 @@ export default function GroupPage({
           <DialogHeader>
             <DialogTitle className="text-2xl font-dmserif text-gcText">Crear evento</DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Eventos creados por la comunidad. (Aparecerán cuando sean aprobados.)
+              Eventos creados por la comunidad.
             </DialogDescription>
           </DialogHeader>
 
