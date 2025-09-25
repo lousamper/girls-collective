@@ -26,14 +26,14 @@ type GroupRow = {
 type PromoCard = { img: string; url: string };
 
 const CATEGORY_COPY: Record<string, { title: string }> = {
-  arte: { title: "Ispírate y explora tu lado más creativo" },
+  arte: { title: "Inspírate y explora tu lado más creativo" },
   foodies: { title: "Saborea la ciudad" },
   wellness: { title: "Conecta con tu bienestar" },
   "deporte-y-movimiento": { title: "Muévete a tu ritmo" },
   gaming: { title: "Encuentra compañeras de gaming" },
   nightlife: { title: "EL plan del plan del plan" },
   viajes: { title: "A por nuevas aventuras" },
-  emprendedoras: { title: "Inspírate con nuevas ideas o simplemente desconecta en grupo" },
+  emprendedoras: { title: "Desconecta e inspírate con nuevas ideas" },
   naturaleza: { title: "Vive tu lado más outdoor" },
 };
 
@@ -42,7 +42,7 @@ const DEMO_EVENTS: Record<string, PromoCard[]> = {
 };
 
 const DEMO_PLACES: Record<string, PromoCard[]> = {
-  arte: [{ img: "/places/arte/place-1.jpg", url: "https://example.com/place-1" }],
+  arte: [{ img: "/places/arte/place-1.jpg", url: "https://www.elmolilab.com/" }],
 };
 
 function slugify(input: string) {
