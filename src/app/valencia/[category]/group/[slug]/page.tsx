@@ -56,6 +56,9 @@ type ProfilePreview = {
   avatar_url: string | null;
   city_id: string | null;
   interests?: string[];
+  favorite_emoji?: string | null;
+  quote?: string | null;
+  gallery?: string[]; // URLs
 };
 
 export default function GroupPage({
@@ -122,6 +125,10 @@ export default function GroupPage({
   const [atBottom, setAtBottom] = useState(true);
   const [showNewToast, setShowNewToast] = useState(false);
 
+  // UNREAD marker
+  const [lastReadAt, setLastReadAt] = useState<string | null>(null);
+  const [unreadFirstId, setUnreadFirstId] = useState<string | null>(null);
+
   function isNearBottom(el: HTMLElement) {
     return el.scrollHeight - el.scrollTop - el.clientHeight < 30;
   }
@@ -180,6 +187,7 @@ export default function GroupPage({
           .maybeSingle();
         setFollowing(!!mem);
 
+        // subgroups
         const { data: sgs } = await supabase
           .from("subgroups")
           .select("id, name, type")
@@ -189,6 +197,19 @@ export default function GroupPage({
         const ags = (sgs ?? []).filter((s) => s.type === "age") as SubgroupRow[];
         setLocations(locs);
         setAges(ags);
+
+        // unread last_read_at (usar user_id)
+        try {
+          const { data: readRow } = await supabase
+            .from("group_reads")
+            .select("last_read_at")
+            .eq("group_id", g.id)
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (readRow?.last_read_at) setLastReadAt(readRow.last_read_at);
+        } catch {
+          // si no existe la tabla, seguimos sin romper
+        }
 
         await Promise.all([loadMessages(g.id, "all", "all"), loadPolls(g.id)]);
       } catch (err: unknown) {
@@ -250,7 +271,8 @@ export default function GroupPage({
       );
     }
 
-    setMessages((rows ?? []).map((m) => ({ ...m, sender_profile: profiles[m.sender_id] ?? null })));
+    const full = (rows ?? []).map((m) => ({ ...m, sender_profile: profiles[m.sender_id] ?? null }));
+    setMessages(full);
 
     // likes
     if (rows?.length) {
@@ -268,6 +290,14 @@ export default function GroupPage({
       setLikes(map);
     } else {
       setLikes({});
+    }
+
+    // compute unread marker (first message strictly newer than lastReadAt)
+    if (lastReadAt) {
+      const firstNew = full.find((m) => new Date(m.created_at) > new Date(lastReadAt));
+      setUnreadFirstId(firstNew?.id ?? null);
+    } else {
+      setUnreadFirstId(null);
     }
 
     // new messages toast logic
@@ -313,6 +343,20 @@ export default function GroupPage({
     return { label: "", title: d.toLocaleString() };
   }
 
+  // day helpers for separators
+  function yyyyMmDd(iso: string) {
+    const d = new Date(iso);
+    return d.toISOString().slice(0, 10);
+  }
+  function formatDay(iso: string) {
+    return new Date(iso).toLocaleDateString("es-ES", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
   // clickable @mentions → profile sheet
   const [openProfile, setOpenProfile] =
     useState<null | { username: string; data?: ProfilePreview }>(null);
@@ -321,15 +365,23 @@ export default function GroupPage({
     setOpenProfile({ username });
     const { data: prof } = await supabase
       .from("profiles")
-      .select("id,username,bio,avatar_url,city_id")
+      .select("id,username,bio,avatar_url,city_id,favorite_emoji,quote")
       .ilike("username", username)
       .maybeSingle();
 
     const preview: ProfilePreview | undefined = prof
-      ? { id: prof.id, username: prof.username, bio: prof.bio, avatar_url: prof.avatar_url, city_id: prof.city_id }
+      ? {
+          id: prof.id,
+          username: prof.username,
+          bio: prof.bio,
+          avatar_url: prof.avatar_url,
+          city_id: prof.city_id,
+          favorite_emoji: (prof as any).favorite_emoji ?? null,
+          quote: (prof as any).quote ?? null,
+        }
       : undefined;
 
-    // fetch interests for profile card
+    // fetch interests
     const interests: string[] = [];
     if (prof?.id) {
       const { data: pcats } = await supabase
@@ -350,6 +402,39 @@ export default function GroupPage({
         .eq("profile_id", prof.id)
         .maybeSingle();
       if (custom?.interest) interests.push(custom.interest);
+
+      // GALLERY: probar dos tablas posibles
+      let gallery: string[] = [];
+      try {
+        const { data: gal1 } = await supabase
+          .from("profile_gallery")
+          .select("url, position, created_at")
+          .eq("profile_id", prof.id)
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: false });
+        gallery = (gal1 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
+      } catch {
+        // ignore
+      }
+      if (!gallery.length) {
+        try {
+          const { data: gal2 } = await supabase
+            .from("profile_photos")
+            .select("url, position, created_at")
+            .eq("profile_id", prof.id)
+            .order("position", { ascending: true })
+            .order("created_at", { ascending: false });
+          gallery = (gal2 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
+        } catch {
+          // ignore
+        }
+      }
+
+      setOpenProfile({
+        username,
+        data: { ...(preview as ProfilePreview), interests, gallery },
+      });
+      return;
     }
 
     setOpenProfile(preview ? { username, data: { ...preview, interests } } : { username });
@@ -400,6 +485,7 @@ export default function GroupPage({
       setReplyTo(null);
       await loadMessages(group.id, selLoc, selAge);
       requestAnimationFrame(scrollToBottom);
+      void markGroupRead();
     } catch (err: unknown) {
       console.error(err);
     } finally {
@@ -698,6 +784,28 @@ export default function GroupPage({
     }
   }
 
+  // marcar leído cuando estamos al fondo
+  useEffect(() => {
+    if (atBottom) void markGroupRead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [atBottom]);
+
+  async function markGroupRead() {
+    if (!user || !group) return;
+    const now = new Date().toISOString();
+    try {
+      await supabase
+        .from("group_reads")
+        .upsert(
+          { group_id: group.id, user_id: user.id, last_read_at: now },
+          { onConflict: "group_id,user_id" }
+        );
+      setLastReadAt(now);
+    } catch {
+      // silencioso
+    }
+  }
+
   if (loading || !user || loadingData) {
     return <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">Cargando…</main>;
   }
@@ -717,6 +825,9 @@ export default function GroupPage({
   const topLevel = messages.filter((m) => !m.parent_message_id);
   const pinned = messages.filter((m) => m.is_pinned);
 
+  // helper to show date separators
+  let prevDay = "";
+
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-6xl mx-auto px-6 py-10">
@@ -725,6 +836,11 @@ export default function GroupPage({
           <div>
             <h1 className="font-dmserif text-3xl md:text-4xl">{group.name}</h1>
             {group.description && <p className="mt-2 max-w-3xl">{group.description}</p>}
+            <div className="mt-2">
+              <Link href={`/${"valencia"}/${category}`} className="underline text-sm">
+                ← Volver a la categoría
+              </Link>
+            </div>
           </div>
           <button
             onClick={toggleFollow}
@@ -738,33 +854,48 @@ export default function GroupPage({
           </button>
         </header>
 
-        {/* Filters */}
-        <div className="mb-6 space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm opacity-70">Zona:</span>
-            <Pill selected={selLoc === "all"} onClick={() => changeLoc("all")}>Todos</Pill>
-            {locations.map((l) => (
-              <Pill key={l.id} selected={selLoc === l.id} onClick={() => changeLoc(l.id)}>{l.name}</Pill>
-            ))}
-            {/* Desktop: Crear subgrupo stays here */}
-            <button className="underline ml-2 hidden md:inline" onClick={() => setOpenSG(true)}>Crear subgrupo</button>
+        {/* Filters → 3 columnas iguales en desktop */}
+        <div className="mb-6 grid gap-3 md:grid-cols-3">
+          <div>
+            <label className="block text-sm mb-1 opacity-70">Zona</label>
+            <select
+              className="w-full rounded-xl border p-3 bg-white"
+              value={selLoc}
+              onChange={(e) => changeLoc(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm opacity-70">Edad:</span>
-            <Pill selected={selAge === "all"} onClick={() => changeAge("all")}>Todas</Pill>
-            {ages.map((a) => (
-              <Pill key={a.id} selected={selAge === a.id} onClick={() => changeAge(a.id)}>{a.name}</Pill>
-            ))}
-            {/* Mobile: Crear subgrupo moves under “Edad” */}
-            <div className="w-full md:hidden mt-2">
-              <button className="underline" onClick={() => setOpenSG(true)}>Crear subgrupo</button>
-            </div>
+          <div>
+            <label className="block text-sm mb-1 opacity-70">Edad</label>
+            <select
+              className="w-full rounded-xl border p-3 bg-white"
+              value={selAge}
+              onChange={(e) => changeAge(e.target.value)}
+            >
+              <option value="all">Todas</option>
+              {ages.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+              <button
+    className="w-full p-0 text-sm underline text-left bg-transparent"
+    onClick={() => setOpenSG(true)}
+  >
+              Crear subgrupo
+            </button>
           </div>
         </div>
 
         {/* Messages (bubbles) */}
         <section className="bg-white rounded-2xl p-4 shadow-md">
+          {/* (REMOVED) Sticky solo-miembros banner de arriba */}
+
           {/* Pinned scroller */}
           {pinned.length > 0 && (
             <div className="mb-3">
@@ -791,6 +922,11 @@ export default function GroupPage({
 
           <ul ref={listRef} className="space-y-6 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
             {topLevel.map((m) => {
+              // DATE SEPARATOR
+              const curDay = yyyyMmDd(m.created_at);
+              const showDateSep = curDay !== prevDay;
+              if (showDateSep) prevDay = curDay;
+
               const mine = m.sender_id === user!.id;
               const t = timeAgo(m.created_at);
               const pollId = matchPollId(m.content);
@@ -800,6 +936,26 @@ export default function GroupPage({
 
               return (
                 <li id={`msg-${m.id}`} key={m.id}>
+                  {/* DATE SEPARATOR */}
+                  {showDateSep && (
+                    <div className="my-3 flex items-center gap-3">
+                      <div className="flex-1 h-px bg-black/10" />
+                      <div className="text-xs uppercase tracking-wide opacity-70">
+                        {formatDay(m.created_at)}
+                      </div>
+                      <div className="flex-1 h-px bg-black/10" />
+                    </div>
+                  )}
+
+                  {/* UNREAD DIVIDER */}
+                  {unreadFirstId && unreadFirstId === m.id && (
+                    <div className="my-2 flex items-center gap-3">
+                      <div className="flex-1 h-px bg-[#50415b]" />
+                      <div className="text-xs px-2 py-0.5 rounded-full border">No leído</div>
+                      <div className="flex-1 h-px bg-[#50415b]" />
+                    </div>
+                  )}
+
                   {/* Meta line with clickable author */}
                   <div className={`flex ${mine ? "justify-end" : "justify-start"} mb-1`}>
                     <div className="text-xs opacity-70" title={t.title}>
@@ -824,7 +980,6 @@ export default function GroupPage({
                         mine ? "bg-gcBackgroundAlt2" : "bg-gcBackgroundAlt/30"
                       }`}
                     >
-                      {/* Inline poll OR normal text */}
                       {pollForMsg ? (
                         <InlinePoll poll={pollForMsg} onVote={(optId) => vote(pollForMsg, optId)} />
                       ) : (
@@ -833,7 +988,7 @@ export default function GroupPage({
                     </div>
                   </div>
 
-                  {/* Actions row — Likes → Responder → Editar → DM → (Delete own / Admin) */}
+                  {/* Actions */}
                   {!pollForMsg && (
                     <div
                       className={`mt-1 flex items-center gap-4 text-sm opacity-90 ${
@@ -1046,10 +1201,9 @@ export default function GroupPage({
 
           {/* Composer */}
           <form onSubmit={sendMessage} className="mt-2 flex flex-col gap-3">
-            {/* HINT when not following */}
             {!following && (
-              <div className="text-sm opacity-80">
-                Únete al grupo para poder publicar.{" "}
+              <div className="rounded-xl bg-[#EBDCF5]/70 backdrop-blur p-2 text-sm text-center">
+                Únete al grupo para ver y publicar todos los mensajes.{" "}
                 <button type="button" onClick={toggleFollow} className="underline">
                   Seguir grupo
                 </button>
@@ -1089,7 +1243,6 @@ export default function GroupPage({
                   <PlusCircle className="w-4 h-4" />
                   Crear evento
                 </button>
-                {/* Desktop keeps link inside the bubble */}
                 <Link
                   href={`/${"valencia"}/${category}/group/${slug}/events`}
                   className="underline"
@@ -1116,7 +1269,6 @@ export default function GroupPage({
                   <PlusCircle className="w-4 h-4" />
                   Crear evento
                 </button>
-                {/* Hide “ver todos…” inside bubble on mobile (shown outside below) */}
               </div>
 
               <button
@@ -1317,16 +1469,6 @@ export default function GroupPage({
 
           <form onSubmit={createEvent} className="space-y-3">
             <div>
-              <label className="block text-sm mb-1">Título *</label>
-              <input
-                className="w-full rounded-xl border p-3"
-                value={evTitle}
-                onChange={(e) => setEvTitle(e.target.value)}
-                placeholder="Picnic en el Turia"
-                required
-              />
-            </div>
-            <div>
               <label className="block text.sm mb-1">Descripción</label>
               <textarea
                 className="w-full rounded-xl border p-3"
@@ -1334,6 +1476,16 @@ export default function GroupPage({
                 value={evDesc}
                 onChange={(e) => setEvDesc(e.target.value)}
                 placeholder="Trae algo para compartir 💜"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Título *</label>
+              <input
+                className="w-full rounded-xl border p-3"
+                value={evTitle}
+                onChange={(e) => setEvTitle(e.target.value)}
+                placeholder="Picnic en el Turia"
+                required
               />
             </div>
             <div>
@@ -1378,18 +1530,27 @@ export default function GroupPage({
             <p>Cargando…</p>
           ) : (
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={openProfile.data.avatar_url ?? "/placeholder-avatar.png"}
                   alt=""
                   className="w-12 h-12 rounded-full object-cover"
                 />
-                <div>
-                  <div className="font-semibold">@{openProfile.data.username}</div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="font-semibold">@{openProfile.data.username}</div>
+                    {openProfile.data.favorite_emoji ? (
+                      <span className="text-xl leading-none">{openProfile.data.favorite_emoji}</span>
+                    ) : null}
+                  </div>
+
                   <div className="text-sm opacity-80">{openProfile.data.bio ?? "—"}</div>
 
-                  {/* Interests chips */}
+                  {openProfile.data.quote ? (
+                    <div className="mt-2 text-sm italic opacity-90">“{openProfile.data.quote}”</div>
+                  ) : null}
+
                   {openProfile.data.interests && openProfile.data.interests.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {openProfile.data.interests.map((name, i) => (
@@ -1398,7 +1559,15 @@ export default function GroupPage({
                     </div>
                   )}
 
-                  {/* DM button only for other users */}
+                  {openProfile.data.gallery && openProfile.data.gallery.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      {openProfile.data.gallery.slice(0, 6).map((url, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={i} src={url} alt="" className="w-full aspect-square object-cover rounded-xl border" />
+                      ))}
+                    </div>
+                  )}
+
                   {openProfile.data.id && openProfile.data.username && openProfile.data.id !== user?.id && (
                     <Link
                       href={`/dm/${encodeURIComponent(openProfile.data.username)}`}
@@ -1466,7 +1635,7 @@ function InlinePoll({
   );
 }
 
-/** Small pill button */
+/** Small pill button (kept for compatibility elsewhere) */
 function Pill({
   children,
   selected,
@@ -1485,3 +1654,4 @@ function Pill({
     </button>
   );
 }
+
