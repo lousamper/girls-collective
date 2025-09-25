@@ -197,7 +197,7 @@ export default function CategoryPage({
       <div className="max-w-6xl mx-auto px-6 py-10">
         {/* Header */}
         <header className="mb-8">
-          <h1 className="font-dmserif text-3xl md:text-4xl mb-3">{meta.title}</h1>
+          <h1 className="font-dmserif text-2xl md:text-4xl mb-3">{meta.title}</h1>
           <p className="max-w-3xl text-base md:text-lg leading-relaxed">
             Ya sea que quieras unirte a un grupo ya creado o iniciar uno nuevo,
             aquí puedes hacerlo a tu ritmo, sin presiones. Conecta desde lo que te

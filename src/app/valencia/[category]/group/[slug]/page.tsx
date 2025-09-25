@@ -845,7 +845,7 @@ export default function GroupPage({
         {/* Header with follow toggle */}
         <header className="mb-6 flex items-start justify-between gap-3">
           <div>
-            <h1 className="font-dmserif text-3xl md:text-4xl">{group.name}</h1>
+            <h1 className="font-dmserif text-2xl md:text-4xl">{group.name}</h1>
             {group.description && <p className="mt-2 max-w-3xl">{group.description}</p>}
             <div className="mt-2">
               <Link href={`/${"valencia"}/${category}`} className="underline text-sm">
@@ -1647,6 +1647,7 @@ function InlinePoll({
 }
 
 /** Small pill button (kept for compatibility elsewhere) */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Pill({
   children,
   selected,

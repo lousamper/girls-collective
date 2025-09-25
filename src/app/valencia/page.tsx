@@ -59,22 +59,33 @@ export default function ValenciaPage() {
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       {/* HERO IMAGE */}
-      <section className="relative w-full h-[60vh] md:h-[70vh]">
+      {/* Mobile: show full image scaled to screen width (no crop). */}
+      {/* Desktop: same as before (cover, fixed viewport height). */}
+      <section className="w-full">
+        {/* Mobile-only hero (no cropping, fits width) */}
         <img
           src="/cities/valencia-hero.jpg"
           alt="Valencia"
-          className="absolute inset-0 w-full h-full object-cover"
+          className="block md:hidden w-screen h-auto"
         />
+        {/* Desktop/Tablet hero (unchanged) */}
+        <div className="relative hidden md:block w-full h-[70vh]">
+          <img
+            src="/cities/valencia-hero.jpg"
+            alt="Valencia"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        </div>
       </section>
 
       {/* INTRO TEXT BELOW HERO */}
       <section className="max-w-3xl mx-auto px-6 py-12 text-center">
         {/* 2) Make this the same size as “Encuentra tu tribu” */}
-        <h1 className="text-3xl md:text-4xl font-dmserif mb-6 leading-tight">
+        <h1 className="text-2xl md:text-4xl font-dmserif mb-6 leading-tight">
           ¿Recién llegada a Valencia? <br />
           ¿O con ganas de reconectar con la ciudad?
         </h1>
-        <p className="text-lg leading-relaxed">
+        <p className="text-base md:text-lg leading-normal md:leading-relaxed">
           Este es tu espacio para encontrar nuevas amigas, compartir intereses y crear
           planes que de verdad te llenen. <br /><br />
           Aquí tú tienes el control 🤝 <br />
@@ -88,7 +99,7 @@ export default function ValenciaPage() {
 
       {/* CATEGORIES */}
       <section className="max-w-6xl mx-auto p-6">
-        <h2 className="text-3xl md:text-4xl font-dmserif text-center mb-8">
+        <h2 className="text-2xl md:text-4xl font-dmserif text-center mb-8">
           Encuentra tu tribu
         </h2>
 
