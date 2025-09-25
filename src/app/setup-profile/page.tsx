@@ -8,6 +8,24 @@ import { useAuth } from "@/lib/auth";
 type City = { id: string; name: string; slug: string };
 type Category = { id: string; name: string };
 
+// ---- helpers: sanitize & storage paths ----
+function sanitizeFileName(name: string) {
+  const base = (name || "foto.jpg")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "");
+  const parts = base.split(".");
+  const ext = parts.length > 1 ? parts.pop()!.toLowerCase().replace(/[^a-z0-9]/g, "") : "jpg";
+  const stem = parts.join(".").toLowerCase().replace(/[^a-z0-9._-]/g, "-");
+  const cleanStem = stem.replace(/[-_.]{2,}/g, "-").replace(/^[-_.]+|[-_.]+$/g, "");
+  return `${cleanStem || "foto"}.${ext || "jpg"}`;
+}
+function safeStoragePath(userId: string, file: File, folder = "") {
+  const clean = sanitizeFileName(file.name || "foto.jpg");
+  const prefix = folder ? `${folder.replace(/\/+$/,"")}/` : "";
+  return `${userId}/${prefix}${Date.now()}_${clean}`;
+}
+
 export default function OnboardingPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -20,7 +38,18 @@ export default function OnboardingPage() {
   const [cityId, setCityId] = useState<string>("");
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const [customInterest, setCustomInterest] = useState("");
+
+  // NEW
+  const [favoriteEmoji, setFavoriteEmoji] = useState("");
+  const [inspiringQuote, setInspiringQuote] = useState("");
+
+  // Avatar + Gallery
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null); // preview or existing
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const [galleryMsg, setGalleryMsg] = useState("");
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>("");
   const [consent, setConsent] = useState(false);
@@ -29,22 +58,20 @@ export default function OnboardingPage() {
   const usernameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth");
-    }
+    if (!loading && !user) router.push("/auth");
   }, [loading, user, router]);
 
   useEffect(() => {
     usernameRef.current?.focus();
   }, []);
 
+  // catálogos
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("cities").select("id,name,slug").order("name");
       if (data) setCities(data);
     })();
   }, []);
-
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("categories").select("id,name").order("name");
@@ -52,28 +79,31 @@ export default function OnboardingPage() {
     })();
   }, []);
 
+  // precarga por si re-abre onboarding
   useEffect(() => {
     if (!user) return;
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("username,bio,city_id,birth_year")
+        .select("username,bio,city_id,birth_year,favorite_emoji,quote,avatar_url")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
+
       if (data) {
         setUsername(data.username ?? "");
         setBio(data.bio ?? "");
         setCityId(data.city_id ?? "");
         setBirthYear(data.birth_year ? String(data.birth_year) : "");
+        setFavoriteEmoji(data.favorite_emoji ?? "");
+        setInspiringQuote(data.quote ?? "");
+        setAvatarPreview(data.avatar_url ?? null); // show current avatar
       }
 
       const { data: cats } = await supabase
         .from("profile_categories")
         .select("category_id")
         .eq("profile_id", user.id);
-      if (cats) {
-        setSelectedCats(cats.map((c) => c.category_id));
-      }
+      if (cats) setSelectedCats(cats.map((c) => c.category_id));
 
       const { data: custom } = await supabase
         .from("profile_custom_interests")
@@ -83,6 +113,33 @@ export default function OnboardingPage() {
       if (custom) setCustomInterest(custom.interest);
     })();
   }, [user]);
+
+  // live preview for avatar selection
+  useEffect(() => {
+    if (!avatarFile) return;
+    const url = URL.createObjectURL(avatarFile);
+    setAvatarPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [avatarFile]);
+
+  // live previews for gallery files
+  useEffect(() => {
+    // cleanup old urls
+    return () => {
+      galleryPreviews.forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [galleryPreviews]);
+
+  function handleGalleryChange(files: File[]) {
+    // cleanup previous previews
+    galleryPreviews.forEach((u) => URL.revokeObjectURL(u));
+    const chosen = files.slice(0, 3);
+    setGalleryFiles(chosen);
+    setGalleryMsg(chosen.length ? `${chosen.length} foto(s) seleccionada(s)` : "");
+    const urls = chosen.map((f) => URL.createObjectURL(f));
+    setGalleryPreviews(urls);
+  }
 
   const canSave = useMemo(
     () =>
@@ -102,25 +159,29 @@ export default function OnboardingPage() {
     setUsernameError("");
 
     try {
+      // 1) Avatar (opcional)
       let avatar_url: string | null = null;
       if (avatarFile) {
-        const path = `${user.id}/${Date.now()}_${avatarFile.name}`;
-        const { error: upErr } = await supabase.storage.from("Avatars").upload(path, avatarFile, { upsert: true });
+        const path = safeStoragePath(user.id, avatarFile);
+        const { error: upErr } = await supabase.storage
+          .from("Avatars")
+          .upload(path, avatarFile, { upsert: true });
         if (upErr) throw upErr;
-
-        const { data: pub } = supabase.storage.from("Avatars").getPublicUrl(path);
-        avatar_url = pub?.publicUrl ?? null;
+        const pub = supabase.storage.from("Avatars").getPublicUrl(path);
+        avatar_url = pub?.data?.publicUrl ?? null;
       }
 
+      // 2) Upsert perfil
       const { error: profErr } = await supabase.from("profiles").upsert({
         id: user.id,
         username: username.trim(),
         bio: bio.trim() || null,
         city_id: cityId,
         birth_year: birthYear ? parseInt(birthYear) : null,
-        avatar_url,
+        avatar_url, // may be null if no new file; ok for fresh setup
+        favorite_emoji: favoriteEmoji.trim() || null,
+        quote: inspiringQuote.trim() || null,
       });
-
       if (profErr) {
         const code = (profErr as { code?: unknown }).code;
         if (typeof code === "string" && code === "23505") {
@@ -131,6 +192,7 @@ export default function OnboardingPage() {
         throw profErr;
       }
 
+      // 3) Intereses
       await supabase.from("profile_categories").delete().eq("profile_id", user.id);
       if (selectedCats.length) {
         const rows = selectedCats.map((cid) => ({ profile_id: user.id, category_id: cid }));
@@ -138,12 +200,41 @@ export default function OnboardingPage() {
         if (catErr) throw catErr;
       }
 
+      // 4) Interés personalizado
       await supabase.from("profile_custom_interests").delete().eq("profile_id", user.id);
       if (customInterest.trim()) {
         await supabase.from("profile_custom_interests").insert({
           profile_id: user.id,
           interest: customInterest.trim(),
         });
+      }
+
+      // 5) Galería (opcional) — 2MB por foto
+      if (galleryFiles.length) {
+        const urls: string[] = [];
+        for (const f of galleryFiles.slice(0, 3)) {
+          const okType = ["image/jpeg", "image/png"].includes(f.type);
+          const okSize = f.size <= 2 * 1024 * 1024; // 2MB
+          if (!okType) throw new Error("Las fotos deben ser .jpg o .png");
+          if (!okSize) throw new Error("Máximo 2MB por foto");
+
+          const gpath = safeStoragePath(user.id, f, "gallery");
+          const { error: gErr } = await supabase.storage.from("Avatars").upload(gpath, f, {
+            upsert: true,
+          });
+          if (gErr) throw gErr;
+
+          const pub = supabase.storage.from("Avatars").getPublicUrl(gpath);
+          const url = pub?.data?.publicUrl ?? null;
+          if (url) urls.push(url);
+        }
+        // reset galería para este perfil
+        await supabase.from("profile_photos").delete().eq("profile_id", user.id);
+        if (urls.length) {
+          await supabase.from("profile_photos").insert(
+            urls.map((u, idx) => ({ profile_id: user.id, url: u, position: idx }))
+          );
+        }
       }
 
       router.push("/find-your-city");
@@ -166,7 +257,48 @@ export default function OnboardingPage() {
         <p className="mb-6">Esto ayuda a que la comunidad sea más auténtica 💜</p>
 
         <form onSubmit={handleSave} className="bg-white rounded-2xl p-6 shadow-md flex flex-col gap-5">
-          {/* Username */}
+          {/* === 1) AVATAR PRIMERO === */}
+          <div>
+            <label className="block text-sm mb-2">Foto de perfil (opcional)</label>
+
+            <div className="flex items-center gap-4">
+              <div className="w-28 h-28 rounded-full overflow-hidden bg-gcBackgroundAlt/30 grid place-items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm opacity-60">Sin foto</span>
+                )}
+              </div>
+
+              <div>
+                <input
+                  id="avatar-input"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    if (!f) { setAvatarFile(null); setAvatarPreview(null); return; }
+                    const okType = ["image/jpeg","image/png"].includes(f.type);
+                    const okSize = f.size <= 2 * 1024 * 1024; // 2MB
+                    if (!okType) { alert("Debe ser .jpg o .png"); return; }
+                    if (!okSize) { alert("Tamaño máximo 2MB"); return; }
+                    setAvatarFile(f); // preview updates via effect
+                  }}
+                />
+                <label
+                  htmlFor="avatar-input"
+                  className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-4 py-1.5 text-sm shadow-md hover:opacity-90 cursor-pointer"
+                >
+                  Cargar foto
+                </label>
+                <p className="text-xs opacity-70 mt-1">JPG/PNG · Máx 2MB</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2) Nombre de usuario */}
           <div>
             <label className="block text-sm mb-1">Nombre de usuario *</label>
             <input
@@ -180,7 +312,7 @@ export default function OnboardingPage() {
             {usernameError && <p className="text-sm text-red-600">{usernameError}</p>}
           </div>
 
-          {/* City */}
+          {/* 3) Ciudad */}
           <div>
             <label className="block text-sm mb-1">Ciudad *</label>
             <select
@@ -198,7 +330,7 @@ export default function OnboardingPage() {
             </select>
           </div>
 
-          {/* Birth Year */}
+          {/* 4) Año de nacimiento */}
           <div>
             <label className="block text-sm mb-1">Año de nacimiento (opcional)</label>
             <input
@@ -212,7 +344,7 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* Bio */}
+          {/* 5) Bio */}
           <div>
             <label className="block text-sm mb-1">Bio (opcional)</label>
             <textarea
@@ -224,26 +356,30 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* Avatar */}
-          <div>
-            <label className="block text-sm mb-1">Foto de perfil (opcional)</label>
+          {/* 6) Emoji favorito */}
+          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
+            <label className="text-sm">Un emoji de tus favoritos</label>
             <input
-              type="file"
-              accept="image/jpeg,image/png"
-              onChange={(e) => {
-                const f = e.target.files?.[0] || null;
-                if (!f) { setAvatarFile(null); return; }
-                const okType = ["image/jpeg","image/png"].includes(f.type);
-                const okSize = f.size <= 2 * 1024 * 1024; // 2MB
-                if (!okType) { alert("Debe ser .jpg o .png"); return; }
-                if (!okSize) { alert("Tamaño máximo 2MB"); return; }
-                setAvatarFile(f);
-              }}
+              className="w-32 rounded border p-2 text-center text-xl"
+              value={favoriteEmoji}
+              onChange={(e) => setFavoriteEmoji(e.target.value.slice(0, 2))}
+              placeholder="🥰"
             />
-            <p className="text-xs opacity-70 mt-1">Debe ser .jpg o .png · Máx 2MB</p>
           </div>
 
-          {/* Categories */}
+          {/* 7) Frase que inspira (se guarda en 'quote') */}
+          <div>
+            <label className="block text-sm mb-1">Una frase de tus favoritas</label>
+            <textarea
+              className="w-full rounded border p-2"
+              rows={2}
+              value={inspiringQuote}
+              onChange={(e) => setInspiringQuote(e.target.value)}
+              placeholder="Una frase cortita que te represente 💫"
+            />
+          </div>
+
+          {/* 8) Intereses */}
           <div>
             <label className="block text-sm mb-2">Tus intereses</label>
             {categories.length === 0 && <p className="text-sm text-gray-600">No hay categorías todavía.</p>}
@@ -274,7 +410,7 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Custom Interest */}
+          {/* 9) Interés personalizado */}
           <div>
             <label className="block text-sm mb-1">Otro interés (opcional)</label>
             <input
@@ -286,7 +422,49 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* Consent */}
+          {/* 10) Galería (1–3 fotos) + PREVIEWS */}
+          <div>
+            <label className="block text-sm mb-1">¿1-3 fotos que te representen?</label>
+            <div className="flex items-center gap-3">
+              <input
+                id="gallery-input"
+                type="file"
+                accept="image/jpeg,image/png"
+                multiple
+                className="sr-only"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  handleGalleryChange(files);
+                }}
+              />
+              <label
+                htmlFor="gallery-input"
+                className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-5 py-2 text-sm shadow-md hover:opacity-90 cursor-pointer"
+              >
+                Subir fotos
+              </label>
+              {galleryMsg && <span className="text-xs opacity-80">{galleryMsg}</span>}
+            </div>
+
+            {/* Square previews */}
+            {galleryPreviews.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {galleryPreviews.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={src}
+                    alt={`Preview ${i + 1}`}
+                    className="w-24 h-24 rounded-xl object-cover border"
+                  />
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs opacity-70 mt-1">Hasta 3 fotos · JPG/PNG · 2MB máx por foto</p>
+          </div>
+
+          {/* 11) Consentimiento */}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -304,7 +482,7 @@ export default function OnboardingPage() {
             </label>
           </div>
 
-          {/* Actions */}
+          {/* 12) Actions */}
           <div className="flex gap-3 justify-end">
             <button
               type="submit"

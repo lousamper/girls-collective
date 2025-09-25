@@ -54,6 +54,10 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("");
   const [cityId, setCityId] = useState<string>("");
 
+  // NEW: extra fields
+  const [favoriteEmoji, setFavoriteEmoji] = useState("");
+  const [inspiringQuote, setInspiringQuote] = useState("");
+
   // avatar
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -67,6 +71,14 @@ export default function ProfilePage() {
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
   const [interestMsg, setInterestMsg] = useState("");
   const [interestErr, setInterestErr] = useState("");
+
+  // NEW: galería
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]); // blobs o urls existentes
+  const [galleryMsg, setGalleryMsg] = useState("");
+  const [galleryOk, setGalleryOk] = useState("");
+  const [galleryErr, setGalleryErr] = useState("");
+  const [gallerySaving, setGallerySaving] = useState(false);
 
   // grupos del perfil
   const [myGroups, setMyGroups] = useState<Group[]>([]);
@@ -93,7 +105,7 @@ export default function ProfilePage() {
     if (!loading && !user) router.push("/auth");
   }, [loading, user, router]);
 
-  // carga inicial: ciudades, categorías, perfil, intereses, grupos
+  // carga inicial: ciudades, categorías, perfil, intereses, grupos, galería
   useEffect(() => {
     (async () => {
       if (!user) return;
@@ -106,10 +118,10 @@ export default function ProfilePage() {
       const { data: allCats } = await supabase.from("categories").select("id,slug,name").order("name");
       setAllCategories(allCats ?? []);
 
-      // perfil
+      // perfil (trae los nuevos campos)
       const { data: prof } = await supabase
         .from("profiles")
-        .select("id, username, bio, city_id, avatar_url")
+        .select("id, username, bio, city_id, avatar_url, favorite_emoji, quote")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -119,6 +131,8 @@ export default function ProfilePage() {
         setBio(prof.bio ?? "");
         setCityId(prof.city_id ?? "");
         setAvatarPreview(prof.avatar_url ?? null);
+        setFavoriteEmoji(prof.favorite_emoji ?? "");
+        setInspiringQuote(prof.quote ?? ""); // <- usa 'quote'
       }
 
       // intereses del usuario
@@ -127,6 +141,18 @@ export default function ProfilePage() {
         .select("category_id")
         .eq("profile_id", user.id);
       setSelectedCatIds((myCats ?? []).map((r: { category_id: string }) => r.category_id));
+
+      // galería existente
+      const { data: photos } = await supabase
+        .from("profile_photos")
+        .select("url, position")
+        .eq("profile_id", user.id)
+        .order("position");
+      if (photos?.length) {
+        setGalleryPreviews(photos.map((p) => p.url));
+      } else {
+        setGalleryPreviews([]);
+      }
 
       // memberships → grupos (by profile_id)
       const { data: mems } = await supabase
@@ -146,7 +172,7 @@ export default function ProfilePage() {
         const catIds = Array.from(new Set((groups ?? []).map((g) => g.category_id)));
         if (catIds.length) {
           const m: Record<string, Category> = {};
-          (allCats ?? []).forEach((c) => {
+          (allCategories ?? []).forEach((c) => {
             if (catIds.includes(c.id)) m[c.id] = c;
           });
           setCatMap(m);
@@ -172,6 +198,19 @@ export default function ProfilePage() {
     setAvatarFileName(avatarFile.name || "");
     return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
+
+  // si selecciona nuevas fotos de galería, generar blobs para preview
+  useEffect(() => {
+    if (galleryFiles.length === 0) return;
+    // limpiar previews previas si eran blobs
+    galleryPreviews.forEach((u) => {
+      if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+    });
+    const blobs = galleryFiles.slice(0, 3).map((f) => URL.createObjectURL(f));
+    setGalleryPreviews(blobs);
+    return () => blobs.forEach((u) => URL.revokeObjectURL(u));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [galleryFiles]);
 
   // unique username
   useEffect(() => {
@@ -256,6 +295,8 @@ export default function ProfilePage() {
           bio: bio.trim() || null,
           city_id: cityId,
           avatar_url,
+          favorite_emoji: favoriteEmoji.trim() || null,
+          quote: inspiringQuote.trim() || null, // <- usa 'quote'
         })
         .eq("id", user.id);
       if (profErr) throw profErr;
@@ -288,6 +329,54 @@ export default function ProfilePage() {
     } catch (e) {
       const m = e instanceof Error ? e.message : "No se pudieron actualizar los intereses.";
       setInterestErr(m);
+    }
+  }
+
+  // NEW: guardar galería
+  async function saveGallery() {
+    if (!user) return;
+    setGalleryOk("");
+    setGalleryErr("");
+    setGallerySaving(true);
+    try {
+      if (galleryFiles.length === 0) {
+        setGalleryOk("No hay cambios en la galería.");
+        setGallerySaving(false);
+        return;
+      }
+      const urls: string[] = [];
+      for (const f of galleryFiles.slice(0, 3)) {
+        const okType = ["image/jpeg", "image/png"].includes(f.type);
+        const okSize = f.size <= 2 * 1024 * 1024; // 2MB (igual que onboarding)
+        if (!okType) throw new Error("Las fotos deben ser .jpg o .png");
+        if (!okSize) throw new Error("Máximo 2MB por foto");
+
+        const path = `${user.id}/gallery/${Date.now()}_${sanitizeFileName(f.name)}`;
+        const { error: upErr } = await supabase.storage.from("Avatars").upload(path, f, {
+          upsert: true,
+          cacheControl: "3600",
+          contentType: f.type || "image/jpeg",
+        });
+        if (upErr) throw upErr;
+
+        const pub = supabase.storage.from("Avatars").getPublicUrl(path);
+        const url = pub?.data?.publicUrl ?? null;
+        if (url) urls.push(url);
+      }
+
+      await supabase.from("profile_photos").delete().eq("profile_id", user.id);
+      if (urls.length) {
+        const rows = urls.map((u, idx) => ({ profile_id: user.id, url: u, position: idx }));
+        const { error: insErr } = await supabase.from("profile_photos").insert(rows);
+        if (insErr) throw insErr;
+      }
+
+      setGalleryOk("Galería actualizada ✅");
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "No se pudo actualizar la galería.";
+      setGalleryErr(m);
+    } finally {
+      setGallerySaving(false);
     }
   }
 
@@ -346,7 +435,7 @@ export default function ProfilePage() {
         <h1 className="text-3xl font-dmserif mb-2">Mi perfil</h1>
         <p className="mb-6">Gestiona tu información y tus grupos 💜</p>
 
-        {/* ===== Perfil (bio, ciudad, avatar) ===== */}
+        {/* ===== Perfil (bio, ciudad, avatar, + emoji & frase) ===== */}
         <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-6 shadow-md flex flex-col gap-5">
           <div className="flex flex-col md:flex-row gap-6">
             {/* Avatar */}
@@ -423,6 +512,29 @@ export default function ProfilePage() {
                   placeholder="Cuéntanos algo sobre ti ✨"
                 />
               </div>
+
+              {/* NEW: Emoji favorito */}
+              <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
+                <label className="text-sm">Un emoji de tus favorito</label>
+                <input
+                  className="w-32 rounded-xl border p-3 text-center text-xl"
+                  value={favoriteEmoji}
+                  onChange={(e) => setFavoriteEmoji(e.target.value.slice(0, 2))}
+                  placeholder="🥰"
+                />
+              </div>
+
+              {/* NEW: Frase que inspira */}
+              <div>
+                <label className="block text-sm mb-1">Una frase de tus favoritas</label>
+                <textarea
+                  className="w-full rounded-xl border p-3"
+                  rows={2}
+                  value={inspiringQuote}
+                  onChange={(e) => setInspiringQuote(e.target.value)}
+                  placeholder="Una frase cortita que te represente 💫"
+                />
+              </div>
             </div>
           </div>
 
@@ -477,6 +589,65 @@ export default function ProfilePage() {
 
           {interestMsg && <p className="text-sm text-green-700 mt-2">{interestMsg}</p>}
           {interestErr && <p className="text-sm text-red-600 mt-2">{interestErr}</p>}
+        </section>
+
+        {/* ===== Tu galería (bloque propio) ===== */}
+        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 text-center">
+          <h2 className="font-dmserif text-2xl mb-3">Tu galería</h2>
+
+          <div className="flex items-center justify-center gap-3">
+            <input
+              id="gallery-input"
+              type="file"
+              accept="image/jpeg,image/png"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                const chosen = files.slice(0, 3);
+                setGalleryFiles(chosen);
+                setGalleryMsg(chosen.length ? `${chosen.length} foto(s) seleccionada(s)` : "");
+                setGalleryOk("");
+                setGalleryErr("");
+              }}
+            />
+            <label
+              htmlFor="gallery-input"
+              className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-5 py-2 text-sm shadow-md hover:opacity-90 cursor-pointer"
+            >
+              Subir fotos
+            </label>
+            {galleryMsg && <span className="text-xs opacity-80">{galleryMsg}</span>}
+          </div>
+
+          {galleryPreviews.length > 0 && (
+            <div className="mt-3 grid grid-cols-3 gap-3 max-w-lg mx-auto">
+              {galleryPreviews.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Foto ${i + 1}`}
+                  className="w-24 h-24 object-cover rounded-xl border"
+                />
+              ))}
+            </div>
+          )}
+
+          <p className="text-xs opacity-70 mt-2">Hasta 3 fotos · JPG o PNG · Máx 2MB por foto</p>
+
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={saveGallery}
+              disabled={gallerySaving}
+              className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
+            >
+              {gallerySaving ? "Guardando…" : "Actualizar fotos"}
+            </button>
+          </div>
+
+          {galleryOk && <p className="text-sm text-green-700 mt-2">{galleryOk}</p>}
+          {galleryErr && <p className="text-sm text-red-600 mt-2">{galleryErr}</p>}
         </section>
 
         {/* ===== Mis grupos ===== */}
@@ -566,3 +737,4 @@ export default function ProfilePage() {
     </main>
   );
 }
+
