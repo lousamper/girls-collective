@@ -515,7 +515,7 @@ export default function ProfilePage() {
 
               {/* NEW: Emoji favorito */}
               <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
-                <label className="text-sm">Un emoji de tus favorito</label>
+                <label className="text-sm">Un emoji de tus favoritos</label>
                 <input
                   className="w-32 rounded-xl border p-3 text-center text-xl"
                   value={favoriteEmoji}
@@ -583,7 +583,7 @@ export default function ProfilePage() {
               onClick={saveInterests}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
             >
-              Actualizar intereses
+              Actualizar
             </button>
           </div>
 
@@ -642,7 +642,7 @@ export default function ProfilePage() {
               disabled={gallerySaving}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
             >
-              {gallerySaving ? "Guardando…" : "Actualizar fotos"}
+              {gallerySaving ? "Guardando…" : "Actualizar"}
             </button>
           </div>
 
