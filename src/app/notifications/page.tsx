@@ -53,7 +53,6 @@ export default function NotificationsPage() {
     }
     (async () => {
       setBusy(true);
-      // If you don't have a table yet, this will just return an error which we ignore gracefully.
       const { data, error } = await supabase
         .from("notifications")
         .select("id, title, body, created_at, read_at")
@@ -71,12 +70,24 @@ export default function NotificationsPage() {
 
   async function markAllRead() {
     if (!user) return;
-    setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
+    const nowISO = new Date().toISOString();
+
+    // optimistic UI
+    setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? nowISO })));
+
+    // persist
     await supabase
       .from("notifications")
-      .update({ read_at: new Date().toISOString() })
+      .update({ read_at: nowISO })
       .eq("user_id", user.id)
       .is("read_at", null);
+
+    // BONUS: notify navbar (and other tabs) to refresh badge immediately
+    try {
+      localStorage.setItem("notif-refresh", String(Date.now()));
+    } catch {
+      // ignore storage errors (e.g., private mode)
+    }
   }
 
   if (loading || busy) {
@@ -105,7 +116,11 @@ export default function NotificationsPage() {
         {items.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 shadow-md">
             <p className="opacity-80">
-              No tienes notificaciones todavía. <Link className="underline" href="/find-your-city">Explora la comunidad</Link>.
+              No tienes notificaciones todavía.{" "}
+              <Link className="underline" href="/find-your-city">
+                Explora la comunidad
+              </Link>
+              .
             </p>
           </div>
         ) : (
@@ -113,13 +128,17 @@ export default function NotificationsPage() {
             {items.map((n) => (
               <li key={n.id} className="rounded-2xl bg-white p-4 shadow-sm border">
                 <div className="flex items-start gap-3">
-                  {!n.read_at && <span className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-[#50415b]" />}
+                  {!n.read_at && (
+                    <span className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-[#50415b]" />
+                  )}
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p className="font-semibold">{n.title ?? "Notificación"}</p>
                       <span className="text-xs opacity-60">{timeAgo(n.created_at)}</span>
                     </div>
-                    {n.body && <p className="mt-1 opacity-90 whitespace-pre-wrap">{n.body}</p>}
+                    {n.body && (
+                      <p className="mt-1 opacity-90 whitespace-pre-wrap">{n.body}</p>
+                    )}
                   </div>
                 </div>
               </li>

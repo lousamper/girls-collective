@@ -46,8 +46,49 @@ export default function Navbar() {
     };
   }, [user]);
 
-  // fake unread count for now
-  useEffect(() => setUnreadCount(0), [user]);
+  // load unread count once (no Realtime) + react to localStorage signal
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!user) {
+        if (!cancelled) setUnreadCount(0);
+        return;
+      }
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { head: true, count: "exact" })
+        .eq("user_id", user.id)
+        .is("read_at", null);
+
+      if (!error && !cancelled) {
+        setUnreadCount(count ?? 0);
+      }
+    }
+
+    load();
+
+    // light polling every 30s
+    const iv = setInterval(load, 30_000);
+
+    // refresh when tab becomes visible
+    const onVis = () => { if (document.visibilityState === "visible") load(); };
+
+    // listen for notif updates signaled via localStorage (e.g., markAllRead)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "notif-refresh") load();
+    };
+
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [user?.id]);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href);
 
@@ -241,9 +282,6 @@ export default function Navbar() {
           <Link href="/" onClick={closeMenu} className="flex items-center gap-2" aria-label="Inicio">
             <Image src="/logo-gc.png" alt="Girls Collective" width={120} height={24} />
           </Link>
-          <button onClick={closeMenu} aria-label="Cerrar" className="p-2 -mr-2 rounded-full hover:bg-black/5">
-            <X className="w-6 h-6" />
-          </button>
         </div>
 
         <nav className="p-4">
