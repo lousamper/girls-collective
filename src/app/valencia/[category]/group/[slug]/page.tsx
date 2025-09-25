@@ -330,7 +330,7 @@ export default function GroupPage({
       : undefined;
 
     // fetch interests for profile card
-    let interests: string[] = [];
+    const interests: string[] = [];
     if (prof?.id) {
       const { data: pcats } = await supabase
         .from("profile_categories")
