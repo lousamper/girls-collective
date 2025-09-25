@@ -55,6 +55,7 @@ type ProfilePreview = {
   bio: string | null;
   avatar_url: string | null;
   city_id: string | null;
+  interests?: string[];
 };
 
 export default function GroupPage({
@@ -86,6 +87,8 @@ export default function GroupPage({
 
   // reply state
   const [replyTo, setReplyTo] = useState<MessageRow | null>(null);
+  // expanded replies state
+  const [openReplies, setOpenReplies] = useState<Record<string, boolean>>({});
 
   // create subgroup modal
   const [openSG, setOpenSG] = useState(false);
@@ -104,6 +107,7 @@ export default function GroupPage({
   const [pollMulti, setPollMulti] = useState(false);
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const [pollMsg, setPollMsg] = useState("");
+  const [pollsOpen, setPollsOpen] = useState(false); // toggle for archive
 
   // events (create modal)
   const [openEvent, setOpenEvent] = useState(false);
@@ -315,12 +319,40 @@ export default function GroupPage({
 
   async function openUserSheet(username: string) {
     setOpenProfile({ username });
-    const { data } = await supabase
+    const { data: prof } = await supabase
       .from("profiles")
       .select("id,username,bio,avatar_url,city_id")
       .ilike("username", username)
       .maybeSingle();
-    setOpenProfile({ username, data: (data ?? undefined) as ProfilePreview | undefined });
+
+    const preview: ProfilePreview | undefined = prof
+      ? { id: prof.id, username: prof.username, bio: prof.bio, avatar_url: prof.avatar_url, city_id: prof.city_id }
+      : undefined;
+
+    // fetch interests for profile card
+    let interests: string[] = [];
+    if (prof?.id) {
+      const { data: pcats } = await supabase
+        .from("profile_categories")
+        .select("category_id")
+        .eq("profile_id", prof.id);
+      const catIds = (pcats ?? []).map((c: { category_id: string }) => c.category_id);
+      if (catIds.length) {
+        const { data: cats } = await supabase
+          .from("categories")
+          .select("id,name")
+          .in("id", catIds);
+        interests.push(...((cats ?? []).map((c: { name: string }) => c.name)));
+      }
+      const { data: custom } = await supabase
+        .from("profile_custom_interests")
+        .select("interest")
+        .eq("profile_id", prof.id)
+        .maybeSingle();
+      if (custom?.interest) interests.push(custom.interest);
+    }
+
+    setOpenProfile(preview ? { username, data: { ...preview, interests } } : { username });
   }
 
   function renderText(body: string) {
@@ -404,6 +436,12 @@ export default function GroupPage({
     } catch (err: unknown) {
       console.error(err);
     }
+  }
+
+  async function deleteOwn(mid: string) {
+    if (!confirm("¿Eliminar tu mensaje?")) return;
+    const { error } = await supabase.from("messages").delete().eq("id", mid);
+    if (!error && group) await loadMessages(group.id, selLoc, selAge);
   }
 
   async function adminDelete(mid: string) {
@@ -667,8 +705,16 @@ export default function GroupPage({
     return <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">Grupo no encontrado</main>;
   }
 
+  // Build thread structure (1-level)
   const byId: Record<string, MessageRow> = {};
   messages.forEach((m) => (byId[m.id] = m));
+  const childrenMap: Record<string, MessageRow[]> = {};
+  messages.forEach((m) => {
+    if (m.parent_message_id) {
+      (childrenMap[m.parent_message_id] ??= []).push(m);
+    }
+  });
+  const topLevel = messages.filter((m) => !m.parent_message_id);
   const pinned = messages.filter((m) => m.is_pinned);
 
   return (
@@ -700,7 +746,8 @@ export default function GroupPage({
             {locations.map((l) => (
               <Pill key={l.id} selected={selLoc === l.id} onClick={() => changeLoc(l.id)}>{l.name}</Pill>
             ))}
-            <button className="underline ml-2" onClick={() => setOpenSG(true)}>Crear subgrupo</button>
+            {/* Desktop: Crear subgrupo stays here */}
+            <button className="underline ml-2 hidden md:inline" onClick={() => setOpenSG(true)}>Crear subgrupo</button>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -709,6 +756,10 @@ export default function GroupPage({
             {ages.map((a) => (
               <Pill key={a.id} selected={selAge === a.id} onClick={() => changeAge(a.id)}>{a.name}</Pill>
             ))}
+            {/* Mobile: Crear subgrupo moves under “Edad” */}
+            <div className="w-full md:hidden mt-2">
+              <button className="underline" onClick={() => setOpenSG(true)}>Crear subgrupo</button>
+            </div>
           </div>
         </div>
 
@@ -736,15 +787,16 @@ export default function GroupPage({
             </div>
           )}
 
-          {messages.length === 0 && <div className="opacity-70 py-6">Sé la primera en escribir ✨</div>}
+          {topLevel.length === 0 && <div className="opacity-70 py-6">Sé la primera en escribir ✨</div>}
 
           <ul ref={listRef} className="space-y-6 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
-            {messages.map((m) => {
+            {topLevel.map((m) => {
               const mine = m.sender_id === user!.id;
-              const parent = m.parent_message_id ? byId[m.parent_message_id] : null;
               const t = timeAgo(m.created_at);
               const pollId = matchPollId(m.content);
               const pollForMsg = pollId ? polls.find(pp => pp.id === pollId) : null;
+              const replies = childrenMap[m.id] ?? [];
+              const isOpen = openReplies[m.id] ?? false;
 
               return (
                 <li id={`msg-${m.id}`} key={m.id}>
@@ -772,16 +824,6 @@ export default function GroupPage({
                         mine ? "bg-gcBackgroundAlt2" : "bg-gcBackgroundAlt/30"
                       }`}
                     >
-                      {/* Parent preview */}
-                      {parent && (
-                        <div className="mb-2 pl-3 border-l-2 border-gcBackgroundAlt/60 text-xs opacity-80">
-                          Respondiendo a <strong>{parent.sender_profile?.username ?? "Usuaria"}</strong>:{" "}
-                          <span className="italic">
-                            {parent.content.slice(0, 80)}{parent.content.length > 80 ? "…" : ""}
-                          </span>
-                        </div>
-                      )}
-
                       {/* Inline poll OR normal text */}
                       {pollForMsg ? (
                         <InlinePoll poll={pollForMsg} onVote={(optId) => vote(pollForMsg, optId)} />
@@ -791,7 +833,7 @@ export default function GroupPage({
                     </div>
                   </div>
 
-                  {/* Actions row — Likes → Responder → Editar → Mensaje */}
+                  {/* Actions row — Likes → Responder → Editar → DM → (Delete own / Admin) */}
                   {!pollForMsg && (
                     <div
                       className={`mt-1 flex items-center gap-4 text-sm opacity-90 ${
@@ -808,7 +850,6 @@ export default function GroupPage({
                         Responder
                       </button>
 
-                      {/* show DM link for other users' messages */}
                       {!mine && m.sender_profile?.username && (
                         <Link
                           href={`/dm/${encodeURIComponent(m.sender_profile.username)}`}
@@ -820,13 +861,19 @@ export default function GroupPage({
                       )}
 
                       {mine && (
-                        <button onClick={() => startEdit(m.id, m.content)} className="inline-flex items-center gap-1 hover:opacity-80" title="Editar">
-                          <Pencil className="w-4 h-4" />
-                          Editar
-                        </button>
+                        <>
+                          <button onClick={() => startEdit(m.id, m.content)} className="inline-flex items-center gap-1 hover:opacity-80" title="Editar">
+                            <Pencil className="w-4 h-4" />
+                            Editar
+                          </button>
+                          <button onClick={() => deleteOwn(m.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Eliminar">
+                            <Trash2 className="w-4 h-4" />
+                            Eliminar
+                          </button>
+                        </>
                       )}
 
-                      {isAdmin && (
+                      {!mine && isAdmin && (
                         <>
                           <button
                             onClick={() => adminTogglePin(m.id, !m.is_pinned)}
@@ -868,6 +915,106 @@ export default function GroupPage({
                         </div>
                       </div>
                     </div>
+                  )}
+
+                  {/* Replies toggle */}
+                  {replies.length > 0 && (
+                    <div className={`mt-2 ${mine ? "text-right" : "text-left"}`}>
+                      <button
+                        onClick={() => setOpenReplies((s) => ({ ...s, [m.id]: !isOpen }))}
+                        className="text-sm underline underline-offset-2 hover:opacity-80"
+                      >
+                        {isOpen ? "Ocultar" : "Respuestas"} ({replies.length})
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Replies list */}
+                  {isOpen && replies.length > 0 && (
+                    <ul className="mt-2 space-y-4 ml-6 md:ml-10">
+                      {replies.map((r) => {
+                        const rMine = r.sender_id === user!.id;
+                        const rt = timeAgo(r.created_at);
+                        const rPollId = matchPollId(r.content);
+                        const rPoll = rPollId ? polls.find(pp => pp.id === rPollId) : null;
+                        return (
+                          <li id={`msg-${r.id}`} key={r.id}>
+                            <div className={`flex ${rMine ? "justify-end" : "justify-start"} mb-1`}>
+                              <div className="text-xs opacity-70" title={rt.title}>
+                                <button
+                                  type="button"
+                                  className="underline underline-offset-2 hover:opacity-80"
+                                  onClick={() => openUserSheet((r.sender_profile?.username ?? "Usuaria"))}
+                                >
+                                  {r.sender_profile?.username ?? "Usuaria"}
+                                </button>
+                                {" • "}{rt.label}
+                              </div>
+                            </div>
+                            <div className={`flex ${rMine ? "justify-end" : "justify-start"}`}>
+                              <div
+                                className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                                  rMine ? "bg-gcBackgroundAlt2" : "bg-gcBackgroundAlt/30"
+                                }`}
+                              >
+                                {rPoll ? (
+                                  <InlinePoll poll={rPoll} onVote={(optId) => vote(rPoll, optId)} />
+                                ) : (
+                                  <div className="whitespace-pre-wrap">{renderText(r.content)}</div>
+                                )}
+                              </div>
+                            </div>
+                            {!rPoll && (
+                              <div
+                                className={`mt-1 flex items-center gap-4 text-sm opacity-90 ${
+                                  rMine ? "justify-end" : "justify-start"
+                                }`}
+                              >
+                                <button onClick={() => toggleLike(r.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Me gusta">
+                                  <Heart className={`w-4 h-4 ${likes[r.id]?.mine ? "fill-[#50415b] text-[#50415b]" : ""}`} />
+                                  <span>{likes[r.id]?.count ?? 0}</span>
+                                </button>
+
+                                <button onClick={() => setReplyTo(r)} className="inline-flex items-center gap-1 hover:opacity-80" title="Responder">
+                                  <CornerUpRight className="w-4 h-4" />
+                                  Responder
+                                </button>
+
+                                {!rMine && r.sender_profile?.username && (
+                                  <Link
+                                    href={`/dm/${encodeURIComponent(r.sender_profile.username)}`}
+                                    className="underline hover:opacity-80"
+                                    title="Enviar mensaje directo"
+                                  >
+                                    Mensaje
+                                  </Link>
+                                )}
+
+                                {rMine && (
+                                  <>
+                                    <button onClick={() => startEdit(r.id, r.content)} className="inline-flex items-center gap-1 hover:opacity-80" title="Editar">
+                                      <Pencil className="w-4 h-4" />
+                                      Editar
+                                    </button>
+                                    <button onClick={() => deleteOwn(r.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Eliminar">
+                                      <Trash2 className="w-4 h-4" />
+                                      Eliminar
+                                    </button>
+                                  </>
+                                )}
+
+                                {!rMine && isAdmin && (
+                                  <button onClick={() => adminDelete(r.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Eliminar">
+                                    <Trash2 className="w-4 h-4" />
+                                    Eliminar
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
                 </li>
               );
@@ -924,7 +1071,8 @@ export default function GroupPage({
               maxLength={1000}
             />
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              {/* Desktop controls (inline) */}
+              <div className="hidden md:flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => setOpenPoll(true)}
@@ -933,8 +1081,6 @@ export default function GroupPage({
                   <PlusCircle className="w-4 h-4" />
                   Crear encuesta
                 </button>
-
-                {/* Create event opens modal */}
                 <button
                   type="button"
                   onClick={() => setOpenEvent(true)}
@@ -943,14 +1089,34 @@ export default function GroupPage({
                   <PlusCircle className="w-4 h-4" />
                   Crear evento
                 </button>
-
-                {/* Link to events list page */}
+                {/* Desktop keeps link inside the bubble */}
                 <Link
                   href={`/${"valencia"}/${category}/group/${slug}/events`}
                   className="underline"
                 >
                   Ver todos los eventos
                 </Link>
+              </div>
+
+              {/* Mobile controls (stacked vertically) */}
+              <div className="flex md:hidden flex-col items-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOpenPoll(true)}
+                  className="underline inline-flex items-center gap-1"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Crear encuesta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpenEvent(true)}
+                  className="underline inline-flex items-center gap-1"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Crear evento
+                </button>
+                {/* Hide “ver todos…” inside bubble on mobile (shown outside below) */}
               </div>
 
               <button
@@ -964,55 +1130,74 @@ export default function GroupPage({
           </form>
         </section>
 
-        {/* Polls archive */}
-        <section className="mt-10">
-          <div className="mb-3">
-            <h2 className="font-dmserif text-2xl">Encuestas</h2>
-          </div>
+        {/* Mobile-only: Ver todos los eventos (outside bubble, left) */}
+        <div className="md:hidden mt-3">
+          <Link
+            href={`/${"valencia"}/${category}/group/${slug}/events`}
+            className="underline"
+          >
+            Ver todos los eventos
+          </Link>
+        </div>
 
-          {polls.length === 0 && <div className="opacity-70">No hay encuestas todavía.</div>}
+        {/* Polls archive (toggle) */}
+        <section className="mt-8">
+          <button
+            type="button"
+            onClick={() => setPollsOpen((v) => !v)}
+            className="w-full text-left flex items-center justify-between bg-white rounded-2xl px-4 py-3 shadow-md"
+          >
+            <span className="font-dmserif text-2xl">Encuestas</span>
+            <span className="text-sm opacity-70">{polls.length} {polls.length === 1 ? "encuesta" : "encuestas"} {pollsOpen ? "▲" : "▼"}</span>
+          </button>
 
-          <ul className="space-y-4">
-            {polls.map((p) => {
-              return (
-                <li key={p.id} className="bg-white rounded-2xl p-4 shadow-md">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold">{p.question}</p>
-                    {p.isClosed && <span className="text-xs bg-gcCTA text-gcText px-2 py-0.5 rounded-full">CERRADA</span>}
-                    {p.is_multi && <span className="text-xs border px-2 py-0.5 rounded-full">Múltiple</span>}
-                  </div>
+          {pollsOpen && (
+            <div className="mt-4">
+              {polls.length === 0 && <div className="opacity-70">No hay encuestas todavía.</div>}
 
-                  <div className="mt-3 space-y-2">
-                    {p.options.map((o) => {
-                      const pct = p.totalVotes ? Math.round((o.votes / p.totalVotes) * 100) : 0;
-                      const voted = o.mine;
-                      return (
-                        <button
-                          key={o.id}
-                          disabled={p.isClosed}
-                          onClick={() => vote(p, o.id)}
-                          className={`w-full text-left rounded-xl border p-3 relative overflow-hidden ${
-                            voted ? "bg-gcBackgroundAlt2" : "bg-white"
-                          } ${p.isClosed ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
-                          title={p.isClosed ? "Encuesta cerrada" : "Votar"}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>{o.label}</span>
-                            <span className="text-sm opacity-70">{o.votes} {o.votes === 1 ? "voto" : "votos"}</span>
-                          </div>
-                          <div className="mt-2 h-1.5 rounded bg-black/10">
-                            <div className="h-full rounded" style={{ width: `${pct}%`, background: "#50415b" }} />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+              <ul className="space-y-4">
+                {polls.map((p) => {
+                  return (
+                    <li key={p.id} className="bg-white rounded-2xl p-4 shadow-md">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{p.question}</p>
+                        {p.isClosed && <span className="text-xs bg-gcCTA text-gcText px-2 py-0.5 rounded-full">CERRADA</span>}
+                        {p.is_multi && <span className="text-xs border px-2 py-0.5 rounded-full">Múltiple</span>}
+                      </div>
 
-                  <div className="mt-2 text-sm opacity-70">{p.totalVotes} {p.totalVotes === 1 ? "voto" : "votos"} totales</div>
-                </li>
-              );
-            })}
-          </ul>
+                      <div className="mt-3 space-y-2">
+                        {p.options.map((o) => {
+                          const pct = p.totalVotes ? Math.round((o.votes / p.totalVotes) * 100) : 0;
+                          const voted = o.mine;
+                          return (
+                            <button
+                              key={o.id}
+                              disabled={p.isClosed}
+                              onClick={() => vote(p, o.id)}
+                              className={`w-full text-left rounded-xl border p-3 relative overflow-hidden ${
+                                voted ? "bg-gcBackgroundAlt2" : "bg-white"
+                              } ${p.isClosed ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
+                              title={p.isClosed ? "Encuesta cerrada" : "Votar"}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span>{o.label}</span>
+                                <span className="text-sm opacity-70">{o.votes} {o.votes === 1 ? "voto" : "votos"}</span>
+                              </div>
+                              <div className="mt-2 h-1.5 rounded bg-black/10">
+                                <div className="h-full rounded" style={{ width: `${pct}%`, background: "#50415b" }} />
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-2 text-sm opacity-70">{p.totalVotes} {p.totalVotes === 1 ? "voto" : "votos"} totales</div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </section>
       </div>
 
@@ -1030,7 +1215,7 @@ export default function GroupPage({
             <div>
               <label className="block text-sm mb-1">Tipo *</label>
               <select
-                className="w-full rounded-xl border p-3 bg-white"
+                className="w-full rounded-xl border p-3 bg.white"
                 value={sgType}
                 onChange={(e) => setSgType(e.target.value as "location" | "age")}
               >
@@ -1072,7 +1257,7 @@ export default function GroupPage({
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={createPoll} className="space-y-3">
+        <form onSubmit={createPoll} className="space-y-3">
             <div>
               <label className="block text-sm mb-1">Pregunta *</label>
               <input
@@ -1142,7 +1327,7 @@ export default function GroupPage({
               />
             </div>
             <div>
-              <label className="block text-sm mb-1">Descripción</label>
+              <label className="block text.sm mb-1">Descripción</label>
               <textarea
                 className="w-full rounded-xl border p-3"
                 rows={3}
@@ -1192,26 +1377,37 @@ export default function GroupPage({
           {!openProfile?.data ? (
             <p>Cargando…</p>
           ) : (
-            <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={openProfile.data.avatar_url ?? "/placeholder-avatar.png"}
-                alt=""
-                className="w-12 h-12 rounded-full object-cover"
-              />
-              <div>
-                <div className="font-semibold">@{openProfile.data.username}</div>
-                <div className="text-sm opacity-80">{openProfile.data.bio ?? "—"}</div>
+            <div>
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={openProfile.data.avatar_url ?? "/placeholder-avatar.png"}
+                  alt=""
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+                <div>
+                  <div className="font-semibold">@{openProfile.data.username}</div>
+                  <div className="text-sm opacity-80">{openProfile.data.bio ?? "—"}</div>
 
-                {/* DM button only for other users */}
-                {openProfile.data.id && openProfile.data.username && openProfile.data.id !== user?.id && (
-                  <Link
-                    href={`/dm/${encodeURIComponent(openProfile.data.username)}`}
-                    className="inline-block mt-3 rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 text-sm shadow-md hover:opacity-90"
-                  >
-                    Enviar mensaje
-                  </Link>
-                )}
+                  {/* Interests chips */}
+                  {openProfile.data.interests && openProfile.data.interests.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {openProfile.data.interests.map((name, i) => (
+                        <span key={i} className="text-xs border rounded-full px-2 py-0.5">{name}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* DM button only for other users */}
+                  {openProfile.data.id && openProfile.data.username && openProfile.data.id !== user?.id && (
+                    <Link
+                      href={`/dm/${encodeURIComponent(openProfile.data.username)}`}
+                      className="inline-block mt-3 rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 text-sm shadow-md hover:opacity-90"
+                    >
+                      Enviar mensaje
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
           )}
