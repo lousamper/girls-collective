@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
+import { ArrowRight } from "lucide-react";
 
 type City = { id: string; name: string; slug: string };
 type Profile = {
@@ -168,11 +169,11 @@ export default function ProfilePage() {
           .in("id", groupIds);
         setMyGroups(groups ?? []);
 
-        // maps para info de grupo
+        // ✅ maps para info de grupo — usa el *resultado local* allCats para evitar el retardo
         const catIds = Array.from(new Set((groups ?? []).map((g) => g.category_id)));
         if (catIds.length) {
           const m: Record<string, Category> = {};
-          (allCategories ?? []).forEach((c) => {
+          (allCats ?? []).forEach((c) => {
             if (catIds.includes(c.id)) m[c.id] = c;
           });
           setCatMap(m);
@@ -670,8 +671,13 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   {cat && city ? (
-                    <Link href={href} className="underline">
-                      Ir al grupo
+                    <Link
+                      href={href}
+                      aria-label="Ir al grupo"
+                      className="rounded-full bg-[#50415b] text-[#fef8f4] p-2.5 shadow-md hover:opacity-90"
+                      title="Ir al grupo"
+                    >
+                      <ArrowRight className="w-5 h-5" />
                     </Link>
                   ) : (
                     <span className="text-sm opacity-60">—</span>
@@ -737,4 +743,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-

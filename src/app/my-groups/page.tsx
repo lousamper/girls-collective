@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
+import { ArrowRight } from "lucide-react";
 
 type GroupRow = {
   id: string;
@@ -136,19 +137,28 @@ export default function MyGroupsPage() {
 
               return (
                 <li key={g.id} className="rounded-2xl bg-white p-5 shadow-sm border">
-                  <h3 className="font-semibold text-lg">{g.name}</h3>
-                  {g.description && (
-                    <p className="mt-1 text-sm opacity-80 line-clamp-3">{g.description}</p>
-                  )}
-                  <div className="mt-4">
-                    {href ? (
-                      <Link href={href} className="underline">
-                        Entrar al grupo →
-                      </Link>
-                    ) : (
-                      <span className="opacity-60 text-sm">Falta información del grupo.</span>
-                    )}
+                  {/* Header row: name left, arrow button right */}
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="font-semibold text-lg">{g.name}</h3>
+                    <div className="shrink-0">
+                      {href ? (
+                        <Link
+                          href={href}
+                          aria-label={`Entrar a ${g.name}`}
+                          className="rounded-full bg-[#50415b] text-[#fef8f4] p-2.5 shadow-md hover:opacity-90 inline-flex"
+                          title="Entrar al grupo"
+                        >
+                          <ArrowRight className="w-5 h-5" />
+                        </Link>
+                      ) : (
+                        <span className="opacity-60 text-sm">—</span>
+                      )}
+                    </div>
                   </div>
+
+                  {g.description && (
+                    <p className="mt-2 text-sm opacity-80 line-clamp-3">{g.description}</p>
+                  )}
                 </li>
               );
             })}

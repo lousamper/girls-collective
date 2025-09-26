@@ -133,6 +133,7 @@ export default function GroupPage({
 
   // list scroll & “new messages” toast
   const listRef = useRef<HTMLUListElement | null>(null);
+  const firstLoadRef = useRef(true);
   const [atBottom, setAtBottom] = useState(true);
   const [showNewToast, setShowNewToast] = useState(false);
 
@@ -244,6 +245,28 @@ export default function GroupPage({
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Auto-scroll: primer render → abajo; y si ya estás abajo, mantente abajo cuando llegan nuevos
+useEffect(() => {
+  const el = listRef.current;
+  if (!el) return;
+
+  // Primera carga: baja del todo
+  if (firstLoadRef.current) {
+    el.scrollTop = el.scrollHeight;
+    firstLoadRef.current = false;
+    return;
+  }
+
+  // Si estabas al fondo, sigue pegada al fondo cuando hay nuevos
+  if (atBottom) {
+    el.scrollTop = el.scrollHeight;
+    setShowNewToast(false);
+  } else {
+    // Si subiste, muestra el toast de “nuevos”
+    setShowNewToast(true);
+  }
+}, [messages.length, atBottom]);
 
   async function loadMessages(groupId: string, loc: string, age: string) {
     let q = supabase
@@ -387,8 +410,8 @@ export default function GroupPage({
           bio: prof.bio,
           avatar_url: prof.avatar_url,
           city_id: prof.city_id,
-          favorite_emoji: prof.favorite_emoji ?? null, // ✅ no any
-          quote: prof.quote ?? null,                   // ✅ no any
+          favorite_emoji: prof.favorite_emoji ?? null,
+          quote: prof.quote ?? null,
         }
       : undefined;
 
@@ -414,7 +437,7 @@ export default function GroupPage({
         .maybeSingle();
       if (custom?.interest) interests.push(custom.interest);
 
-      // GALLERY: probar dos tablas posibles
+      // GALLERY: try two possible tables
       let gallery: string[] = [];
       try {
         const { data: gal1 } = await supabase
@@ -424,9 +447,7 @@ export default function GroupPage({
           .order("position", { ascending: true })
           .order("created_at", { ascending: false });
         gallery = (gal1 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
-      } catch {
-        // ignore
-      }
+      } catch {}
       if (!gallery.length) {
         try {
           const { data: gal2 } = await supabase
@@ -436,9 +457,7 @@ export default function GroupPage({
             .order("position", { ascending: true })
             .order("created_at", { ascending: false });
           gallery = (gal2 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
 
       setOpenProfile({
@@ -457,7 +476,7 @@ export default function GroupPage({
       part.startsWith("@") ? (
         <button
           key={i}
-          className="text-gcCTA font-semibold underline underline-offset-2"
+          className="text-[#50415b] font-medium underline underline-offset-2"
           onClick={() => openUserSheet(part.slice(1))}
           type="button"
         >
@@ -475,6 +494,15 @@ export default function GroupPage({
     return m ? m[1] : null;
   }
 
+  // helper → when replying to a reply, keep thread under the top-level message and @mention the user
+  function replyToMessage(msg: MessageRow) {
+    setReplyTo(msg);
+    if (msg.parent_message_id && msg.sender_profile?.username) {
+      const handle = `@${msg.sender_profile.username}`;
+      setMsgText((cur) => (cur.startsWith(handle) ? cur : `${handle} ${cur}`));
+    }
+  }
+
   // NOTE: accepts submit or Enter key
   async function sendMessage(e?: React.FormEvent | React.KeyboardEvent) {
     e?.preventDefault?.();
@@ -482,13 +510,16 @@ export default function GroupPage({
     if (!msgText.trim()) return;
     setSending(true);
     try {
+      // If replying to a reply → parent is the root (keep single-level thread)
+      const parentId = replyTo ? (replyTo.parent_message_id ?? replyTo.id) : null;
+
       const payload = {
         group_id: group.id,
         sender_id: user.id,
         content: msgText.trim(),
         location_subgroup_id: selLoc === "all" ? null : selLoc,
         age_subgroup_id: selAge === "all" ? null : selAge,
-        parent_message_id: replyTo ? replyTo.id : null,
+        parent_message_id: parentId,
       };
       const { error } = await supabase.from("messages").insert(payload);
       if (error) throw error;
@@ -521,17 +552,42 @@ export default function GroupPage({
   }
 
   function startEdit(mid: string, current: string) {
-    setEditingId(mid);
-    setEditText(current);
-  }
+  setEditingId(mid);
+  setEditText(current);
+  // lleva el mensaje al centro de la vista
+  requestAnimationFrame(() => {
+    document.getElementById(`msg-${mid}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+
+  // ✅ robust save with feedback + sender guard
   async function saveEdit(mid: string) {
+    const newText = editText.trim();
+    if (!newText) return;
+    if (!user) return;
+
     try {
-      const { error } = await supabase.from("messages").update({ content: editText }).eq("id", mid);
-      if (error) throw error;
+      const { error, data } = await supabase
+        .from("messages")
+        .update({ content: newText })
+        .match({ id: mid, sender_id: user.id })
+        .select("id");
+
+      if (error) {
+        console.error(error);
+        alert("No se pudo guardar el cambio (¿permisos de edición?).");
+        return;
+      }
+      if (!data || data.length === 0) {
+        alert("No se actualizó ningún mensaje (puede ser por permisos).");
+        return;
+      }
+
       setEditingId(null);
       if (group) await loadMessages(group.id, selLoc, selAge);
     } catch (err: unknown) {
       console.error(err);
+      alert("Error al guardar el mensaje.");
     }
   }
 
@@ -894,10 +950,10 @@ export default function GroupPage({
             </select>
           </div>
           <div className="flex items-end">
-              <button
-    className="w-full p-0 text-sm underline text-left bg-transparent"
-    onClick={() => setOpenSG(true)}
-  >
+            <button
+              className="w-full p-0 text-sm underline text-left bg-transparent"
+              onClick={() => setOpenSG(true)}
+            >
               Crear subgrupo
             </button>
           </div>
@@ -905,8 +961,6 @@ export default function GroupPage({
 
         {/* Messages (bubbles) */}
         <section className="bg-white rounded-2xl p-4 shadow-md">
-          {/* (REMOVED) Sticky solo-miembros banner de arriba */}
-
           {/* Pinned scroller */}
           {pinned.length > 0 && (
             <div className="mb-3">
@@ -922,7 +976,8 @@ export default function GroupPage({
                     className="rounded-xl border bg-white/80 px-3 py-2 text-sm hover:opacity-90"
                     title={new Date(m.created_at).toLocaleString()}
                   >
-                    {(m.sender_profile?.username ?? "Usuaria")}: {m.content.slice(0, 60)}{m.content.length > 60 ? "…" : ""}
+                    {(m.sender_profile?.username ?? "Usuaria")}: {m.content.slice(0, 60)}
+                    {m.content.length > 60 ? "…" : ""}
                   </button>
                 ))}
               </div>
@@ -931,7 +986,7 @@ export default function GroupPage({
 
           {topLevel.length === 0 && <div className="opacity-70 py-6">Sé la primera en escribir ✨</div>}
 
-          <ul ref={listRef} className="space-y-6 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
+          <ul ref={listRef} className="space-y-6 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar scroll-smooth">
             {topLevel.map((m) => {
               // DATE SEPARATOR
               const curDay = yyyyMmDd(m.created_at);
@@ -1006,14 +1061,14 @@ export default function GroupPage({
                         mine ? "justify-end" : "justify-start"
                       }`}
                     >
-                      <button onClick={() => toggleLike(m.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Me gusta">
+                      <button onClick={() => toggleLike(m.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Me gusta" aria-label="Me gusta">
                         <Heart className={`w-4 h-4 ${likes[m.id]?.mine ? "fill-[#50415b] text-[#50415b]" : ""}`} />
                         <span>{likes[m.id]?.count ?? 0}</span>
                       </button>
 
-                      <button onClick={() => setReplyTo(m)} className="inline-flex items-center gap-1 hover:opacity-80" title="Responder">
+                      <button onClick={() => setReplyTo(m)} className="inline-flex items-center gap-1 hover:opacity-80" title="Responder" aria-label="Responder">
                         <CornerUpRight className="w-4 h-4" />
-                        Responder
+                        <span className="sr-only">Responder</span>
                       </button>
 
                       {!mine && m.sender_profile?.username && (
@@ -1022,19 +1077,30 @@ export default function GroupPage({
                           className="underline hover:opacity-80"
                           title="Enviar mensaje directo"
                         >
-                          Mensaje
+                          Mensaje privado
                         </Link>
                       )}
 
                       {mine && (
                         <>
-                          <button onClick={() => startEdit(m.id, m.content)} className="inline-flex items-center gap-1 hover:opacity-80" title="Editar">
+                          {/* ✅ solo icono */}
+                          <button
+                            onClick={() => startEdit(m.id, m.content)}
+                            className="inline-flex items-center gap-1 hover:opacity-80"
+                            title="Editar"
+                            aria-label="Editar"
+                          >
                             <Pencil className="w-4 h-4" />
-                            Editar
+                            <span className="sr-only">Editar</span>
                           </button>
-                          <button onClick={() => deleteOwn(m.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Eliminar">
+                          <button
+                            onClick={() => deleteOwn(m.id)}
+                            className="inline-flex items-center gap-1 hover:opacity-80"
+                            title="Eliminar"
+                            aria-label="Eliminar"
+                          >
                             <Trash2 className="w-4 h-4" />
-                            Eliminar
+                            <span className="sr-only">Eliminar</span>
                           </button>
                         </>
                       )}
@@ -1087,11 +1153,19 @@ export default function GroupPage({
                   {replies.length > 0 && (
                     <div className={`mt-2 ${mine ? "text-right" : "text-left"}`}>
                       <button
-                        onClick={() => setOpenReplies((s) => ({ ...s, [m.id]: !isOpen }))}
-                        className="text-sm underline underline-offset-2 hover:opacity-80"
+                      onClick={() => {
+                        setOpenReplies((s) => {
+                          const next = { ...s, [m.id]: !isOpen };
+                          requestAnimationFrame(() => {
+                            document.getElementById(`msg-${m.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          });
+                          return next;
+                        });
+                      }}
+                      className="text-sm underline underline-offset-2 hover:opacity-80"
                       >
                         {isOpen ? "Ocultar" : "Respuestas"} ({replies.length})
-                      </button>
+                        </button>
                     </div>
                   )}
 
@@ -1136,14 +1210,14 @@ export default function GroupPage({
                                   rMine ? "justify-end" : "justify-start"
                                 }`}
                               >
-                                <button onClick={() => toggleLike(r.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Me gusta">
+                                <button onClick={() => toggleLike(r.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Me gusta" aria-label="Me gusta">
                                   <Heart className={`w-4 h-4 ${likes[r.id]?.mine ? "fill-[#50415b] text-[#50415b]" : ""}`} />
                                   <span>{likes[r.id]?.count ?? 0}</span>
                                 </button>
 
-                                <button onClick={() => setReplyTo(r)} className="inline-flex items-center gap-1 hover:opacity-80" title="Responder">
+                                <button onClick={() => replyToMessage(r)} className="inline-flex items-center gap-1 hover:opacity-80" title="Responder" aria-label="Responder">
                                   <CornerUpRight className="w-4 h-4" />
-                                  Responder
+                                  <span className="sr-only">Responder</span>
                                 </button>
 
                                 {!rMine && r.sender_profile?.username && (
@@ -1158,13 +1232,24 @@ export default function GroupPage({
 
                                 {rMine && (
                                   <>
-                                    <button onClick={() => startEdit(r.id, r.content)} className="inline-flex items-center gap-1 hover:opacity-80" title="Editar">
+                                    {/* ✅ solo icono */}
+                                    <button
+                                      onClick={() => startEdit(r.id, r.content)}
+                                      className="inline-flex items-center gap-1 hover:opacity-80"
+                                      title="Editar"
+                                      aria-label="Editar"
+                                    >
                                       <Pencil className="w-4 h-4" />
-                                      Editar
+                                      <span className="sr-only">Editar</span>
                                     </button>
-                                    <button onClick={() => deleteOwn(r.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Eliminar">
+                                    <button
+                                      onClick={() => deleteOwn(r.id)}
+                                      className="inline-flex items-center gap-1 hover:opacity-80"
+                                      title="Eliminar"
+                                      aria-label="Eliminar"
+                                    >
                                       <Trash2 className="w-4 h-4" />
-                                      Eliminar
+                                      <span className="sr-only">Eliminar</span>
                                     </button>
                                   </>
                                 )}
@@ -1177,6 +1262,29 @@ export default function GroupPage({
                                 )}
                               </div>
                             )}
+                                  {editingId === r.id && (
+                                    <div className={`mt-2 flex ${rMine ? "justify-end" : "justify-start"}`}>
+                                      <div className="w-full max-w-[80%]">
+                                        <textarea
+                                        className="w-full rounded-xl border p-3"
+                                        rows={3}
+                                        value={editText}
+                                        onChange={(e) => setEditText(e.target.value)}
+                                      />
+                                      <div className="flex gap-2 justify-end mt-2">
+                                        <button
+                                        className="rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 font-dmserif"
+                                        onClick={() => saveEdit(r.id)}
+                                      >
+                                        Guardar
+                                      </button>
+                                      <button className="underline" onClick={() => setEditingId(null)}>
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                           </li>
                         );
                       })}
@@ -1420,7 +1528,7 @@ export default function GroupPage({
             </DialogDescription>
           </DialogHeader>
 
-        <form onSubmit={createPoll} className="space-y-3">
+          <form onSubmit={createPoll} className="space-y-3">
             <div>
               <label className="block text-sm mb-1">Pregunta *</label>
               <input
