@@ -11,6 +11,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -138,7 +139,7 @@ export default function GroupPage({
   const [atBottom, setAtBottom] = useState(true);
   const [showNewToast, setShowNewToast] = useState(false);
 
-  // First time messages arrive, snap to bottom once
+  // First time messages arrive, snap to bottom once (robust: double rAF after paint)
 useEffect(() => {
   if (!firstLoadRef.current) return;
   if (!messages.length) return;
@@ -146,8 +147,15 @@ useEffect(() => {
   const el = listRef.current;
   if (!el) return;
 
-  el.scrollTop = el.scrollHeight;
-  firstLoadRef.current = false; // flip only here
+  requestAnimationFrame(() => {
+    // 1st rAF: after initial paint
+    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => {
+      // 2nd rAF: after layout settles (images/fonts, etc.)
+      el.scrollTop = el.scrollHeight;
+      firstLoadRef.current = false; // flip only after we’ve snapped
+    });
+  });
 }, [messages.length]);
 
   // UNREAD marker
@@ -309,6 +317,14 @@ useEffect(() => {
 
     const full = (rows ?? []).map((m) => ({ ...m, sender_profile: profiles[m.sender_id] ?? null }));
     setMessages(full);
+
+    // Ensure first-render lands at the newest message (bottom of the list)
+    if (firstLoadRef.current) {
+        requestAnimationFrame(() => {
+          const el = listRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      }
 
     // likes
     if (rows?.length) {
