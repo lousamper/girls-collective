@@ -135,11 +135,12 @@ export default function GroupPage({
   // list scroll & “new messages” toast
   const listRef = useRef<HTMLUListElement | null>(null);
   const firstLoadRef = useRef(true);
+  const bottomRef = useRef<HTMLLIElement | null>(null); // NEW: invisible bottom anchor
 
   const [atBottom, setAtBottom] = useState(true);
   const [showNewToast, setShowNewToast] = useState(false);
 
-  // First time messages arrive, snap to bottom once (robust: double rAF + last message)
+  // First time messages arrive, snap to bottom once (robust via sentinel)
 useEffect(() => {
   if (!firstLoadRef.current) return;
   if (!messages.length) return;
@@ -147,19 +148,17 @@ useEffect(() => {
   const el = listRef.current;
   if (!el) return;
 
-  // find the last *top-level* message (not a reply)
-  const lastTopLevel = [...messages].reverse().find(m => !m.parent_message_id);
-  const lastEl = lastTopLevel ? document.getElementById(`msg-${lastTopLevel.id}`) : null;
+  const snap = () => bottomRef.current?.scrollIntoView({ block: "end" });
 
-  // Double rAF ensures we scroll after paint & layout settle
+  // Double rAF: after paint & layout
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      if (lastEl) {
-        lastEl.scrollIntoView({ block: "end" });
-      } else {
-        el.scrollTop = el.scrollHeight;
-      }
-      firstLoadRef.current = false; // flip only after we’ve snapped
+      snap();
+      // Fallback a bit later in case something reflows
+      setTimeout(() => {
+        if (!isNearBottom(el)) snap();
+        firstLoadRef.current = false; // flip only after final snap
+      }, 120);
     });
   });
 }, [messages.length]);
@@ -252,7 +251,13 @@ useEffect(() => {
 
       firstLoadRef.current = true;
 
-        await Promise.all([loadMessages(g.id, "all", "all"), loadPolls(g.id)]);
+await Promise.all([loadMessages(g.id, "all", "all"), loadPolls(g.id)]);
+
+// Final safety snap after initial data paints
+requestAnimationFrame(() => {
+  if (firstLoadRef.current) bottomRef.current?.scrollIntoView({ block: "end" });
+});
+
       } catch (err: unknown) {
         console.error(err);
       } finally {
@@ -326,13 +331,12 @@ useEffect(() => {
     const full = (rows ?? []).map((m) => ({ ...m, sender_profile: profiles[m.sender_id] ?? null }));
     setMessages(full);
 
-    // Ensure first-render lands at the newest message (bottom of the list)
-    if (firstLoadRef.current) {
-        requestAnimationFrame(() => {
-          const el = listRef.current;
-          if (el) el.scrollTop = el.scrollHeight;
-        });
-      }
+    // Ensure first-render lands at the newest (use sentinel)
+if (firstLoadRef.current) {
+  requestAnimationFrame(() => {
+    bottomRef.current?.scrollIntoView({ block: "end" });
+  });
+}
 
     // likes
     if (rows?.length) {
@@ -1324,6 +1328,8 @@ useEffect(() => {
                 </li>
               );
             })}
+            {/* Invisible bottom anchor for reliable scrolling */}
+  <li ref={bottomRef} id="bottom-sentinel" className="h-0 m-0 p-0" aria-hidden />
           </ul>
 
           {/* New messages toast */}

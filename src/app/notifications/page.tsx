@@ -12,6 +12,7 @@ type NotificationRow = {
   body: string | null;
   created_at: string;
   read_at: string | null;
+  url?: string | null; // column exists in your schema
 };
 
 export const dynamic = "force-dynamic";
@@ -55,11 +56,11 @@ export default function NotificationsPage() {
       setBusy(true);
       const { data, error } = await supabase
         .from("notifications")
-        .select("id, title, body, created_at, read_at")
+        .select("id, title, body, url, created_at, read_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) {
-        console.warn("notifications table missing or query failed:", error.message);
+        console.error("notifications query failed:", error.message);
         setItems([]);
       } else {
         setItems(data ?? []);
@@ -75,18 +76,20 @@ export default function NotificationsPage() {
     // optimistic UI
     setItems((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? nowISO })));
 
-    // persist
-    await supabase
+    // persist (user_id only)
+    const { error } = await supabase
       .from("notifications")
       .update({ read_at: nowISO })
       .eq("user_id", user.id)
       .is("read_at", null);
 
-    // BONUS: notify navbar (and other tabs) to refresh badge immediately
+    if (error) console.error("markAllRead failed:", error.message);
+
+    // notify navbar / other tabs to refresh badge
     try {
       localStorage.setItem("notif-refresh", String(Date.now()));
     } catch {
-      // ignore storage errors (e.g., private mode)
+      /* ignore */
     }
   }
 
@@ -136,8 +139,16 @@ export default function NotificationsPage() {
                       <p className="font-semibold">{n.title ?? "Notificación"}</p>
                       <span className="text-xs opacity-60">{timeAgo(n.created_at)}</span>
                     </div>
-                    {n.body && (
-                      <p className="mt-1 opacity-90 whitespace-pre-wrap">{n.body}</p>
+                    {n.body && <p className="mt-1 opacity-90 whitespace-pre-wrap">{n.body}</p>}
+                    {n.url && (
+                      <a
+                        href={n.url}
+                        className="mt-2 inline-block underline text-sm"
+                        target="_self"
+                        rel="noopener noreferrer"
+                      >
+                        Ver
+                      </a>
                     )}
                   </div>
                 </div>
