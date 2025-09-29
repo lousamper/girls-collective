@@ -139,7 +139,7 @@ export default function GroupPage({
   const [atBottom, setAtBottom] = useState(true);
   const [showNewToast, setShowNewToast] = useState(false);
 
-  // First time messages arrive, snap to bottom once (robust: double rAF after paint)
+  // First time messages arrive, snap to bottom once (robust: double rAF + last message)
 useEffect(() => {
   if (!firstLoadRef.current) return;
   if (!messages.length) return;
@@ -147,12 +147,18 @@ useEffect(() => {
   const el = listRef.current;
   if (!el) return;
 
+  // find the last *top-level* message (not a reply)
+  const lastTopLevel = [...messages].reverse().find(m => !m.parent_message_id);
+  const lastEl = lastTopLevel ? document.getElementById(`msg-${lastTopLevel.id}`) : null;
+
+  // Double rAF ensures we scroll after paint & layout settle
   requestAnimationFrame(() => {
-    // 1st rAF: after initial paint
-    el.scrollTop = el.scrollHeight;
     requestAnimationFrame(() => {
-      // 2nd rAF: after layout settles (images/fonts, etc.)
-      el.scrollTop = el.scrollHeight;
+      if (lastEl) {
+        lastEl.scrollIntoView({ block: "end" });
+      } else {
+        el.scrollTop = el.scrollHeight;
+      }
       firstLoadRef.current = false; // flip only after we’ve snapped
     });
   });
@@ -243,6 +249,8 @@ useEffect(() => {
         } catch {
           // si no existe la tabla, seguimos sin romper
         }
+
+      firstLoadRef.current = true;
 
         await Promise.all([loadMessages(g.id, "all", "all"), loadPolls(g.id)]);
       } catch (err: unknown) {
