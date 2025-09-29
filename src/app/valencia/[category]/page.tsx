@@ -197,7 +197,17 @@ export default function CategoryPage({
       <div className="max-w-6xl mx-auto px-6 py-10">
         {/* Header */}
         <header className="mb-8">
-          <h1 className="font-dmserif text-2xl md:text-4xl mb-3">{meta.title}</h1>
+          {/* title left, back link right */}
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="font-dmserif text-2xl md:text-4xl m-0">{meta.title}</h1>
+            <Link
+              href="/valencia"
+              className="ml-auto text-xs md:text-sm underline underline-offset-2 hover:opacity-80"
+            >
+              ← Volver
+            </Link>
+          </div>
+
           <p className="max-w-3xl text-base md:text-lg leading-relaxed">
             Ya sea que quieras unirte a un grupo ya creado o iniciar uno nuevo,
             aquí puedes hacerlo a tu ritmo, sin presiones. Conecta desde lo que te
@@ -396,7 +406,6 @@ export default function CategoryPage({
     </main>
   );
 }
-
 
 
 

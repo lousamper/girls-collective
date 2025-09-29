@@ -134,8 +134,21 @@ export default function GroupPage({
   // list scroll & “new messages” toast
   const listRef = useRef<HTMLUListElement | null>(null);
   const firstLoadRef = useRef(true);
+
   const [atBottom, setAtBottom] = useState(true);
   const [showNewToast, setShowNewToast] = useState(false);
+
+  // First time messages arrive, snap to bottom once
+useEffect(() => {
+  if (!firstLoadRef.current) return;
+  if (!messages.length) return;
+
+  const el = listRef.current;
+  if (!el) return;
+
+  el.scrollTop = el.scrollHeight;
+  firstLoadRef.current = false; // flip only here
+}, [messages.length]);
 
   // UNREAD marker
   const [lastReadAt, setLastReadAt] = useState<string | null>(null);
@@ -246,25 +259,14 @@ export default function GroupPage({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Auto-scroll: primer render → abajo; y si ya estás abajo, mantente abajo cuando llegan nuevos
-useEffect(() => {
+  useEffect(() => {
+  if (firstLoadRef.current) return; // don't run during first-load snap
+
   const el = listRef.current;
   if (!el) return;
 
-  // Primera carga: baja del todo
-  if (firstLoadRef.current) {
-    el.scrollTop = el.scrollHeight;
-    firstLoadRef.current = false;
-    return;
-  }
-
-  // Si estabas al fondo, sigue pegada al fondo cuando hay nuevos
   if (atBottom) {
     el.scrollTop = el.scrollHeight;
-    setShowNewToast(false);
-  } else {
-    // Si subiste, muestra el toast de “nuevos”
-    setShowNewToast(true);
   }
 }, [messages.length, atBottom]);
 
@@ -335,14 +337,19 @@ useEffect(() => {
     }
 
     // new messages toast logic
-    const el = listRef.current;
-    if (el) {
-      if (isNearBottom(el)) {
-        requestAnimationFrame(scrollToBottom);
-      } else {
-        setShowNewToast(true);
-      }
+{
+  const el = listRef.current;
+  if (el) {
+    if (firstLoadRef.current) {
+      // first-load snap is handled by the first-load effect; no toast here
+      setShowNewToast(false);
+    } else if (isNearBottom(el)) {
+      setShowNewToast(false);
+    } else {
+      setShowNewToast(true);
     }
+  }
+}
   }
 
   function changeLoc(id: string) {
@@ -986,7 +993,7 @@ useEffect(() => {
 
           {topLevel.length === 0 && <div className="opacity-70 py-6">Sé la primera en escribir ✨</div>}
 
-          <ul ref={listRef} className="space-y-6 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar scroll-smooth">
+          <ul ref={listRef} className="space-y-6 h-[60vh] overflow-y-auto pr-1 no-scrollbar">
             {topLevel.map((m) => {
               // DATE SEPARATOR
               const curDay = yyyyMmDd(m.created_at);
