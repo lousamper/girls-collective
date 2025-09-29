@@ -93,6 +93,15 @@ export default function NotificationsPage() {
     }
   }
 
+  function openUrl(url?: string | null) {
+    if (!url) return;
+    if (url.startsWith("http")) {
+      window.location.href = url;
+    } else {
+      router.push(url);
+    }
+  }
+
   if (loading || busy) {
     return (
       <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">
@@ -105,7 +114,7 @@ export default function NotificationsPage() {
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-3xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-dmserif text-3xl">Notificaciones</h1>
+          <h1 className="font-dmserif text-2xl md:text-3xl">Notificaciones</h1>
           {items.some((i) => !i.read_at) && (
             <button
               onClick={markAllRead}
@@ -128,32 +137,43 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <ul className="space-y-3">
-            {items.map((n) => (
-              <li key={n.id} className="rounded-2xl bg-white p-4 shadow-sm border">
-                <div className="flex items-start gap-3">
-                  {!n.read_at && (
-                    <span className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-[#50415b]" />
-                  )}
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold">{n.title ?? "Notificación"}</p>
-                      <span className="text-xs opacity-60">{timeAgo(n.created_at)}</span>
-                    </div>
-                    {n.body && <p className="mt-1 opacity-90 whitespace-pre-wrap">{n.body}</p>}
-                    {n.url && (
-                      <a
-                        href={n.url}
-                        className="mt-2 inline-block underline text-sm"
-                        target="_self"
-                        rel="noopener noreferrer"
-                      >
-                        Ver
-                      </a>
+            {items.map((n) => {
+              const clickable = Boolean(n.url);
+              return (
+                <li
+                  key={n.id}
+                  role={clickable ? "link" : undefined}
+                  tabIndex={clickable ? 0 : -1}
+                  onClick={() => openUrl(n.url!)}
+                  onKeyDown={(e) => {
+                    if (!clickable) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openUrl(n.url!);
+                    }
+                  }}
+                  className={`rounded-2xl bg-white p-4 shadow-sm border ${
+                    clickable ? "cursor-pointer hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-black/10" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {!n.read_at && (
+                      <span className="mt-1 inline-block h-2.5 w-2.5 rounded-full bg-[#50415b]" />
                     )}
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold">{n.title ?? "Notificación"}</p>
+                        <span className="text-xs opacity-60">{timeAgo(n.created_at)}</span>
+                      </div>
+                      {n.body && (
+                        <p className="mt-1 opacity-90 whitespace-pre-wrap">{n.body}</p>
+                      )}
+                      {/* removed the small "Ver" link; the whole card is clickable now */}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

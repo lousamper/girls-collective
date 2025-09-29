@@ -381,13 +381,18 @@ if (firstLoadRef.current) {
   }
 
   function changeLoc(id: string) {
-    setSelLoc(id);
-    if (group) loadMessages(group.id, id, selAge);
-  }
-  function changeAge(id: string) {
-    setSelAge(id);
-    if (group) loadMessages(group.id, selLoc, id);
-  }
+  setSelLoc(id);
+  if (!group) return;
+  firstLoadRef.current = true;              // ← makes it jump to newest after reload
+  loadMessages(group.id, id, selAge);
+}
+
+function changeAge(id: string) {
+  setSelAge(id);
+  if (!group) return;
+  firstLoadRef.current = true;              // ← makes it jump to newest after reload
+  loadMessages(group.id, selLoc, id);
+}
 
   // relative time helper
   function timeAgo(iso: string) {
