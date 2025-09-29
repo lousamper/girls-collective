@@ -113,17 +113,19 @@ export default function NotificationsPage() {
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-3xl mx-auto px-6 py-10">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="font-dmserif text-2xl md:text-3xl">Notificaciones</h1>
-          {items.some((i) => !i.read_at) && (
-            <button
-              onClick={markAllRead}
-              className="rounded-full border bg-white px-4 py-1.5 text-sm shadow-sm hover:opacity-90"
-            >
-              Marcar todo como leído
-            </button>
-          )}
-        </div>
+        <div className="mb-6 grid grid-cols-[1fr_auto] items-start gap-2">
+  <h1 className="font-dmserif text-2xl md:text-3xl">Notificaciones</h1>
+
+  {items.some((i) => !i.read_at) && (
+    <button
+      onClick={markAllRead}
+      className="rounded-full border bg-white px-3 py-1 text-xs md:text-sm shadow-sm hover:opacity-90 text-right leading-tight"
+    >
+      <span className="block">Marcar todo</span>
+      <span className="block">como leído</span>
+    </button>
+  )}
+</div>
 
         {items.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 shadow-md">
