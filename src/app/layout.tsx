@@ -63,6 +63,10 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  // ⬇️ ADDED: Google Search Console HTML tag verification
+  verification: {
+    google: "WP6pvdIs8fnhviy1N46IQhzk3XlokyMShjVAjbTF2L0",
+  },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -125,3 +129,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
