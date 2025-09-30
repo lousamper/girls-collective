@@ -24,7 +24,9 @@ export default function HomePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setAuthed(!!user);
 
       if (!user) return; // not logged in → show public homepage
@@ -40,7 +42,9 @@ export default function HomePage() {
         router.replace("/setup-profile");
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   // contact form state
@@ -96,7 +100,8 @@ export default function HomePage() {
       {/* Section 1: HERO */}
       {/* ======================== */}
       <section className="w-full bg-gcBackgroundAlt2">
-        <div className="grid md:grid-cols-2 min-h[70vh] md:min-h-screen">
+        {/* ⬇️ CHANGE: make the hero fill the screen on mobile too */}
+        <div className="grid md:grid-cols-2 min-h-screen">
           {/* Left: video (desktop only) */}
           <div className="relative hidden md:block">
             <video
@@ -111,12 +116,14 @@ export default function HomePage() {
           </div>
 
           {/* Right: centered content (mobile & desktop) */}
-          <div className="flex items-center justify-center px-6 py-10">
+          {/* ⬇️ CHANGE: more vertical padding on mobile for breathing room */}
+          <div className="flex items-center justify-center px-6 py-16 md:py-10">
             <div className="text-center max-w-xl">
               <p className="font-dmserif text-base md:text-lg mb-3">
                 {t("home.tagline", "where girls connect, thrive & vibe✨")}
               </p>
-              <h1 className="font-montserrat font-bold text-2xl md:text-4xl mb-6">
+              {/* ⬇️ CHANGE: looser line-height on mobile */}
+              <h1 className="font-montserrat font-bold text-2xl md:text-4xl mb-6 leading-relaxed md:leading-tight">
                 {t(
                   "home.heroTitle",
                   "Tu espacio seguro para encontrar tu tribu en esa nueva ciudad."
@@ -210,7 +217,7 @@ export default function HomePage() {
           </p>
 
           <div className="mt-6">
-            {/* ← NEW: dynamic second CTA */}
+            {/* ← dynamic second CTA */}
             <Link
               href={ctaHref}
               onClick={() => track("cta_find_city_click", { page: "home" })}
