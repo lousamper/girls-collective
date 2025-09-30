@@ -12,12 +12,34 @@ import Script from "next/script";
 import CookieConsent from "../components/CookieConsent";
 import { cookies } from "next/headers";
 
+// ⬇️ ADDED
+import SeoOrg from "@/components/SeoOrg";
+
 const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-montserrat" });
 const dmSerif = DM_Serif_Display({ subsets: ["latin"], weight: "400", variable: "--font-dmserif" });
 
 export const metadata: Metadata = {
-  title: "Girls Collective",
+  metadataBase: new URL(
+    (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girls-collective.com").replace(/\/+$/, "")
+  ),
+  title: {
+    default: "Girls Collective",
+    template: "%s · Girls Collective",
+  },
   description: "Una comunidad para crear amistades reales, a tu ritmo.",
+  keywords: [
+    "Girls Collective",
+    "comunidad mujeres",
+    "amigas Valencia",
+    "conocer gente nueva",
+    "eventos mujeres",
+    "tribu",
+    "eventos valencia",
+  ],
+  applicationName: "Girls Collective",
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: ["/favicon.ico?v=2", "/icon.png?v=2"],
     shortcut: "/favicon.ico?v=2",
@@ -26,15 +48,20 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Girls Collective",
     description: "Encuentra tu tribu, estés donde estés 💜",
-    url: "https://www.girls-collective.com",
+    url: "/",
     siteName: "Girls Collective",
     images: [{ url: "/og.jpg", width: 1200, height: 630 }],
+    type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Girls Collective",
     description: "Encuentra tu tribu, estés donde estés 💜",
     images: ["/og.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
@@ -49,6 +76,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="es" className={`${montserrat.variable} ${dmSerif.variable}`}>
       <body className="antialiased">
+        {/* ⬇️ ADDED: site-wide Organization + Website JSON-LD */}
+        <SeoOrg />
+
         {/* Consent Mode default BEFORE GA loads */}
         <Script id="ga-consent-default" strategy="beforeInteractive">
           {`
