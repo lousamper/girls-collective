@@ -125,12 +125,11 @@ export default function HomePage() {
 
               <div className="flex justify-center">
                 <Link
-                  href={ctaHref} // ← NEW: dynamic target
+                  href={ctaHref} // ← dynamic target
                   onClick={() => track("cta_join_click", { page: "home" })}
                   className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
                   aria-label={t("home.find_city_cta_aria", "Encuentra tu ciudad")}
                 >
-                  {/* NEW label */}
                   {t("home.find_city_cta", "¡ÚNETE!")}
                 </Link>
               </div>
@@ -211,12 +210,14 @@ export default function HomePage() {
           </p>
 
           <div className="mt-6">
+            {/* ← NEW: dynamic second CTA */}
             <Link
-              href="/auth"
+              href={ctaHref}
+              onClick={() => track("cta_find_city_click", { page: "home" })}
               className="rounded-full bg-gcCTA text-gcText font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
-              aria-label={t("common.join", "¡ÚNETE!")}
+              aria-label={t("home.find_city_cta_aria", "Encuentra tu ciudad")}
             >
-              {t("common.join", "¡ÚNETE!")}
+              {t("home.find_city_cta", "Encuentra tu ciudad")}
             </Link>
           </div>
         </div>
@@ -256,7 +257,7 @@ export default function HomePage() {
           <h2 className="font-dmserif text-1xl md:text-2xl mb-3">
             {t("home.contact.title", "¿Quieres sumar tu energía a esta comunidad?")}
           </h2>
-        <p className="text-base leading-relaxed">
+          <p className="text-base leading-relaxed">
             {t(
               "home.contact.text",
               "Tanto si eres una marca con ganas de colaborar, una organizadora con planes en mente o simplemente una girl con dudas o ideas... \nEscríbenos y te respondemos pronto 💌"
@@ -336,4 +337,5 @@ export default function HomePage() {
     </main>
   );
 }
+
 
