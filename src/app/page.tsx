@@ -117,7 +117,7 @@ export default function HomePage() {
 
           {/* Right: centered content (mobile & desktop) */}
           {/* ⬇️ CHANGE: more vertical padding on mobile for breathing room */}
-          <div className="flex items-center justify-center px-6 py-16 md:py-10">
+          <div className="flex items-center justify-center px-6 py-12 md:py-10">
             <div className="text-center max-w-xl">
               <p className="font-dmserif text-base md:text-lg mb-3">
                 {t("home.tagline", "where girls connect, thrive & vibe✨")}
