@@ -131,7 +131,7 @@ export default function HomePage() {
                   aria-label={t("home.find_city_cta_aria", "Encuentra tu ciudad")}
                 >
                   {/* NEW label */}
-                  {t("home.find_city_cta", "Encuentra tu ciudad")}
+                  {t("home.find_city_cta", "¡ÚNETE!")}
                 </Link>
               </div>
             </div>
