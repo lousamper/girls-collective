@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation"; // ← keep
 import { supabase } from "@/lib/supabaseClient";
 import type { PostgrestError } from "@supabase/supabase-js";
 
@@ -14,6 +15,34 @@ import type { Lang } from "@/lib/dictionaries";
 import { track } from "@vercel/analytics";
 
 export default function HomePage() {
+  const router = useRouter();
+
+  // NEW: auth status for CTA routing
+  const [authed, setAuthed] = useState(false);
+
+  // NEW: guard → if logged in but profile incomplete (username/city_id), send to /setup-profile
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setAuthed(!!user);
+
+      if (!user) return; // not logged in → show public homepage
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("username, city_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const incomplete = !profile || !profile.username || !profile.city_id;
+      if (!cancelled && incomplete) {
+        router.replace("/setup-profile");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
+
   // contact form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -58,13 +87,16 @@ export default function HomePage() {
     }
   }
 
+  // choose CTA href: logged in → find-your-city, else auth
+  const ctaHref = authed ? "/find-your-city" : "/auth";
+
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       {/* ======================== */}
       {/* Section 1: HERO */}
       {/* ======================== */}
       <section className="w-full bg-gcBackgroundAlt2">
-        <div className="grid md:grid-cols-2 min-h-[70vh] md:min-h-screen">
+        <div className="grid md:grid-cols-2 min-h[70vh] md:min-h-screen">
           {/* Left: video (desktop only) */}
           <div className="relative hidden md:block">
             <video
@@ -93,12 +125,13 @@ export default function HomePage() {
 
               <div className="flex justify-center">
                 <Link
-                  href="/auth"
-                  onClick={() => track("cta_join_click", { page: "home" })} // ⬅️ NEW
+                  href={ctaHref} // ← NEW: dynamic target
+                  onClick={() => track("cta_join_click", { page: "home" })}
                   className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
-                  aria-label={t("common.join", "¡ÚNETE!")}
+                  aria-label={t("home.find_city_cta_aria", "Encuentra tu ciudad")}
                 >
-                  {t("common.join", "¡ÚNETE!")}
+                  {/* NEW label */}
+                  {t("home.find_city_cta", "Encuentra tu ciudad")}
                 </Link>
               </div>
             </div>
@@ -223,7 +256,7 @@ export default function HomePage() {
           <h2 className="font-dmserif text-1xl md:text-2xl mb-3">
             {t("home.contact.title", "¿Quieres sumar tu energía a esta comunidad?")}
           </h2>
-          <p className="text-base leading-relaxed">
+        <p className="text-base leading-relaxed">
             {t(
               "home.contact.text",
               "Tanto si eres una marca con ganas de colaborar, una organizadora con planes en mente o simplemente una girl con dudas o ideas... \nEscríbenos y te respondemos pronto 💌"
