@@ -63,7 +63,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  // ⬇️ ADDED: Google Search Console HTML tag verification
+  // ⬇️ Google Search Console verification token
   verification: {
     google: "WP6pvdIs8fnhviy1N46IQhzk3XlokyMShjVAjbTF2L0",
   },
@@ -79,8 +79,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="es" className={`${montserrat.variable} ${dmSerif.variable}`}>
+      {/* ⬇️ Explicit <head> with the meta tag for GSC */}
+      <head>
+        <meta
+          name="google-site-verification"
+          content="WP6pvdIs8fnhviy1N46IQhzk3XlokyMShjVAjbTF2L0"
+        />
+      </head>
+
       <body className="antialiased">
-        {/* ⬇️ ADDED: site-wide Organization + Website JSON-LD */}
+        {/* ⬇️ site-wide Organization + Website JSON-LD */}
         <SeoOrg />
 
         {/* Consent Mode default BEFORE GA loads */}
