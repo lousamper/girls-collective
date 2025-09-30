@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Eye, EyeOff } from "lucide-react"; // ← NEW
 
 const PW_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
@@ -26,6 +27,7 @@ export default function AuthForm() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [message, setMessage] = useState("");
+  const [showPwd, setShowPwd] = useState(false); // ← NEW
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -77,14 +79,28 @@ export default function AuthForm() {
           required
         />
 
-        <input
-          type="password"
-          placeholder="Contraseña"
-          className="p-2 rounded border"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        {/* PASSWORD with show/hide toggle */}
+        <div>
+          <div className="relative">
+            <input
+              type={showPwd ? "text" : "password"}
+              placeholder="Contraseña"
+              className="p-2 rounded border w-full pr-10"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+            />
+            <button
+              type="button"
+              aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+              onClick={() => setShowPwd((s) => !s)}
+              className="absolute inset-y-0 right-2 my-auto h-8 w-8 grid place-items-center rounded hover:bg-black/5"
+            >
+              {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
 
         {/* Under password: link for login, helper text for signup */}
         {mode === "login" ? (
@@ -123,6 +139,5 @@ export default function AuthForm() {
     </div>
   );
 }
-
 
 
