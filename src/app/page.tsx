@@ -101,7 +101,7 @@ export default function HomePage() {
       {/* ======================== */}
       <section className="w-full bg-gcBackgroundAlt2">
         {/* ⬇️ CHANGE: make the hero fill the screen on mobile too */}
-        <div className="grid md:grid-cols-2 min-h-screen">
+        <div className="grid md:grid-cols-2 min-h-[80vh] md:min-h-screen">
           {/* Left: video (desktop only) */}
           <div className="relative hidden md:block">
             <video
@@ -117,7 +117,7 @@ export default function HomePage() {
 
           {/* Right: centered content (mobile & desktop) */}
           {/* ⬇️ CHANGE: more vertical padding on mobile for breathing room */}
-          <div className="flex items-center justify-center px-6 py-12 md:py-10">
+          <div className="flex items-center justify-center px-6 py-14 md:py-10">
             <div className="text-center max-w-xl">
               <p className="font-dmserif text-base md:text-lg mb-3">
                 {t("home.tagline", "where girls connect, thrive & vibe✨")}
