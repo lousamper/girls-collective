@@ -11,7 +11,6 @@ type GroupRow = {
   id: string;
   slug: string;
   name: string;
-  description: string | null;
   city_id: string;
   category_id: string;
 };
@@ -61,7 +60,7 @@ export default function MyGroupsPage() {
       // 2) groups
       const { data: gRows, error: gErr } = await supabase
         .from("groups")
-        .select("id, slug, name, description, city_id, category_id")
+        .select("id, slug, name, city_id, category_id")
         .in("id", ids)
         .order("name", { ascending: true });
 
@@ -156,9 +155,6 @@ export default function MyGroupsPage() {
                     </div>
                   </div>
 
-                  {g.description && (
-                    <p className="mt-2 text-sm opacity-80 line-clamp-3">{g.description}</p>
-                  )}
                 </li>
               );
             })}
