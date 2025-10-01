@@ -91,19 +91,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* ⬇️ site-wide Organization + Website JSON-LD */}
         <SeoOrg />
 
-        {/* Consent Mode default BEFORE GA loads */}
+        {/* Consent Mode default */}
         <Script id="ga-consent-default" strategy="beforeInteractive">
           {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('consent', 'default', {
-              analytics_storage: 'denied',
-              ad_storage: 'denied',
-              functionality_storage: 'granted',
-              security_storage: 'granted'
-            });
-          `}
-        </Script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    
+    // Consent Mode Advanced defaults
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      personalization_storage: 'denied',
+      functionality_storage: 'granted',
+      security_storage: 'granted'
+    });
+
+    // Enable additional pings for modeling
+    gtag('set', 'url_passthrough', true);
+    gtag('set', 'ads_data_redaction', true);
+  `}
+</Script>
+
 
         {/* Load GA only if user accepted */}
         {allowAnalytics && GA_ID && (
