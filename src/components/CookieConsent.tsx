@@ -6,6 +6,13 @@ import { useEffect, useState } from "react";
 const CONSENT_KEY = "gc-cookie-consent";
 type ConsentValue = "accepted" | "rejected";
 
+// ✅ Type gtag so we don't use `any`
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
 function readConsent(): ConsentValue | null {
   try {
     const v = localStorage.getItem(CONSENT_KEY);
@@ -27,10 +34,9 @@ function writeConsent(v: ConsentValue) {
   document.cookie = `${CONSENT_KEY}=${encodeURIComponent(v)}; path=/; max-age=${maxAge}; SameSite=Lax`;
 }
 
-// Inform GA4 (Consent Mode Advanced) immediately
+// ✅ Inform GA4 (Consent Mode Advanced) immediately with proper typing
 function updateGaConsent(granted: boolean) {
-  // Guard if gtag isn't loaded yet
-  (window as any).gtag?.("consent", "update", {
+  window.gtag?.("consent", "update", {
     ad_storage: granted ? "granted" : "denied",
     analytics_storage: granted ? "granted" : "denied",
     personalization_storage: granted ? "granted" : "denied",
@@ -47,14 +53,12 @@ export default function CookieConsent() {
   if (!show) return null;
 
   function acceptAll() {
-    // Update GA consent immediately, then persist + reload to load GA fully
     updateGaConsent(true);
     writeConsent("accepted");
     location.reload();
   }
 
   function onlyEssential() {
-    // Explicitly set denied (helps modeling pings stay consistent)
     updateGaConsent(false);
     writeConsent("rejected");
     location.reload();
@@ -93,3 +97,4 @@ export default function CookieConsent() {
     </div>
   );
 }
+
