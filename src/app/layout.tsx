@@ -14,6 +14,8 @@ import { cookies } from "next/headers";
 
 // ⬇️ ADDED
 import SeoOrg from "@/components/SeoOrg";
+// ⬇️ ADDED (import tracker)
+import GtagRouteTracker from "@/components/GtagRouteTracker";
 
 const montserrat = Montserrat({ subsets: ["latin"], variable: "--font-montserrat" });
 const dmSerif = DM_Serif_Display({ subsets: ["latin"], weight: "400", variable: "--font-dmserif" });
@@ -110,8 +112,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     gtag('set', 'url_passthrough', true);
     gtag('set', 'ads_data_redaction', true);
   `}
-</Script>
-
+        </Script>
 
         {/* Load GA only if user accepted */}
         {allowAnalytics && GA_ID && (
@@ -138,6 +139,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Footer />
         </div>
 
+        {/* ✅ Added tracker so GA4 gets SPA navigations */}
+        <GtagRouteTracker />
+
         <Analytics />
         <SpeedInsights />
         <CookieConsent />
@@ -145,4 +149,3 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
-
