@@ -118,6 +118,25 @@ export const DICT = {
         // optional alias if you ever need it
         mailtoPrefix: "O escríbenos a",
       },
+
+      // NEW: FAQ content (i18n)
+      faq: {
+        title: "Preguntas frecuentes",
+        items: [
+          {
+            q: "¿Qué es Girls Collective?",
+            a: "Una comunidad segura para mujeres donde encontrar amigas y planes en tu ciudad.",
+          },
+          {
+            q: "¿Cómo empiezo?",
+            a: "Crea tu cuenta, completa tu perfil, entra a tu ciudad y explora los distintos grupos (o crea uno tú misma) para conocer a otras girls.",
+          },
+          {
+            q: "¿Cuánto cuesta?",
+            a: "¡Registrarse es gratis!\nAlgunas actividades pueden tener coste según la organización.",
+          },
+        ],
+      },
     },
 
     // UPDATED: group page translations
@@ -338,6 +357,25 @@ export const DICT = {
         ok: "Thanks! We’ll get back to you soon 💌",
         error: "Couldn't send. Please try again.",
         mailtoPrefix: "Or write to",
+      },
+
+      // NEW: FAQ content (i18n)
+      faq: {
+        title: "Frequently asked questions",
+        items: [
+          {
+            q: "What is Girls Collective?",
+            a: "A safe community for women to find friends and plans in your city.",
+          },
+          {
+            q: "How do I start?",
+            a: "Create your account, complete your profile, go to your city and explore the different groups (or create your own) to meet other girls.",
+          },
+          {
+            q: "How much does it cost?",
+            a: "Registration is free!\nSome activities may have a cost depending on the organizer.",
+          },
+        ],
       },
     },
 

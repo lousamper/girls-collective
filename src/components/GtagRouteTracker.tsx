@@ -1,42 +1,29 @@
+// src/components/GtagRouteTracker.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-// type gtag so TS is happy even if GA is blocked
-declare global {
-  interface Window {
-    gtag?: (...args: unknown[]) => void;
-  }
-}
-
-/**
- * Fires GA4 page_view on client-side route changes (App Router).
- * Skips the very first render to avoid double-counting the server-loaded pageview.
- */
-export default function GtagRouteTracker() {
+export default function GtagRouteTracker({ measurementId }: { measurementId: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const firstRender = useRef(true);
 
   useEffect(() => {
-    // Build full URL for page_location
-    const url = typeof window !== "undefined"
-      ? window.location.href
-      : `${pathname}${searchParams?.toString() ? `?${searchParams}` : ""}`;
-
-    // Skip first render: GA 'config' already sent initial page_view
-    if (firstRender.current) {
-      firstRender.current = false;
+    if (typeof window === "undefined" || !("gtag" in window) || !window.gtag || !measurementId) {
       return;
     }
 
-    window.gtag?.("event", "page_view", {
-      page_location: url,
+    const query = searchParams?.toString();
+    const url = pathname + (query ? `?${query}` : "");
+
+    // Send SPA-safe page_view
+    window.gtag("event", "page_view", {
+      page_location: window.location.origin + url,
       page_path: pathname,
-      page_title: document.title || undefined,
+      page_title: document?.title || "",
+      send_to: measurementId,
     });
-  }, [pathname, searchParams]);
+  }, [pathname, searchParams, measurementId]);
 
   return null;
 }

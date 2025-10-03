@@ -41,7 +41,7 @@ export default function Footer() {
           {/* Right: social icons */}
           <div className="flex gap-4 flex-shrink-0">
             <Link
-              href="https://www.instagram.com/girlscollective_yourcity"
+              href="https://www.instagram.com/girls_collective"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"

@@ -25,10 +25,11 @@ export const metadata: Metadata = {
     (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girls-collective.com").replace(/\/+$/, "")
   ),
   title: {
-    default: "Girls Collective",
+    default: "Girls Collective | Encuentra planes y amigas en tu ciudad",
     template: "%s · Girls Collective",
   },
-  description: "Una comunidad para crear amistades reales, a tu ritmo.",
+  description:
+    "Una comunidad para hacer amistades reales en tu ciudad, a tu ritmo. Encuentra los planes y lugares que van con tu vibra.",
   keywords: [
     "Girls Collective",
     "comunidad mujeres",
@@ -37,6 +38,14 @@ export const metadata: Metadata = {
     "eventos mujeres",
     "tribu",
     "eventos valencia",
+    "amigas Madrid",
+    "amigas Barcelona",
+    "nuevas amistades",
+    "planes mujeres",
+    "actividades mujeres",
+    "planes valencia",
+    "planes madrid",
+    "planes alicante",
   ],
   applicationName: "Girls Collective",
   alternates: {
@@ -98,7 +107,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {`
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
-    
+
     // Consent Mode Advanced defaults
     gtag('consent', 'default', {
       ad_storage: 'denied',
@@ -127,9 +136,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${GA_ID}', { anonymize_ip: true });
+
+                // Disable auto page_view; we will send it via the tracker (SPA-safe)
+                (function(){
+                  var debug = false;
+                  try { debug = location.search.includes('ga_debug=1'); } catch(e){}
+                  gtag('config', '${GA_ID}', {
+                    anonymize_ip: true,
+                    send_page_view: false,
+                    debug_mode: debug || (${process.env.NODE_ENV === "development" ? "true" : "false"})
+                  });
+                })();
               `}
             </Script>
+
+            {/* ✅ Tracker inside the GA block, with the ID passed in */}
+            <GtagRouteTracker measurementId={GA_ID} />
           </>
         )}
 
@@ -138,9 +160,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <main className="flex-1">{children}</main>
           <Footer />
         </div>
-
-        {/* ✅ Added tracker so GA4 gets SPA navigations */}
-        <GtagRouteTracker />
 
         <Analytics />
         <SpeedInsights />
