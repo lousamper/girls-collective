@@ -154,9 +154,9 @@ export default function HomePage() {
                   href={ctaHref} // ← dynamic target
                   onClick={() => track("cta_join_click", { page: "home" })}
                   className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
-                  aria-label={t("home.find_city_cta_aria", "Encuentra tu ciudad")}
+                  aria-label={t("home.hero.ctaAria", "{Encuentra tu ciudad}")}
                 >
-                  {t("home.find_city_cta", "¡ÚNETE!")}
+                  {t("home.hero.cta", "¡ÚNETE!")}
                 </Link>
               </div>
             </div>
