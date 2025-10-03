@@ -9,14 +9,19 @@ export default function SeoOrg() {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girls-collective.com")
     .replace(/\/+$/, ""); // optional: strip trailing slash
 
-  const organization: JsonLd = {
+    const organization: JsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Girls Collective",
     url: siteUrl,
-    logo: `${siteUrl}/logo-gc.png`,
+    logo: {
+      "@type": "ImageObject",
+      url: `${siteUrl}/logo-gc.png`,
+      width: 512,   // make sure your logo is ~square and ≥112px
+      height: 512
+    },
     sameAs: [
-      "https://www.instagram.com/girlscollective_yourcity",
+      "https://www.instagram.com/girls_collective",
       "https://www.tiktok.com/@valenciagirlscollective",
     ],
   };
