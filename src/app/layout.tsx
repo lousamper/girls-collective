@@ -85,6 +85,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   // ⬇️ await cookies() (async in your Next version)
   const cookieStore = await cookies();
+  // We no longer gate script loading strictly by consent; still useful elsewhere.
   const consent = cookieStore.get("gc-cookie-consent")?.value;
   const allowAnalytics = consent === "accepted";
 
@@ -102,13 +103,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* ⬇️ site-wide Organization + Website JSON-LD */}
         <SeoOrg />
 
-        {/* Consent Mode default */}
+        {/* Consent Mode default (Advanced): DENIED by default */}
         <Script id="ga-consent-default" strategy="beforeInteractive">
           {`
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
 
-    // Consent Mode Advanced defaults
     gtag('consent', 'default', {
       ad_storage: 'denied',
       analytics_storage: 'denied',
@@ -123,8 +123,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   `}
         </Script>
 
-        {/* Load GA only if user accepted */}
-        {allowAnalytics && GA_ID && (
+        {/* ✅ Always load GA library if GA_ID exists (Consent controls storage) */}
+        {GA_ID && (
           <>
             <Script
               id="ga-loader"
@@ -137,7 +137,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
 
-                // Disable auto page_view; we will send it via the tracker (SPA-safe)
+                // Disable auto page_view; SPA tracker will send it
                 (function(){
                   var debug = false;
                   try { debug = location.search.includes('ga_debug=1'); } catch(e){}
@@ -150,7 +150,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               `}
             </Script>
 
-            {/* ✅ Tracker inside the GA block, with the ID passed in */}
+            {/* Tracker always mounted; consent controls whether hits are cookied */}
             <GtagRouteTracker measurementId={GA_ID} />
           </>
         )}
@@ -168,3 +168,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
