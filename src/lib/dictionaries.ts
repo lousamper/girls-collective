@@ -53,6 +53,10 @@ export const DICT = {
         ctaAria: "Únete",
       },
 
+      // ⬇️ NEW: button text + aria for “find your city”
+      find_city_cta: "Encuentra tu ciudad",
+      find_city_cta_aria: "Encuentra tu ciudad",
+
       // image alt texts used in <Image alt={...}>
       images: {
         connAlt: "Conexión",
@@ -105,6 +109,7 @@ export const DICT = {
           "tú eliges",
           "cómo, cuándo y con quién.",
         ].join("\n"),
+        
       },
 
       contact: {
@@ -135,6 +140,7 @@ export const DICT = {
             q: "¿Cuánto cuesta?",
             a: "¡Registrarse es gratis!\nAlgunas actividades pueden tener coste según la organización.",
           },
+          
         ],
       },
     },
@@ -295,6 +301,10 @@ export const DICT = {
         cta: "JOIN!",
         ctaAria: "Join",
       },
+
+      // ⬇️ NEW: button text + aria for “find your city”
+      find_city_cta: "Find your city",
+      find_city_cta_aria: "Find your city",
 
       images: {
         connAlt: "Connection",
