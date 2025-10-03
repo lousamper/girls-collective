@@ -471,6 +471,8 @@ auth: {
     checkEmail: "Revisa tu correo para confirmar el registro.",
     loginSuccess: "¡Has iniciado sesión con éxito!",
   },
+  resetSent: "Te hemos enviado un correo con instrucciones 💌",
+  resetError: "No se pudo enviar el correo.",
 },
 
 
@@ -937,6 +939,8 @@ auth: {
     checkEmail: "Check your email to confirm your registration.",
     loginSuccess: "Logged in successfully!",
   },
+  resetSent: "We’ve sent you an email with instructions 💌",
+  resetError: "Couldn't send the email.",
 },
 
 
