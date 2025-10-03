@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
+// 🟣 ANALYTICS: Vercel Analytics custom events
+import { track } from "@vercel/analytics";
+
+// 🟣 ANALYTICS: GA4 typing (optional but avoids TS 'any')
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
 
 type City = { id: string; name: string; slug: string };
 type Category = { id: string; name: string };
@@ -235,6 +244,29 @@ export default function OnboardingPage() {
             urls.map((u, idx) => ({ profile_id: user.id, url: u, position: idx }))
           );
         }
+      }
+
+      // 🟣 ANALYTICS: success event before redirect
+      try {
+        const payload = {
+          cityId,
+          selectedCatsCount: selectedCats.length,
+          hasAvatar: !!avatarFile || !!avatarPreview,
+          galleryCount: galleryFiles.length,
+          birthYearProvided: !!birthYear,
+        };
+        // Vercel Analytics
+        track("onboarding_complete", payload);
+        // GA4 (fires only if GA is present & consent granted)
+        if (typeof window !== "undefined" && typeof window.gtag === "function") {
+          window.gtag("event", "onboarding_complete", {
+            ...payload,
+            value: 1,
+            method: "setup_profile",
+          });
+        }
+      } catch {
+        // do nothing; analytics must not break the flow
       }
 
       router.push("/find-your-city");
@@ -499,4 +531,3 @@ export default function OnboardingPage() {
     </main>
   );
 }
-
