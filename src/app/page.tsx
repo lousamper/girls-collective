@@ -63,6 +63,25 @@ export default function HomePage() {
   const dict = useMemo(() => getDict(lang), [lang]);
   const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
+  // --- FAQ i18n setup
+  type FaqItem = { q: string; a: string };
+  const faq = dict.home.faq;
+  const faqJsonLd = useMemo(
+    () => ({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faq.items.map((it: FaqItem) => ({
+        "@type": "Question",
+        name: it.q,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: it.a.replace(/\n/g, " "),
+        },
+      })),
+    }),
+    [faq]
+  );
+
   async function handleContact(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSending(true);
@@ -264,7 +283,7 @@ export default function HomePage() {
           <h2 className="font-dmserif text-1xl md:text-2xl mb-3">
             {t("home.contact.title", "¿Quieres sumar tu energía a esta comunidad?")}
           </h2>
-          <p className="text-base leading-relaxed">
+        <p className="text-base leading-relaxed">
             {t(
               "home.contact.text",
               "Tanto si eres una marca con ganas de colaborar, una organizadora con planes en mente o simplemente una girl con dudas o ideas... \nEscríbenos y te respondemos pronto 💌"
@@ -341,84 +360,30 @@ export default function HomePage() {
           </a>
         </div>
       </section>
+
       {/* ======================== */}
-{/* Section 6: FAQ (visible) */}
-{/* ======================== */}
-<section id="faq" className="max-w-3xl mx-auto px-6 py-10">
-  <h2 className="font-dmserif text-2xl md:text-3xl mb-5 text-center">
-    Preguntas frecuentes
-  </h2>
+      {/* Section 6: FAQ (i18n)   */}
+      {/* ======================== */}
+      <section id="faq" className="max-w-3xl mx-auto px-6 py-10">
+        <h2 className="font-dmserif text-2xl md:text-3xl mb-5 text-center">
+          {faq.title}
+        </h2>
 
-  <div className="space-y-3">
-    <details className="rounded-2xl bg-white/90 p-4 shadow-md">
-      <summary className="cursor-pointer font-semibold">
-        ¿Qué es Girls Collective?
-      </summary>
-      <p className="mt-2">
-        Una comunidad segura para mujeres donde encontrar amigas y planes en tu ciudad.
-      </p>
-    </details>
+        <div className="space-y-3">
+          {faq.items.map((item: FaqItem, i: number) => (
+            <details key={i} className="rounded-2xl bg-white/90 p-4 shadow-md">
+              <summary className="cursor-pointer font-semibold">{item.q}</summary>
+              <p className="mt-2 whitespace-pre-line">{item.a}</p>
+            </details>
+          ))}
+        </div>
+      </section>
 
-    <details className="rounded-2xl bg-white/90 p-4 shadow-md">
-      <summary className="cursor-pointer font-semibold">
-        ¿Cómo empiezo?
-      </summary>
-      <p className="mt-2">
-        Crea tu cuenta, completa tu perfil, entra a tu ciudad y explora los distintos grupos (o crea uno tu misma) para conocer a otras girls.
-      </p>
-    </details>
-
-    <details className="rounded-2xl bg-white/90 p-4 shadow-md">
-      <summary className="cursor-pointer font-semibold">
-        ¿Cuánto cuesta?
-      </summary>
-      <p className="mt-2">
-        ¡Registrarse es gratis!<br></br>Algunas actividades pueden tener coste según la organización.
-      </p>
-    </details>
-  </div>
-</section>
-
-      {/* FAQ JSON-LD (optional) */}
-<script
-  type="application/ld+json"
-  dangerouslySetInnerHTML={{
-    __html: JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: [
-        {
-          "@type": "Question",
-          name: "¿Qué es Girls Collective?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text:
-              "Una comunidad segura para mujeres donde encontrar amigas, planes y apoyo en tu nueva ciudad.",
-          },
-        },
-        {
-          "@type": "Question",
-          name: "¿Cómo empiezo?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text:
-              "Crea tu cuenta, completa tu perfil y entra a tu ciudad para conocer a otras girls.",
-          },
-        },
-        {
-          "@type": "Question",
-          name: "¿Cuánto cuesta?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text:
-              "Registrarse es gratis. Algunas actividades o beneficios pueden tener coste según la organización.",
-          },
-        },
-      ],
-    }),
-  }}
-/>
+      {/* FAQ JSON-LD (i18n) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
     </main>
   );
 }
-
