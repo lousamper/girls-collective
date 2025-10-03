@@ -7,6 +7,10 @@ import { useAuth } from "@/lib/auth";
 // 🟣 ANALYTICS: Vercel Analytics custom events
 import { track } from "@vercel/analytics";
 
+// i18n helpers
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
+
 // 🟣 ANALYTICS: GA4 typing (optional but avoids TS 'any')
 declare global {
   interface Window {
@@ -38,6 +42,12 @@ function safeStoragePath(userId: string, file: File, folder = "") {
 export default function OnboardingPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  // i18n
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => { setLang(getLang()); }, []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
@@ -145,7 +155,11 @@ export default function OnboardingPage() {
     galleryPreviews.forEach((u) => URL.revokeObjectURL(u));
     const chosen = files.slice(0, 3);
     setGalleryFiles(chosen);
-    setGalleryMsg(chosen.length ? `${chosen.length} foto(s) seleccionada(s)` : "");
+    setGalleryMsg(
+      chosen.length
+        ? t("setup.gallery.selectedCount", "{n} foto(s) seleccionada(s)").replace("{n}", String(chosen.length))
+        : ""
+    );
     const urls = chosen.map((f) => URL.createObjectURL(f));
     setGalleryPreviews(urls);
   }
@@ -194,7 +208,7 @@ export default function OnboardingPage() {
       if (profErr) {
         const code = (profErr as { code?: unknown }).code;
         if (typeof code === "string" && code === "23505") {
-          setUsernameError("Este nombre de usuario ya está en uso.");
+          setUsernameError(t("setup.errors.usernameTaken", "Este nombre de usuario ya está en uso."));
           setSaving(false);
           return;
         }
@@ -224,8 +238,8 @@ export default function OnboardingPage() {
         for (const f of galleryFiles.slice(0, 3)) {
           const okType = ["image/jpeg", "image/png"].includes(f.type);
           const okSize = f.size <= 2 * 1024 * 1024; // 2MB
-          if (!okType) throw new Error("Las fotos deben ser .jpg o .png");
-          if (!okSize) throw new Error("Máximo 2MB por foto");
+          if (!okType) throw new Error(t("setup.errors.galleryType", "Las fotos deben ser .jpg o .png"));
+          if (!okSize) throw new Error(t("setup.errors.gallerySize", "Máximo 2MB por foto"));
 
           const gpath = safeStoragePath(user.id, f, "gallery");
           const { error: gErr } = await supabase.storage.from("Avatars").upload(gpath, f, {
@@ -271,7 +285,7 @@ export default function OnboardingPage() {
 
       router.push("/find-your-city");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Algo salió mal. Inténtalo de nuevo.";
+      const msg = err instanceof Error ? err.message : t("setup.errors.generic", "Algo salió mal. Inténtalo de nuevo.");
       setError(msg);
     } finally {
       setSaving(false);
@@ -279,19 +293,19 @@ export default function OnboardingPage() {
   }
 
   if (loading || !user) {
-    return <div className="min-h-screen grid place-items-center">Cargando…</div>;
+    return <div className="min-h-screen grid place-items-center">{t("common.misc.loading", "Cargando…")}</div>;
   }
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-2xl mx-auto p-6">
-        <h1 className="text-3xl font-dmserif mb-2">Completa tu perfil</h1>
-        <p className="mb-6">Esto ayuda a que la comunidad sea más auténtica 💜</p>
+        <h1 className="text-3xl font-dmserif mb-2">{t("setup.title", "Completa tu perfil")}</h1>
+        <p className="mb-6">{t("setup.subtitle", "Esto ayuda a que la comunidad sea más auténtica 💜")}</p>
 
         <form onSubmit={handleSave} className="bg-white rounded-2xl p-6 shadow-md flex flex-col gap-5">
           {/* === 1) AVATAR PRIMERO === */}
           <div>
-            <label className="block text-sm mb-2">Foto de perfil (opcional)</label>
+            <label className="block text-sm mb-2">{t("setup.avatar.label", "Foto de perfil (opcional)")}</label>
 
             <div className="flex items-center gap-4">
               <div className="w-28 h-28 rounded-full overflow-hidden bg-gcBackgroundAlt/30 grid place-items-center">
@@ -299,7 +313,7 @@ export default function OnboardingPage() {
                 {avatarPreview ? (
                   <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-sm opacity-60">Sin foto</span>
+                  <span className="text-sm opacity-60">{t("setup.avatar.noPhoto", "Sin foto")}</span>
                 )}
               </div>
 
@@ -314,8 +328,8 @@ export default function OnboardingPage() {
                     if (!f) { setAvatarFile(null); setAvatarPreview(null); return; }
                     const okType = ["image/jpeg","image/png"].includes(f.type);
                     const okSize = f.size <= 2 * 1024 * 1024; // 2MB
-                    if (!okType) { alert("Debe ser .jpg o .png"); return; }
-                    if (!okSize) { alert("Tamaño máximo 2MB"); return; }
+                    if (!okType) { alert(t("setup.errors.avatarType", "Debe ser .jpg o .png")); return; }
+                    if (!okSize) { alert(t("setup.errors.avatarSize", "Tamaño máximo 2MB")); return; }
                     setAvatarFile(f); // preview updates via effect
                   }}
                 />
@@ -323,22 +337,22 @@ export default function OnboardingPage() {
                   htmlFor="avatar-input"
                   className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-4 py-1.5 text-sm shadow-md hover:opacity-90 cursor-pointer"
                 >
-                  Cargar foto
+                  {t("setup.avatar.button", "Cargar foto")}
                 </label>
-                <p className="text-xs opacity-70 mt-1">JPG/PNG · Máx 2MB</p>
+                <p className="text-xs opacity-70 mt-1">{t("setup.avatar.hint", "JPG/PNG · Máx 2MB")}</p>
               </div>
             </div>
           </div>
 
           {/* 2) Nombre de usuario */}
           <div>
-            <label className="block text-sm mb-1">Nombre de usuario *</label>
+            <label className="block text-sm mb-1">{t("setup.username.label", "Nombre de usuario *")}</label>
             <input
               ref={usernameRef}
               className="w-full rounded border p-2"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Ej: tu nombre o apodo"
+              placeholder={t("setup.username.placeholder", "Ej: tu nombre o apodo")}
               required
             />
             {usernameError && <p className="text-sm text-red-600">{usernameError}</p>}
@@ -346,14 +360,14 @@ export default function OnboardingPage() {
 
           {/* 3) Ciudad */}
           <div>
-            <label className="block text-sm mb-1">Ciudad *</label>
+            <label className="block text-sm mb-1">{t("setup.city.label", "Ciudad *")}</label>
             <select
               className="w-full rounded border p-2 bg-white"
               value={cityId}
               onChange={(e) => setCityId(e.target.value)}
               required
             >
-              <option value="">Selecciona tu ciudad</option>
+              <option value="">{t("setup.city.placeholder", "Selecciona tu ciudad")}</option>
               {cities.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -364,13 +378,13 @@ export default function OnboardingPage() {
 
           {/* 4) Año de nacimiento */}
           <div>
-            <label className="block text-sm mb-1">Año de nacimiento (opcional)</label>
+            <label className="block text-sm mb-1">{t("setup.birthYear.label", "Año de nacimiento (opcional)")}</label>
             <input
               type="number"
               className="w-full rounded border p-2"
               value={birthYear}
               onChange={(e) => setBirthYear(e.target.value)}
-              placeholder="Ej: 1995"
+              placeholder={t("setup.birthYear.placeholder", "Ej: 1995")}
               min="1900"
               max={new Date().getFullYear()}
             />
@@ -378,43 +392,45 @@ export default function OnboardingPage() {
 
           {/* 5) Bio */}
           <div>
-            <label className="block text-sm mb-1">Bio (opcional)</label>
+            <label className="block text-sm mb-1">{t("setup.bio.label", "Bio (opcional)")}</label>
             <textarea
               className="w-full rounded border p-2"
               rows={3}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Cuéntanos algo sobre ti ✨"
+              placeholder={t("setup.bio.placeholder", "Cuéntanos algo sobre ti ✨")}
             />
           </div>
 
           {/* 6) Emoji favorito */}
           <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
-            <label className="text-sm">Un emoji de tus favoritos</label>
+            <label className="text-sm">{t("setup.emoji.label", "Un emoji de tus favoritos")}</label>
             <input
               className="w-32 rounded border p-2 text-center text-xl"
               value={favoriteEmoji}
               onChange={(e) => setFavoriteEmoji(e.target.value.slice(0, 2))}
-              placeholder="🥰"
+              placeholder={t("setup.emoji.placeholder", "🥰")}
             />
           </div>
 
           {/* 7) Frase que inspira (se guarda en 'quote') */}
           <div>
-            <label className="block text-sm mb-1">Una frase de tus favoritas</label>
+            <label className="block text-sm mb-1">{t("setup.quote.label", "Una frase de tus favoritas")}</label>
             <textarea
               className="w-full rounded border p-2"
               rows={2}
               value={inspiringQuote}
               onChange={(e) => setInspiringQuote(e.target.value)}
-              placeholder="Una frase cortita que te represente 💫"
+              placeholder={t("setup.quote.placeholder", "Una frase cortita que te represente 💫")}
             />
           </div>
 
           {/* 8) Intereses */}
           <div>
-            <label className="block text-sm mb-2">Tus intereses</label>
-            {categories.length === 0 && <p className="text-sm text-gray-600">No hay categorías todavía.</p>}
+            <label className="block text-sm mb-2">{t("setup.interests.label", "Tus intereses")}</label>
+            {categories.length === 0 && (
+              <p className="text-sm text-gray-600">{t("setup.interests.none", "No hay categorías todavía.")}</p>
+            )}
             <div className="grid grid-cols-2 gap-2">
               {categories.map((cat) => {
                 const checked = selectedCats.includes(cat.id);
@@ -444,19 +460,19 @@ export default function OnboardingPage() {
 
           {/* 9) Interés personalizado */}
           <div>
-            <label className="block text-sm mb-1">Otro interés (opcional)</label>
+            <label className="block text-sm mb-1">{t("setup.customInterest.label", "Otro interés (opcional)")}</label>
             <input
               type="text"
               className="w-full rounded border p-2"
               value={customInterest}
               onChange={(e) => setCustomInterest(e.target.value)}
-              placeholder="Escribe tu propio interés"
+              placeholder={t("setup.customInterest.placeholder", "Escribe tu propio interés")}
             />
           </div>
 
           {/* 10) Galería (1–3 fotos) + PREVIEWS */}
           <div>
-            <label className="block text-sm mb-1">¿1-3 fotos que te representen?</label>
+            <label className="block text-sm mb-1">{t("setup.gallery.label", "¿1-3 fotos que te representen?")}</label>
             <div className="flex items-center gap-3">
               <input
                 id="gallery-input"
@@ -473,7 +489,7 @@ export default function OnboardingPage() {
                 htmlFor="gallery-input"
                 className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-5 py-2 text-sm shadow-md hover:opacity-90 cursor-pointer"
               >
-                Subir fotos
+                {t("setup.gallery.uploadBtn", "Subir fotos")}
               </label>
               {galleryMsg && <span className="text-xs opacity-80">{galleryMsg}</span>}
             </div>
@@ -493,7 +509,9 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            <p className="text-xs opacity-70 mt-1">Hasta 3 fotos · JPG/PNG · 2MB máx por foto</p>
+            <p className="text-xs opacity-70 mt-1">
+              {t("setup.gallery.hint", "Hasta 3 fotos · JPG/PNG · 2MB máx por foto")}
+            </p>
           </div>
 
           {/* 11) Consentimiento */}
@@ -507,9 +525,9 @@ export default function OnboardingPage() {
               required
             />
             <label htmlFor="consent" className="text-sm">
-              Acepto la{" "}
+              {t("setup.consent.prefix", "Acepto la")}{" "}
               <a href="/privacy-policy" className="underline text-[#50415b]" target="_blank" rel="noopener noreferrer">
-                Política de Privacidad
+                {t("setup.consent.privacy", "Política de Privacidad")}
               </a>
             </label>
           </div>
@@ -521,7 +539,7 @@ export default function OnboardingPage() {
               disabled={!canSave || saving}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
             >
-              {saving ? "Guardando…" : "Guardar y continuar"}
+              {saving ? t("setup.actions.saving", "Guardando…") : t("setup.actions.save", "Guardar y continuar")}
             </button>
           </div>
 
@@ -531,3 +549,4 @@ export default function OnboardingPage() {
     </main>
   );
 }
+

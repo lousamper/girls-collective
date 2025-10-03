@@ -143,6 +143,108 @@ export const DICT = {
           
         ],
       },
+      profile: {
+  title: "Mi perfil",
+  subtitle: "Gestiona tu información y tus grupos 💜",
+
+  avatar: {
+    button: "Cargar foto",
+    noPhoto: "Sin foto",
+    hint: "JPG o PNG · Máx 2MB",
+  },
+
+  username: {
+    label: "Nombre de usuario *",
+    placeholder: "Tu nombre o apodo",
+    checking: "Comprobando…",
+    required: "El nombre de usuario es obligatorio.",
+    taken: "Este nombre ya está en uso.",
+    validateFail: "No se pudo validar el nombre.",
+  },
+
+  city: {
+    label: "Ciudad *",
+    placeholder: "Selecciona tu ciudad",
+  },
+
+  bio: {
+    label: "Bio (opcional)",
+    placeholder: "Cuéntanos algo sobre ti ✨",
+  },
+
+  emoji: {
+    label: "Un emoji de tus favoritos",
+    placeholder: "🥰",
+  },
+
+  quote: {
+    label: "Una frase de tus favoritas",
+    placeholder: "Una frase cortita que te represente 💫",
+  },
+
+  actions: {
+    save: "Guardar cambios",
+    saving: "Guardando…",
+  },
+
+  messages: {
+    updated: "Perfil actualizado ✅",
+  },
+
+  errors: {
+    saveFail: "No se pudo guardar.",
+    avatarType: "Debe ser .jpg o .png",
+    avatarSize: "Tamaño máximo 2MB",
+    galleryType: "Las fotos deben ser .jpg o .png",
+    gallerySize: "Máximo 2MB por foto",
+  },
+
+  interests: {
+    title: "Tus intereses",
+    updateBtn: "Actualizar",
+    ok: "Intereses actualizados ✅",
+    err: "No se pudieron actualizar los intereses.",
+  },
+
+  gallery: {
+    title: "Tu galería",
+    uploadBtn: "Subir fotos",
+    selectedCount: "{n} foto(s) seleccionada(s)",
+    hint: "Hasta 3 fotos · JPG o PNG · Máx 2MB por foto",
+    saving: "Guardando…",
+    updateBtn: "Actualizar",
+    ok: "Galería actualizada ✅",
+    err: "No se pudo actualizar la galería.",
+    noChanges: "No hay cambios en la galería.",
+  },
+
+  groups: {
+    title: "Mis grupos",
+    empty: "Todavía no te has unido a ningún grupo.",
+    goToGroup: "Ir al grupo",
+    cityFallback: "Ciudad",
+    categoryFallback: "categoría",
+  },
+
+  password: {
+    title: "Cambiar contraseña",
+    new: "Nueva contraseña",
+    confirm: "Confirmar nueva contraseña",
+    updateBtn: "Actualizar",
+    ok: "Contraseña actualizada ✅",
+    mismatch: "Las contraseñas no coinciden.",
+    err: "No se pudo actualizar la contraseña.",
+  },
+
+  security: {
+    title: "Zona de seguridad",
+    signOut: "Cerrar sesión",
+    delete: "Eliminar cuenta",
+    deleteOk: "Solicitud enviada. Te contactaremos pronto 💌",
+    deleteErr: "No se pudo enviar la solicitud. Inténtalo más tarde.",
+  },
+},
+
     },
 
     // UPDATED: group page translations
@@ -249,6 +351,106 @@ export const DICT = {
         interests: "Intereses",
       },
     },
+    setup: {
+  title: "Completa tu perfil",
+  subtitle: "Esto ayuda a que la comunidad sea más auténtica 💜",
+
+  avatar: {
+    label: "Foto de perfil (opcional)",
+    button: "Cargar foto",
+    noPhoto: "Sin foto",
+    hint: "JPG/PNG · Máx 2MB",
+  },
+
+  username: {
+    label: "Nombre de usuario *",
+    placeholder: "Ej: tu nombre o apodo",
+  },
+
+  city: {
+    label: "Ciudad *",
+    placeholder: "Selecciona tu ciudad",
+  },
+
+  birthYear: {
+    label: "Año de nacimiento (opcional)",
+    placeholder: "Ej: 1995",
+  },
+
+  bio: {
+    label: "Bio (opcional)",
+    placeholder: "Cuéntanos algo sobre ti ✨",
+  },
+
+  emoji: {
+    label: "Un emoji de tus favoritos",
+    placeholder: "🥰",
+  },
+
+  quote: {
+    label: "Una frase de tus favoritas",
+    placeholder: "Una frase cortita que te represente 💫",
+  },
+
+  interests: {
+    label: "Tus intereses",
+    none: "No hay categorías todavía.",
+  },
+
+  customInterest: {
+    label: "Otro interés (opcional)",
+    placeholder: "Escribe tu propio interés",
+  },
+
+  gallery: {
+    label: "¿1-3 fotos que te representen?",
+    uploadBtn: "Subir fotos",
+    hint: "Hasta 3 fotos · JPG/PNG · 2MB máx por foto",
+    selectedCount: "{n} foto(s) seleccionada(s)",
+  },
+
+  consent: {
+    prefix: "Acepto la",
+    privacy: "Política de Privacidad",
+  },
+
+  actions: {
+    save: "Guardar y continuar",
+    saving: "Guardando…",
+  },
+
+  errors: {
+    generic: "Algo salió mal. Inténtalo de nuevo.",
+    avatarType: "Debe ser .jpg o .png",
+    avatarSize: "Tamaño máximo 2MB",
+    galleryType: "Las fotos deben ser .jpg o .png",
+    gallerySize: "Máximo 2MB por foto",
+    usernameTaken: "Este nombre de usuario ya está en uso.",
+  },
+},
+findCity: {
+  title: "Encuentra tu ciudad",
+  carousel: {
+    prevAria: "Anterior",
+    nextAria: "Siguiente",
+    soonBadge: "PRONTO",
+  },
+  waitlist: {
+    blurb1: "¿No encuentras tu ciudad?",
+    blurb2: "No te preocupes, déjanos tu correo y te avisaremos una vez que esté disponible 💌",
+    cityLabel: "Tu ciudad:",
+    cityPlaceholder: "Ej: Sevilla",
+    emailLabel: "Tu correo:",
+    emailPlaceholder: "tucorreo@email.com",
+    submit: "¡únete a la lista de espera!",
+    submitting: "Enviando…",
+    okExisting: "¡Genial! Ya estabas en la lista para esa ciudad 💌",
+    okNew: "¡Gracias! Te avisaremos cuando tu ciudad esté disponible 💌",
+    error: "Error al enviar. Inténtalo de nuevo.",
+  },
+},
+
+
   },
 
   en: {
@@ -490,6 +692,207 @@ export const DICT = {
         interests: "Interests",
       },
     },
+    setup: {
+  title: "Complete your profile",
+  subtitle: "This helps keep the community authentic 💜",
+
+  avatar: {
+    label: "Profile photo (optional)",
+    button: "Upload photo",
+    noPhoto: "No photo",
+    hint: "JPG/PNG · Max 2MB",
+  },
+
+  username: {
+    label: "Username *",
+    placeholder: "e.g., your name or nickname",
+  },
+
+  city: {
+    label: "City *",
+    placeholder: "Select your city",
+  },
+
+  birthYear: {
+    label: "Year of birth (optional)",
+    placeholder: "e.g., 1995",
+  },
+
+  bio: {
+    label: "Bio (optional)",
+    placeholder: "Tell us something about you ✨",
+  },
+
+  emoji: {
+    label: "One of your favourite emojis",
+    placeholder: "🥰",
+  },
+
+  quote: {
+    label: "A quote you love",
+    placeholder: "A short line that represents you 💫",
+  },
+
+  interests: {
+    label: "Your interests",
+    none: "No categories yet.",
+  },
+
+  customInterest: {
+    label: "Another interest (optional)",
+    placeholder: "Write your own interest",
+  },
+
+  gallery: {
+    label: "1–3 photos that represent you?",
+    uploadBtn: "Upload photos",
+    hint: "Up to 3 photos · JPG/PNG · 2MB max each",
+    selectedCount: "{n} photo(s) selected",
+  },
+
+  consent: {
+    prefix: "I accept the",
+    privacy: "Privacy Policy",
+  },
+
+  actions: {
+    save: "Save & continue",
+    saving: "Saving…",
+  },
+
+  errors: {
+    generic: "Something went wrong. Please try again.",
+    avatarType: "Must be .jpg or .png",
+    avatarSize: "Maximum size 2MB",
+    galleryType: "Photos must be .jpg or .png",
+    gallerySize: "Maximum 2MB per photo",
+    usernameTaken: "That username is already taken.",
+  },
+},
+profile: {
+  title: "My profile",
+  subtitle: "Manage your info and your groups 💜",
+
+  avatar: {
+    button: "Upload photo",
+    noPhoto: "No photo",
+    hint: "JPG or PNG · Max 2MB",
+  },
+
+  username: {
+    label: "Username *",
+    placeholder: "Your name or nickname",
+    checking: "Checking…",
+    required: "Username is required.",
+    taken: "That username is already taken.",
+    validateFail: "Couldn't validate the username.",
+  },
+
+  city: {
+    label: "City *",
+    placeholder: "Select your city",
+  },
+
+  bio: {
+    label: "Bio (optional)",
+    placeholder: "Tell us something about you ✨",
+  },
+
+  emoji: {
+    label: "One of your favourite emojis",
+    placeholder: "🥰",
+  },
+
+  quote: {
+    label: "A quote you love",
+    placeholder: "A short line that represents you 💫",
+  },
+
+  actions: {
+    save: "Save changes",
+    saving: "Saving…",
+  },
+
+  messages: {
+    updated: "Profile updated ✅",
+  },
+
+  errors: {
+    saveFail: "Couldn't save.",
+    avatarType: "Must be .jpg or .png",
+    avatarSize: "Maximum size 2MB",
+    galleryType: "Photos must be .jpg or .png",
+    gallerySize: "Max 2MB per photo",
+  },
+
+  interests: {
+    title: "Your interests",
+    updateBtn: "Update",
+    ok: "Interests updated ✅",
+    err: "Couldn't update interests.",
+  },
+
+  gallery: {
+    title: "Your gallery",
+    uploadBtn: "Upload photos",
+    selectedCount: "{n} photo(s) selected",
+    hint: "Up to 3 photos · JPG or PNG · Max 2MB each",
+    saving: "Saving…",
+    updateBtn: "Update",
+    ok: "Gallery updated ✅",
+    err: "Couldn't update the gallery.",
+    noChanges: "No changes in the gallery.",
+  },
+
+  groups: {
+    title: "My groups",
+    empty: "You haven't joined any group yet.",
+    goToGroup: "Go to group",
+    cityFallback: "City",
+    categoryFallback: "category",
+  },
+
+  password: {
+    title: "Change password",
+    new: "New password",
+    confirm: "Confirm new password",
+    updateBtn: "Update",
+    ok: "Password updated ✅",
+    mismatch: "Passwords do not match.",
+    err: "Couldn't update the password.",
+  },
+
+  security: {
+    title: "Security zone",
+    signOut: "Sign out",
+    delete: "Delete account",
+    deleteOk: "Request sent. We'll contact you soon 💌",
+    deleteErr: "Couldn't send the request. Please try again later.",
+  },
+},
+findCity: {
+  title: "Find your city",
+  carousel: {
+    prevAria: "Previous",
+    nextAria: "Next",
+    soonBadge: "SOON",
+  },
+  waitlist: {
+    blurb1: "Can't find your city?",
+    blurb2: "No worries! Leave your email and we'll notify you once it's available 💌",
+    cityLabel: "Your city:",
+    cityPlaceholder: "e.g., Seville",
+    emailLabel: "Your email:",
+    emailPlaceholder: "you@email.com",
+    submit: "Join the waitlist!",
+    submitting: "Sending…",
+    okExisting: "Great! You were already on the list for that city 💌",
+    okNew: "Thanks! We'll let you know when your city is available 💌",
+    error: "Couldn't send. Please try again.",
+  },
+},
+
+
   },
 } as const;
 

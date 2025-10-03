@@ -7,6 +7,10 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { ArrowRight } from "lucide-react";
 
+// i18n
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
+
 type City = { id: string; name: string; slug: string };
 type Profile = {
   id: string;
@@ -48,6 +52,12 @@ function safeStoragePath(userId: string, file: File) {
 export default function ProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  // i18n
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => setLang(getLang()), []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
   // perfil básico
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -169,11 +179,11 @@ export default function ProfilePage() {
           .in("id", groupIds);
         setMyGroups(groups ?? []);
 
-        // ✅ maps para info de grupo — usa el *resultado local* allCats para evitar el retardo
+        // ✅ maps para info de grupo — usa el *resultado local* allCats
         const catIds = Array.from(new Set((groups ?? []).map((g) => g.category_id)));
         if (catIds.length) {
           const m: Record<string, Category> = {};
-          (allCats ?? []).forEach((c) => {
+          (allCategories ?? []).forEach((c) => {
             if (catIds.includes(c.id)) m[c.id] = c;
           });
           setCatMap(m);
@@ -217,7 +227,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return;
     if (!username.trim()) {
-      setNameError("El nombre de usuario es obligatorio.");
+      setNameError(t("profile.username.required", "El nombre de usuario es obligatorio."));
       return;
     }
     let active = true;
@@ -230,8 +240,8 @@ export default function ProfilePage() {
         .ilike("username", username.trim())
         .neq("id", user.id);
       if (active) {
-        if (error) setNameError("No se pudo validar el nombre.");
-        else if ((data ?? []).length > 0) setNameError("Este nombre ya está en uso.");
+        if (error) setNameError(t("profile.username.validateFail", "No se pudo validar el nombre."));
+        else if ((data ?? []).length > 0) setNameError(t("profile.username.taken", "Este nombre ya está en uso."));
         else setNameError("");
       }
       setNameChecking(false);
@@ -239,6 +249,7 @@ export default function ProfilePage() {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, user]);
 
   const canSave = useMemo(
@@ -255,11 +266,11 @@ export default function ProfilePage() {
     const okType = ["image/jpeg", "image/png"].includes(f.type);
     const okSize = f.size <= 2 * 1024 * 1024; // 2MB
     if (!okType) {
-      alert("Debe ser .jpg o .png");
+      alert(t("profile.errors.avatarType", "Debe ser .jpg o .png"));
       return;
     }
     if (!okSize) {
-      alert("Tamaño máximo 2MB");
+      alert(t("profile.errors.avatarSize", "Tamaño máximo 2MB"));
       return;
     }
     setAvatarFile(f);
@@ -302,9 +313,9 @@ export default function ProfilePage() {
         .eq("id", user.id);
       if (profErr) throw profErr;
 
-      setMsg("Perfil actualizado ✅");
+      setMsg(t("profile.messages.updated", "Perfil actualizado ✅"));
     } catch (e) {
-      const m = e instanceof Error ? e.message : "No se pudo guardar.";
+      const m = e instanceof Error ? e.message : t("profile.errors.saveFail", "No se pudo guardar.");
       setErr(m);
     } finally {
       setSaving(false);
@@ -326,9 +337,9 @@ export default function ProfilePage() {
           selectedCatIds.map((category_id) => ({ profile_id: user.id, category_id }))
         );
       }
-      setInterestMsg("Intereses actualizados ✅");
+      setInterestMsg(t("profile.interests.ok", "Intereses actualizados ✅"));
     } catch (e) {
-      const m = e instanceof Error ? e.message : "No se pudieron actualizar los intereses.";
+      const m = e instanceof Error ? e.message : t("profile.interests.err", "No se pudieron actualizar los intereses.");
       setInterestErr(m);
     }
   }
@@ -341,7 +352,7 @@ export default function ProfilePage() {
     setGallerySaving(true);
     try {
       if (galleryFiles.length === 0) {
-        setGalleryOk("No hay cambios en la galería.");
+        setGalleryOk(t("profile.gallery.noChanges", "No hay cambios en la galería."));
         setGallerySaving(false);
         return;
       }
@@ -349,8 +360,8 @@ export default function ProfilePage() {
       for (const f of galleryFiles.slice(0, 3)) {
         const okType = ["image/jpeg", "image/png"].includes(f.type);
         const okSize = f.size <= 2 * 1024 * 1024; // 2MB (igual que onboarding)
-        if (!okType) throw new Error("Las fotos deben ser .jpg o .png");
-        if (!okSize) throw new Error("Máximo 2MB por foto");
+        if (!okType) throw new Error(t("profile.errors.galleryType", "Las fotos deben ser .jpg o .png"));
+        if (!okSize) throw new Error(t("profile.errors.gallerySize", "Máximo 2MB por foto"));
 
         const path = `${user.id}/gallery/${Date.now()}_${sanitizeFileName(f.name)}`;
         const { error: upErr } = await supabase.storage.from("Avatars").upload(path, f, {
@@ -372,9 +383,9 @@ export default function ProfilePage() {
         if (insErr) throw insErr;
       }
 
-      setGalleryOk("Galería actualizada ✅");
+      setGalleryOk(t("profile.gallery.ok", "Galería actualizada ✅"));
     } catch (e) {
-      const m = e instanceof Error ? e.message : "No se pudo actualizar la galería.";
+      const m = e instanceof Error ? e.message : t("profile.gallery.err", "No se pudo actualizar la galería.");
       setGalleryErr(m);
     } finally {
       setGallerySaving(false);
@@ -388,7 +399,7 @@ export default function ProfilePage() {
     setPwdErr("");
 
     if (!pwd1 || pwd1 !== pwd2) {
-      setPwdErr("Las contraseñas no coinciden.");
+      setPwdErr(t("profile.password.mismatch", "Las contraseñas no coinciden."));
       return;
     }
     try {
@@ -396,9 +407,9 @@ export default function ProfilePage() {
       if (error) throw error;
       setPwd1("");
       setPwd2("");
-      setPwdMsg("Contraseña actualizada ✅");
+      setPwdMsg(t("profile.password.ok", "Contraseña actualizada ✅"));
     } catch (e) {
-      const m = e instanceof Error ? e.message : "No se pudo actualizar la contraseña.";
+      const m = e instanceof Error ? e.message : t("profile.password.err", "No se pudo actualizar la contraseña.");
       setPwdErr(m);
     }
   }
@@ -420,21 +431,21 @@ export default function ProfilePage() {
       message: "User requests full account deletion.",
     });
     if (!error) {
-      alert("Solicitud enviada. Te contactaremos pronto 💌");
+      alert(t("profile.security.deleteOk", "Solicitud enviada. Te contactaremos pronto 💌"));
     } else {
-      alert("No se pudo enviar la solicitud. Inténtalo más tarde.");
+      alert(t("profile.security.deleteErr", "No se pudo enviar la solicitud. Inténtalo más tarde."));
     }
   }
 
   if (loading || !user) {
-    return <main className="min-h-screen grid place-items-center">Cargando…</main>;
+    return <main className="min-h-screen grid place-items-center">{t("common.misc.loading", "Cargando…")}</main>;
   }
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-5xl mx-auto p-6">
-        <h1 className="text-3xl font-dmserif mb-2">Mi perfil</h1>
-        <p className="mb-6">Gestiona tu información y tus grupos 💜</p>
+        <h1 className="text-3xl font-dmserif mb-2">{t("profile.title", "Mi perfil")}</h1>
+        <p className="mb-6">{t("profile.subtitle", "Gestiona tu información y tus grupos 💜")}</p>
 
         {/* ===== Perfil (bio, ciudad, avatar, + emoji & frase) ===== */}
         <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-6 shadow-md flex flex-col gap-5">
@@ -446,7 +457,7 @@ export default function ProfilePage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-sm opacity-60">Sin foto</span>
+                  <span className="text-sm opacity-60">{t("profile.avatar.noPhoto", "Sin foto")}</span>
                 )}
               </div>
 
@@ -463,10 +474,10 @@ export default function ProfilePage() {
                   htmlFor="avatar-input"
                   className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-4 py-1.5 text-sm shadow-md hover:opacity-90 cursor-pointer"
                 >
-                  Cargar foto
+                  {t("profile.avatar.button", "Cargar foto")}
                 </label>
                 <div className="text-xs opacity-70 mt-1">
-                  {avatarFileName ? avatarFileName : "JPG o PNG · Máx 2MB"}
+                  {avatarFileName ? avatarFileName : t("profile.avatar.hint", "JPG o PNG · Máx 2MB")}
                 </div>
               </div>
             </div>
@@ -474,27 +485,27 @@ export default function ProfilePage() {
             {/* Campos */}
             <div className="flex-1 grid gap-4">
               <div>
-                <label className="block text-sm mb-1">Nombre de usuario *</label>
+                <label className="block text-sm mb-1">{t("profile.username.label", "Nombre de usuario *")}</label>
                 <input
                   className="w-full rounded-xl border p-3"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Tu nombre o apodo"
+                  placeholder={t("profile.username.placeholder", "Tu nombre o apodo")}
                   required
                 />
-                {nameChecking && <p className="text-sm opacity-70 mt-1">Comprobando…</p>}
+                {nameChecking && <p className="text-sm opacity-70 mt-1">{t("profile.username.checking", "Comprobando…")}</p>}
                 {nameError && <p className="text-sm text-red-600 mt-1">{nameError}</p>}
               </div>
 
               <div>
-                <label className="block text-sm mb-1">Ciudad *</label>
+                <label className="block text-sm mb-1">{t("profile.city.label", "Ciudad *")}</label>
                 <select
                   className="w-full rounded-xl border p-3 bg-white"
                   value={cityId}
                   onChange={(e) => setCityId(e.target.value)}
                   required
                 >
-                  <option value="">Selecciona tu ciudad</option>
+                  <option value="">{t("profile.city.placeholder", "Selecciona tu ciudad")}</option>
                   {cities.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -504,36 +515,36 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm mb-1">Bio (opcional)</label>
+                <label className="block text-sm mb-1">{t("profile.bio.label", "Bio (opcional)")}</label>
                 <textarea
                   className="w-full rounded-xl border p-3"
                   rows={3}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Cuéntanos algo sobre ti ✨"
+                  placeholder={t("profile.bio.placeholder", "Cuéntanos algo sobre ti ✨")}
                 />
               </div>
 
               {/* NEW: Emoji favorito */}
               <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
-                <label className="text-sm">Un emoji de tus favoritos</label>
+                <label className="text-sm">{t("profile.emoji.label", "Un emoji de tus favoritos")}</label>
                 <input
                   className="w-32 rounded-xl border p-3 text-center text-xl"
                   value={favoriteEmoji}
                   onChange={(e) => setFavoriteEmoji(e.target.value.slice(0, 2))}
-                  placeholder="🥰"
+                  placeholder={t("profile.emoji.placeholder", "🥰")}
                 />
               </div>
 
               {/* NEW: Frase que inspira */}
               <div>
-                <label className="block text-sm mb-1">Una frase de tus favoritas</label>
+                <label className="block text-sm mb-1">{t("profile.quote.label", "Una frase de tus favoritas")}</label>
                 <textarea
                   className="w-full rounded-xl border p-3"
                   rows={2}
                   value={inspiringQuote}
                   onChange={(e) => setInspiringQuote(e.target.value)}
-                  placeholder="Una frase cortita que te represente 💫"
+                  placeholder={t("profile.quote.placeholder", "Una frase cortita que te represente 💫")}
                 />
               </div>
             </div>
@@ -546,7 +557,7 @@ export default function ProfilePage() {
               disabled={!canSave || saving}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
             >
-              {saving ? "Guardando…" : "Guardar cambios"}
+              {saving ? t("profile.actions.saving", "Guardando…") : t("profile.actions.save", "Guardar cambios")}
             </button>
           </div>
 
@@ -556,7 +567,7 @@ export default function ProfilePage() {
 
         {/* ===== Tus intereses (debajo de bio) ===== */}
         <section className="bg-white rounded-2xl p-6 shadow-md mt-6 text-center">
-          <h2 className="font-dmserif text-2xl mb-4">Tus intereses</h2>
+          <h2 className="font-dmserif text-2xl mb-4">{t("profile.interests.title", "Tus intereses")}</h2>
 
           <div className="flex flex-wrap gap-2 justify-center">
             {allCategories.map((c) => {
@@ -584,7 +595,7 @@ export default function ProfilePage() {
               onClick={saveInterests}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
             >
-              Actualizar
+              {t("profile.interests.updateBtn", "Actualizar")}
             </button>
           </div>
 
@@ -594,7 +605,7 @@ export default function ProfilePage() {
 
         {/* ===== Tu galería (bloque propio) ===== */}
         <section className="bg-white rounded-2xl p-6 shadow-md mt-6 text-center">
-          <h2 className="font-dmserif text-2xl mb-3">Tu galería</h2>
+          <h2 className="font-dmserif text-2xl mb-3">{t("profile.gallery.title", "Tu galería")}</h2>
 
           <div className="flex items-center justify-center gap-3">
             <input
@@ -607,7 +618,11 @@ export default function ProfilePage() {
                 const files = Array.from(e.target.files ?? []);
                 const chosen = files.slice(0, 3);
                 setGalleryFiles(chosen);
-                setGalleryMsg(chosen.length ? `${chosen.length} foto(s) seleccionada(s)` : "");
+                setGalleryMsg(
+                  chosen.length
+                    ? t("profile.gallery.selectedCount", "{n} foto(s) seleccionada(s)").replace("{n}", String(chosen.length))
+                    : ""
+                );
                 setGalleryOk("");
                 setGalleryErr("");
               }}
@@ -616,7 +631,7 @@ export default function ProfilePage() {
               htmlFor="gallery-input"
               className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-5 py-2 text-sm shadow-md hover:opacity-90 cursor-pointer"
             >
-              Subir fotos
+              {t("profile.gallery.uploadBtn", "Subir fotos")}
             </label>
             {galleryMsg && <span className="text-xs opacity-80">{galleryMsg}</span>}
           </div>
@@ -635,7 +650,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <p className="text-xs opacity-70 mt-2">Hasta 3 fotos · JPG o PNG · Máx 2MB por foto</p>
+          <p className="text-xs opacity-70 mt-2">{t("profile.gallery.hint", "Hasta 3 fotos · JPG o PNG · Máx 2MB por foto")}</p>
 
           <div className="mt-4 flex justify-center">
             <button
@@ -643,7 +658,7 @@ export default function ProfilePage() {
               disabled={gallerySaving}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
             >
-              {gallerySaving ? "Guardando…" : "Actualizar"}
+              {gallerySaving ? t("profile.gallery.saving", "Guardando…") : t("profile.gallery.updateBtn", "Actualizar")}
             </button>
           </div>
 
@@ -653,9 +668,9 @@ export default function ProfilePage() {
 
         {/* ===== Mis grupos ===== */}
         <section className="bg-white rounded-2xl p-6 shadow-md mt-6">
-          <h2 className="font-dmserif text-2xl mb-4">Mis grupos</h2>
+          <h2 className="font-dmserif text-2xl mb-4">{t("profile.groups.title", "Mis grupos")}</h2>
 
-          {myGroups.length === 0 && <p className="opacity-70">Todavía no te has unido a ningún grupo.</p>}
+          {myGroups.length === 0 && <p className="opacity-70">{t("profile.groups.empty", "Todavía no te has unido a ningún grupo.")}</p>}
 
           <ul className="grid md:grid-cols-2 gap-3">
             {myGroups.map((g) => {
@@ -667,15 +682,15 @@ export default function ProfilePage() {
                   <div>
                     <div className="font-semibold">{g.name}</div>
                     <div className="text-sm opacity-70">
-                      {city?.name ?? "Ciudad"} • {cat?.slug ?? "categoría"}
+                      {city?.name ?? t("profile.groups.cityFallback", "Ciudad")} • {cat?.slug ?? t("profile.groups.categoryFallback", "categoría")}
                     </div>
                   </div>
                   {cat && city ? (
                     <Link
                       href={href}
-                      aria-label="Ir al grupo"
+                      aria-label={t("profile.groups.goToGroup", "Ir al grupo")}
                       className="rounded-full bg-[#50415b] text-[#fef8f4] p-2.5 shadow-md hover:opacity-90"
-                      title="Ir al grupo"
+                      title={t("profile.groups.goToGroup", "Ir al grupo")}
                     >
                       <ArrowRight className="w-5 h-5" />
                     </Link>
@@ -690,12 +705,12 @@ export default function ProfilePage() {
 
         {/* ===== Cambiar contraseña (centrado) ===== */}
         <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto text-center">
-          <h2 className="font-dmserif text-2xl mb-4">Cambiar contraseña</h2>
+          <h2 className="font-dmserif text-2xl mb-4">{t("profile.password.title", "Cambiar contraseña")}</h2>
           <form onSubmit={handleChangePassword} className="grid gap-3 max-w-md mx-auto">
             <input
               type="password"
               className="w-full rounded-xl border p-3"
-              placeholder="Nueva contraseña"
+              placeholder={t("profile.password.new", "Nueva contraseña")}
               value={pwd1}
               onChange={(e) => setPwd1(e.target.value)}
               required
@@ -703,7 +718,7 @@ export default function ProfilePage() {
             <input
               type="password"
               className="w-full rounded-xl border p-3"
-              placeholder="Confirmar nueva contraseña"
+              placeholder={t("profile.password.confirm", "Confirmar nueva contraseña")}
               value={pwd2}
               onChange={(e) => setPwd2(e.target.value)}
               required
@@ -713,7 +728,7 @@ export default function ProfilePage() {
                 type="submit"
                 className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
               >
-                Actualizar
+                {t("profile.password.updateBtn", "Actualizar")}
               </button>
             </div>
           </form>
@@ -723,19 +738,19 @@ export default function ProfilePage() {
 
         {/* ===== Zona de seguridad (mismo formato centrado) ===== */}
         <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto text-center">
-          <h2 className="font-dmserif text-2xl mb-3">Zona de seguridad</h2>
+          <h2 className="font-dmserif text-2xl mb-3">{t("profile.security.title", "Zona de seguridad")}</h2>
           <div className="flex flex-wrap gap-3 justify-center">
             <button
               onClick={handleSignOut}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 shadow-md hover:opacity-90"
             >
-              Cerrar sesión
+              {t("profile.security.signOut", "Cerrar sesión")}
             </button>
             <button
               onClick={requestDeleteAccount}
               className="rounded-full bg-red-600 text-white font-montserrat px-6 py-2 shadow-md hover:opacity-90"
             >
-              Eliminar cuenta
+              {t("profile.security.delete", "Eliminar cuenta")}
             </button>
           </div>
         </section>

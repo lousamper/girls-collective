@@ -1,17 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { PostgrestError } from "@supabase/supabase-js";
 
+// i18n
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
+
 type City = { id: string; name: string; slug: string; is_active: boolean; soon?: boolean };
 
 export default function FindYourCityPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  // i18n
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => setLang(getLang()), []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
   const [cities, setCities] = useState<City[]>([]);
   const [sending, setSending] = useState(false);
@@ -33,7 +43,7 @@ export default function FindYourCityPage() {
         .from("cities")
         .select("id,name,slug,is_active")
         .order("name")
-        .returns<Array<Omit<City, "soon">>>(); // type the rows we expect
+        .returns<Array<Omit<City, "soon">>>();
 
       if (data) {
         const soonSlugs = new Set(["madrid", "santander", "sevilla"]);
@@ -91,15 +101,15 @@ export default function FindYourCityPage() {
 
       if (pgErr) {
         if (pgErr.code === "23505") {
-          setSuccess("¡Genial! Ya estabas en la lista para esa ciudad 💌");
+          setSuccess(t("findCity.waitlist.okExisting", "¡Genial! Ya estabas en la lista para esa ciudad 💌"));
           setCityInput("");
           setEmailInput("");
         } else {
           console.error("Insert error:", pgErr);
-          setError("Error al enviar. Inténtalo de nuevo.");
+          setError(t("findCity.waitlist.error", "Error al enviar. Inténtalo de nuevo."));
         }
       } else {
-        setSuccess("¡Gracias! Te avisaremos cuando tu ciudad esté disponible 💌");
+        setSuccess(t("findCity.waitlist.okNew", "¡Gracias! Te avisaremos cuando tu ciudad esté disponible 💌"));
         setCityInput("");
         setEmailInput("");
       }
@@ -109,25 +119,27 @@ export default function FindYourCityPage() {
   }
 
   if (loading || !user) {
-    return <div className="min-h-screen grid place-items-center">Cargando…</div>;
+    return <div className="min-h-screen grid place-items-center">{t("common.misc.loading", "Cargando…")}</div>;
   }
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-6xl mx-auto p-6">
-        <h1 className="text-4xl font-dmserif text-center mb-8">Find your city</h1>
+        <h1 className="text-4xl font-dmserif text-center mb-8">
+          {t("findCity.title", "Find your city")}
+        </h1>
 
         {/* Horizontal carousel */}
         <div className="relative">
           <button
-            aria-label="Anterior"
+            aria-label={t("findCity.carousel.prevAria", "Anterior")}
             onClick={scrollLeft}
             className="absolute left-2 top-1/2 -translate-y-1/2 z-10 text-[#fffacd] hover:scale-110 transition"
           >
             <ChevronLeft size={40} strokeWidth={2.5} />
           </button>
           <button
-            aria-label="Siguiente"
+            aria-label={t("findCity.carousel.nextAria", "Siguiente")}
             onClick={scrollRight}
             className="absolute right-2 top-1/2 -translate-y-1/2 z-10 text-[#fffacd] hover:scale-110 transition"
           >
@@ -153,7 +165,7 @@ export default function FindYourCityPage() {
                   />
                   {city.soon && (
                     <div className="absolute top-3 right-3 bg-gcCTA text-gcText text-xs font-bold px-2 py-1 rounded-full shadow">
-                      SOON
+                      {t("findCity.carousel.soonBadge", "SOON")}
                     </div>
                   )}
                 </div>
@@ -165,8 +177,11 @@ export default function FindYourCityPage() {
         {/* Waitlist form */}
         <div className="mt-12 max-w-md mx-auto text-center">
           <p className="mb-6 leading-relaxed">
-            ¿No encuentras tu ciudad? <br />
-            No te preocupes, déjanos tu correo y te avisaremos una vez que esté disponible 💌
+            {t("findCity.waitlist.blurb1", "¿No encuentras tu ciudad?")} <br />
+            {t(
+              "findCity.waitlist.blurb2",
+              "No te preocupes, déjanos tu correo y te avisaremos una vez que esté disponible 💌"
+            )}
           </p>
 
           <form
@@ -175,7 +190,7 @@ export default function FindYourCityPage() {
           >
             <div className="text-left">
               <label htmlFor="waitlist-city" className="block text-sm mb-1">
-                Tu ciudad:
+                {t("findCity.waitlist.cityLabel", "Tu ciudad:")}
               </label>
               <input
                 id="waitlist-city"
@@ -183,14 +198,14 @@ export default function FindYourCityPage() {
                 className="w-full rounded-xl border p-3"
                 value={cityInput}
                 onChange={(e) => setCityInput(e.target.value)}
-                placeholder="Ej: Sevilla"
+                placeholder={t("findCity.waitlist.cityPlaceholder", "Ej: Sevilla")}
                 required
               />
             </div>
 
             <div className="text-left">
               <label htmlFor="waitlist-email" className="block text-sm mb-1">
-                Tu correo:
+                {t("findCity.waitlist.emailLabel", "Tu correo:")}
               </label>
               <input
                 id="waitlist-email"
@@ -198,7 +213,7 @@ export default function FindYourCityPage() {
                 className="w-full rounded-xl border p-3"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                placeholder="tucorreo@email.com"
+                placeholder={t("findCity.waitlist.emailPlaceholder", "tucorreo@email.com")}
                 required
               />
             </div>
@@ -208,7 +223,9 @@ export default function FindYourCityPage() {
               disabled={sending}
               className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
             >
-              {sending ? "Enviando…" : "¡únete a la lista de espera!"}
+              {sending
+                ? t("findCity.waitlist.submitting", "Enviando…")
+                : t("findCity.waitlist.submit", "¡únete a la lista de espera!")}
             </button>
 
             {success && <p className="text-green-700 text-sm">{success}</p>}
