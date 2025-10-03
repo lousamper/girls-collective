@@ -449,6 +449,30 @@ findCity: {
     error: "Error al enviar. Inténtalo de nuevo.",
   },
 },
+auth: {
+  title: { login: "Bienvenida de nuevo 💜", signup: "Bienvenida 💜" },
+  desc: { login: "Inicia sesión para encontrar tu tribu.", signup: "Crea tu cuenta para encontrar tu tribu." },
+  emailPlaceholder: "Correo electrónico",
+  passwordPlaceholder: "Contraseña",
+  passwordShow: "Mostrar contraseña",
+  passwordHide: "Ocultar contraseña",
+  forgot: "¿Olvidaste tu contraseña?",
+  pwRuleHelper: "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números.",
+  loading: "Cargando…",
+  loginCta: "Entrar",
+  signupCta: "Registrarse",
+  switch: {
+    toSignupPrompt: "¿Aún no tienes cuenta?",
+    toLoginPrompt: "¿Ya tienes una cuenta?",
+    signupLink: "Regístrate",
+    loginLink: "Entrar",
+  },
+  msg: {
+    checkEmail: "Revisa tu correo para confirmar el registro.",
+    loginSuccess: "¡Has iniciado sesión con éxito!",
+  },
+},
+
 
 
   },
@@ -889,6 +913,29 @@ findCity: {
     okExisting: "Great! You were already on the list for that city 💌",
     okNew: "Thanks! We'll let you know when your city is available 💌",
     error: "Couldn't send. Please try again.",
+  },
+},
+auth: {
+  title: { login: "Welcome back 💜", signup: "Welcome 💜" },
+  desc: { login: "Log in to find your tribe.", signup: "Create your account to find your tribe." },
+  emailPlaceholder: "Email address",
+  passwordPlaceholder: "Password",
+  passwordShow: "Show password",
+  passwordHide: "Hide password",
+  forgot: "Forgot your password?",
+  pwRuleHelper: "Password must be at least 8 characters and include uppercase, lowercase, and numbers.",
+  loading: "Loading…",
+  loginCta: "Log in",
+  signupCta: "Sign up",
+  switch: {
+    toSignupPrompt: "Don't have an account yet?",
+    toLoginPrompt: "Already have an account?",
+    signupLink: "Sign up",
+    loginLink: "Log in",
+  },
+  msg: {
+    checkEmail: "Check your email to confirm your registration.",
+    loginSuccess: "Logged in successfully!",
   },
 },
 

@@ -1,11 +1,15 @@
 // src/components/AuthForm.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Eye, EyeOff } from "lucide-react"; // ← NEW
+import { Eye, EyeOff } from "lucide-react";
+
+// i18n
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
 
 const PW_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
@@ -17,17 +21,22 @@ function friendlyAuthError(err: unknown): string {
   if (/Email not confirmed/i.test(m)) return "Confirma tu correo para iniciar sesión.";
   if (/User already registered/i.test(m)) return "Ya existe una cuenta con ese correo.";
   if (/Password should be at least/i.test(m)) return "La contraseña no cumple los requisitos.";
-  // fallback: show Spanish generic
   return "No se pudo completar la operación. Intenta de nuevo.";
 }
 
 export default function AuthForm() {
+  // i18n setup
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => setLang(getLang()), []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [message, setMessage] = useState("");
-  const [showPwd, setShowPwd] = useState(false); // ← NEW
+  const [showPwd, setShowPwd] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -36,20 +45,22 @@ export default function AuthForm() {
 
     try {
       if (mode === "signup") {
-        // ✅ Client-side policy so you get a nice Spanish message
         if (!PW_RULE.test(password)) {
           setMessage(
-            "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números."
+            t(
+              "auth.pwRuleHelper",
+              "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números."
+            )
           );
           return;
         }
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        setMessage("Revisa tu correo para confirmar el registro.");
+        setMessage(t("auth.msg.checkEmail", "Revisa tu correo para confirmar el registro."));
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        setMessage("Has iniciado sesión con éxito!");
+        setMessage(t("auth.msg.loginSuccess", "¡Has iniciado sesión con éxito!"));
       }
     } catch (err: unknown) {
       setMessage(friendlyAuthError(err));
@@ -61,18 +72,18 @@ export default function AuthForm() {
   return (
     <div className="space-y-4">
       <DialogTitle className="text-2xl font-dmserif text-gcText">
-        {mode === "login" ? "Bienvenida de nuevo 💜" : "Bienvenida 💜"}
+        {mode === "login" ? t("auth.title.login", "Bienvenida de nuevo 💜") : t("auth.title.signup", "Bienvenida 💜")}
       </DialogTitle>
       <DialogDescription className="text-sm text-gray-600">
         {mode === "login"
-          ? "Inicia sesión para encontrar tu tribu."
-          : "Crea tu cuenta para encontrar tu tribu."}
+          ? t("auth.desc.login", "Inicia sesión para encontrar tu tribu.")
+          : t("auth.desc.signup", "Crea tu cuenta para encontrar tu tribu.")}
       </DialogDescription>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <input
           type="email"
-          placeholder="Correo electrónico"
+          placeholder={t("auth.emailPlaceholder", "Correo electrónico")}
           className="p-2 rounded border"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -84,7 +95,7 @@ export default function AuthForm() {
           <div className="relative">
             <input
               type={showPwd ? "text" : "password"}
-              placeholder="Contraseña"
+              placeholder={t("auth.passwordPlaceholder", "Contraseña")}
               className="p-2 rounded border w-full pr-10"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -93,7 +104,11 @@ export default function AuthForm() {
             />
             <button
               type="button"
-              aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+              aria-label={
+                showPwd
+                  ? t("auth.passwordHide", "Ocultar contraseña")
+                  : t("auth.passwordShow", "Mostrar contraseña")
+              }
               onClick={() => setShowPwd((s) => !s)}
               className="absolute inset-y-0 right-2 my-auto h-8 w-8 grid place-items-center rounded hover:bg-black/5"
             >
@@ -106,12 +121,15 @@ export default function AuthForm() {
         {mode === "login" ? (
           <div className="text-left -mt-1">
             <Link href="/auth/forgot" className="text-sm underline hover:opacity-80">
-              ¿Olvidaste tu contraseña?
+              {t("auth.forgot", "¿Olvidaste tu contraseña?")}
             </Link>
           </div>
         ) : (
           <p className="text-xs text-gray-600 -mt-1">
-            La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números.
+            {t(
+              "auth.pwRuleHelper",
+              "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números."
+            )}
           </p>
         )}
 
@@ -120,18 +138,24 @@ export default function AuthForm() {
           disabled={loading}
           className="w-full rounded-full bg-[#50415b] text-[#fef8f4] px-6 py-2 text-lg font-dmserif shadow-md hover:opacity-90 disabled:opacity-60"
         >
-          {loading ? "Cargando…" : mode === "login" ? "Entrar" : "Registrarse"}
+          {loading
+            ? t("auth.loading", "Cargando…")
+            : mode === "login"
+            ? t("auth.loginCta", "Entrar")
+            : t("auth.signupCta", "Registrarse")}
         </button>
       </form>
 
       <p className="text-sm mt-3 text-center">
-        {mode === "login" ? "¿Aún no tienes cuenta?" : "¿Ya tienes una cuenta?"}{" "}
+        {mode === "login"
+          ? t("auth.switch.toSignupPrompt", "¿Aún no tienes cuenta?")
+          : t("auth.switch.toLoginPrompt", "¿Ya tienes una cuenta?")}{" "}
         <button
           type="button"
           onClick={() => setMode(mode === "login" ? "signup" : "login")}
           className="text-purple-700 underline"
         >
-          {mode === "login" ? "Regístrate" : "Entrar"}
+          {mode === "login" ? t("auth.switch.signupLink", "Regístrate") : t("auth.switch.loginLink", "Entrar")}
         </button>
       </p>
 
