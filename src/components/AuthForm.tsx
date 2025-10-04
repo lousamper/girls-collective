@@ -31,12 +31,22 @@ export default function AuthForm() {
   const dict = useMemo(() => getDict(lang), [lang]);
   const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
+  // SITE para redirect del email de confirmación
+  const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girls-collective.com").replace(
+    /\/+$/,
+    ""
+  );
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [message, setMessage] = useState("");
   const [showPwd, setShowPwd] = useState(false);
+
+  // estado para reenviar confirmación
+  const [resending, setResending] = useState(false);
+  const canResend = mode === "signup" && !!email;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,7 +64,14 @@ export default function AuthForm() {
           );
           return;
         }
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            // 👇 importante: que el enlace vuelva a tu app
+            emailRedirectTo: `${SITE}/auth/callback`,
+          },
+        });
         if (error) throw error;
         setMessage(t("auth.msg.checkEmail", "Revisa tu correo para confirmar el registro."));
       } else {
@@ -69,10 +86,31 @@ export default function AuthForm() {
     }
   };
 
+  async function handleResend() {
+    if (!email) return;
+    setResending(true);
+    try {
+      // Supabase v2: reenviar confirmación pendiente de signup
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${SITE}/auth/callback` },
+      });
+      if (error) throw error;
+      setMessage(t("auth.msg.resent", "Hemos reenviado el email de confirmación ✉️"));
+    } catch (err: unknown) {
+      setMessage(friendlyAuthError(err));
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <DialogTitle className="text-2xl font-dmserif text-gcText">
-        {mode === "login" ? t("auth.title.login", "Bienvenida de nuevo 💜") : t("auth.title.signup", "Bienvenida 💜")}
+        {mode === "login"
+          ? t("auth.title.login", "Bienvenida de nuevo 💜")
+          : t("auth.title.signup", "Bienvenida 💜")}
       </DialogTitle>
       <DialogDescription className="text-sm text-gray-600">
         {mode === "login"
@@ -125,12 +163,25 @@ export default function AuthForm() {
             </Link>
           </div>
         ) : (
-          <p className="text-xs text-gray-600 -mt-1">
-            {t(
-              "auth.pwRuleHelper",
-              "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números."
-            )}
-          </p>
+          <div className="-mt-1 text-xs text-gray-600">
+            <p>
+              {t(
+                "auth.pwRuleHelper",
+                "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números."
+              )}
+            </p>
+            {/* Reenviar confirmación (solo en signup) */}
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={!canResend || resending}
+              className="mt-2 underline text-purple-700 disabled:opacity-60"
+            >
+              {resending
+                ? t("auth.resending", "Reenviando…")
+                : t("auth.resend", "¿No recibiste el email? Reenviar")}
+            </button>
+          </div>
         )}
 
         <button
@@ -155,7 +206,9 @@ export default function AuthForm() {
           onClick={() => setMode(mode === "login" ? "signup" : "login")}
           className="text-purple-700 underline"
         >
-          {mode === "login" ? t("auth.switch.signupLink", "Regístrate") : t("auth.switch.loginLink", "Entrar")}
+          {mode === "login"
+            ? t("auth.switch.signupLink", "Regístrate")
+            : t("auth.switch.loginLink", "Entrar")}
         </button>
       </p>
 
@@ -163,5 +216,3 @@ export default function AuthForm() {
     </div>
   );
 }
-
-
