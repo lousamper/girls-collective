@@ -13,6 +13,7 @@ import type { Lang } from "@/lib/dictionaries";
 
 const PW_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
+// Mensajes de error en español
 function friendlyAuthError(err: unknown): string {
   if (!(err instanceof Error)) return "Algo salió mal.";
   const m = err.message || "";
@@ -25,18 +26,13 @@ function friendlyAuthError(err: unknown): string {
 }
 
 export default function AuthForm() {
-  // i18n setup
+  // i18n
   const [lang, setLang] = useState<Lang>("es");
   useEffect(() => setLang(getLang()), []);
   const dict = useMemo(() => getDict(lang), [lang]);
   const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
-  // SITE para redirect del email de confirmación
-  const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girls-collective.com").replace(
-    /\/+$/,
-    ""
-  );
-
+  // state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,14 +40,38 @@ export default function AuthForm() {
   const [message, setMessage] = useState("");
   const [showPwd, setShowPwd] = useState(false);
 
-  // estado para reenviar confirmación
-  const [resending, setResending] = useState(false);
-  const canResend = mode === "signup" && !!email;
+  // para “ya tienes cuenta” / “reenviar confirmación”
+  const [existingUser, setExistingUser] = useState(false);
+  const [resentOk, setResentOk] = useState("");
+  const [resentErr, setResentErr] = useState("");
+
+  const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girls-collective.com").replace(/\/+$/, "");
+  const redirectTo = `${SITE}/auth/callback`;
+
+  async function handleResendConfirmation() {
+    setResentOk("");
+    setResentErr("");
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: redirectTo },
+      });
+      if (error) throw error;
+      setResentOk("Hemos reenviado el correo de confirmación. Revisa tu bandeja de entrada.");
+    } catch (e) {
+      setResentErr("No se pudo reenviar el correo. Intenta de nuevo.");
+      console.warn("resend error:", e);
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setExistingUser(false);
+    setResentOk("");
+    setResentErr("");
 
     try {
       if (mode === "signup") {
@@ -64,16 +84,24 @@ export default function AuthForm() {
           );
           return;
         }
+
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            // 👇 importante: que el enlace vuelva a tu app
-            emailRedirectTo: `${SITE}/auth/callback`,
-          },
+          options: { emailRedirectTo: redirectTo },
         });
-        if (error) throw error;
-        setMessage(t("auth.msg.checkEmail", "Revisa tu correo para confirmar el registro."));
+
+        if (error) {
+          // Caso común: ya existe el usuario
+          if (/User already registered/i.test(error.message)) {
+            setExistingUser(true);
+            setMessage("Ya tienes cuenta con ese correo.");
+          } else {
+            throw error;
+          }
+        } else {
+          setMessage(t("auth.msg.checkEmail", "Revisa tu correo para confirmar el registro."));
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -86,31 +114,10 @@ export default function AuthForm() {
     }
   };
 
-  async function handleResend() {
-    if (!email) return;
-    setResending(true);
-    try {
-      // Supabase v2: reenviar confirmación pendiente de signup
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: { emailRedirectTo: `${SITE}/auth/callback` },
-      });
-      if (error) throw error;
-      setMessage(t("auth.msg.resent", "Hemos reenviado el email de confirmación ✉️"));
-    } catch (err: unknown) {
-      setMessage(friendlyAuthError(err));
-    } finally {
-      setResending(false);
-    }
-  }
-
   return (
     <div className="space-y-4">
       <DialogTitle className="text-2xl font-dmserif text-gcText">
-        {mode === "login"
-          ? t("auth.title.login", "Bienvenida de nuevo 💜")
-          : t("auth.title.signup", "Bienvenida 💜")}
+        {mode === "login" ? t("auth.title.login", "Bienvenida de nuevo 💜") : t("auth.title.signup", "Bienvenida 💜")}
       </DialogTitle>
       <DialogDescription className="text-sm text-gray-600">
         {mode === "login"
@@ -128,7 +135,7 @@ export default function AuthForm() {
           required
         />
 
-        {/* PASSWORD with show/hide toggle */}
+        {/* PASSWORD con mostrar/ocultar */}
         <div>
           <div className="relative">
             <input
@@ -155,7 +162,7 @@ export default function AuthForm() {
           </div>
         </div>
 
-        {/* Under password: link for login, helper text for signup */}
+        {/* Link/ayuda debajo del password */}
         {mode === "login" ? (
           <div className="text-left -mt-1">
             <Link href="/auth/forgot" className="text-sm underline hover:opacity-80">
@@ -163,25 +170,12 @@ export default function AuthForm() {
             </Link>
           </div>
         ) : (
-          <div className="-mt-1 text-xs text-gray-600">
-            <p>
-              {t(
-                "auth.pwRuleHelper",
-                "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números."
-              )}
-            </p>
-            {/* Reenviar confirmación (solo en signup) */}
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={!canResend || resending}
-              className="mt-2 underline text-purple-700 disabled:opacity-60"
-            >
-              {resending
-                ? t("auth.resending", "Reenviando…")
-                : t("auth.resend", "¿No recibiste el email? Reenviar")}
-            </button>
-          </div>
+          <p className="text-xs text-gray-600 -mt-1">
+            {t(
+              "auth.pwRuleHelper",
+              "La contraseña debe tener mínimo 8 caracteres, con mayúsculas, minúsculas y números."
+            )}
+          </p>
         )}
 
         <button
@@ -197,6 +191,25 @@ export default function AuthForm() {
         </button>
       </form>
 
+      {/* Bloque especial cuando ya existe la cuenta */}
+      {existingUser && (
+        <div className="text-sm mt-2 text-center">
+          <p className="mb-2">Ya tienes cuenta con ese correo.</p>
+          <div className="flex items-center justify-center gap-3">
+            <Link href="/auth" className="underline">Entrar</Link>
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              className="rounded-full border px-3 py-1 text-sm hover:opacity-90"
+            >
+              Reenviar confirmación
+            </button>
+          </div>
+          {resentOk && <p className="text-green-700 mt-2">{resentOk}</p>}
+          {resentErr && <p className="text-red-600 mt-2">{resentErr}</p>}
+        </div>
+      )}
+
       <p className="text-sm mt-3 text-center">
         {mode === "login"
           ? t("auth.switch.toSignupPrompt", "¿Aún no tienes cuenta?")
@@ -206,9 +219,7 @@ export default function AuthForm() {
           onClick={() => setMode(mode === "login" ? "signup" : "login")}
           className="text-purple-700 underline"
         >
-          {mode === "login"
-            ? t("auth.switch.signupLink", "Regístrate")
-            : t("auth.switch.loginLink", "Entrar")}
+          {mode === "login" ? t("auth.switch.signupLink", "Regístrate") : t("auth.switch.loginLink", "Entrar")}
         </button>
       </p>
 
