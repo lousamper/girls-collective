@@ -1,3 +1,4 @@
+// src/app/auth/callback/page.tsx
 "use client";
 
 import { Suspense, useEffect } from "react";
@@ -30,17 +31,43 @@ function AuthCallbackInner() {
 
     (async () => {
       try {
+        // 1) Intercambia el code por sesión
         const code = params.get("code");
         if (code) {
-          // espera un string
           const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) console.warn("exchangeCodeForSession:", error.message);
+          if (error) console.warn("exchangeCodeForSession(code):", error.message);
         } else if (typeof window !== "undefined") {
-          // algunos providers devuelven todo en la URL
+          // fallback por si el provider devuelve todo en la URL
           const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
           if (error) console.warn("exchangeCodeForSession(url):", error.message);
         }
-      } finally {
+
+        // 2) Obtén usuario actual
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          if (!cancelled) router.replace("/auth");
+          return;
+        }
+
+        // 3) Comprueba si el perfil está completo
+        const { data: profile, error: profErr } = await supabase
+          .from("profiles")
+          .select("username, city_id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profErr) {
+          console.warn("profiles check:", profErr.message);
+        }
+
+        const incomplete = !profile || !profile.username || !profile.city_id;
+
+        // 4) Redirige según estado del perfil
+        if (!cancelled) {
+          router.replace(incomplete ? "/setup-profile" : "/find-your-city");
+        }
+      } catch (e) {
+        console.warn("auth callback error:", e);
         if (!cancelled) router.replace("/auth");
       }
     })();
