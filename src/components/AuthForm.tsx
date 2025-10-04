@@ -13,7 +13,6 @@ import type { Lang } from "@/lib/dictionaries";
 
 const PW_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
-// Mensajes de error en español
 function friendlyAuthError(err: unknown): string {
   if (!(err instanceof Error)) return "Algo salió mal.";
   const m = err.message || "";
@@ -26,13 +25,12 @@ function friendlyAuthError(err: unknown): string {
 }
 
 export default function AuthForm() {
-  // i18n
+  // i18n setup
   const [lang, setLang] = useState<Lang>("es");
   useEffect(() => setLang(getLang()), []);
   const dict = useMemo(() => getDict(lang), [lang]);
   const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
-  // state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,17 +38,18 @@ export default function AuthForm() {
   const [message, setMessage] = useState("");
   const [showPwd, setShowPwd] = useState(false);
 
-  // para “ya tienes cuenta” / “reenviar confirmación”
-  const [existingUser, setExistingUser] = useState(false);
-  const [resentOk, setResentOk] = useState("");
-  const [resentErr, setResentErr] = useState("");
+  // ⬇️ NUEVO: control de “email enviado” y feedback de reenvío
+  const [signupSent, setSignupSent] = useState(false);
+  const [resendOk, setResendOk] = useState("");
+  const [resendErr, setResendErr] = useState("");
 
+  // URL destino tras confirmar email
   const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girls-collective.com").replace(/\/+$/, "");
   const redirectTo = `${SITE}/auth/callback`;
 
-  async function handleResendConfirmation() {
-    setResentOk("");
-    setResentErr("");
+  async function handleResend() {
+    setResendOk("");
+    setResendErr("");
     try {
       const { error } = await supabase.auth.resend({
         type: "signup",
@@ -58,9 +57,9 @@ export default function AuthForm() {
         options: { emailRedirectTo: redirectTo },
       });
       if (error) throw error;
-      setResentOk("Hemos reenviado el correo de confirmación. Revisa tu bandeja de entrada.");
+      setResendOk("Hemos reenviado el correo. Revisa tu bandeja de entrada.");
     } catch (e) {
-      setResentErr("No se pudo reenviar el correo. Intenta de nuevo.");
+      setResendErr("No se pudo reenviar. Intenta de nuevo en unos segundos.");
       console.warn("resend error:", e);
     }
   }
@@ -69,9 +68,9 @@ export default function AuthForm() {
     e.preventDefault();
     setLoading(true);
     setMessage("");
-    setExistingUser(false);
-    setResentOk("");
-    setResentErr("");
+    setSignupSent(false);
+    setResendOk("");
+    setResendErr("");
 
     try {
       if (mode === "signup") {
@@ -85,23 +84,17 @@ export default function AuthForm() {
           return;
         }
 
+        // ⬇️ CAMBIO 1: incluir redirectTo
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: redirectTo },
         });
+        if (error) throw error;
 
-        if (error) {
-          // Caso común: ya existe el usuario
-          if (/User already registered/i.test(error.message)) {
-            setExistingUser(true);
-            setMessage("Ya tienes cuenta con ese correo.");
-          } else {
-            throw error;
-          }
-        } else {
-          setMessage(t("auth.msg.checkEmail", "Revisa tu correo para confirmar el registro."));
-        }
+        // ⬇️ CAMBIO 2: marcar que se envió el email para mostrar “Reenviar”
+        setSignupSent(true);
+        setMessage(t("auth.msg.checkEmail", "Revisa tu correo para confirmar el registro."));
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -135,7 +128,7 @@ export default function AuthForm() {
           required
         />
 
-        {/* PASSWORD con mostrar/ocultar */}
+        {/* PASSWORD with show/hide toggle */}
         <div>
           <div className="relative">
             <input
@@ -162,7 +155,7 @@ export default function AuthForm() {
           </div>
         </div>
 
-        {/* Link/ayuda debajo del password */}
+        {/* Under password: link for login, helper text for signup */}
         {mode === "login" ? (
           <div className="text-left -mt-1">
             <Link href="/auth/forgot" className="text-sm underline hover:opacity-80">
@@ -183,37 +176,31 @@ export default function AuthForm() {
           disabled={loading}
           className="w-full rounded-full bg-[#50415b] text-[#fef8f4] px-6 py-2 text-lg font-dmserif shadow-md hover:opacity-90 disabled:opacity-60"
         >
-          {loading
-            ? t("auth.loading", "Cargando…")
-            : mode === "login"
-            ? t("auth.loginCta", "Entrar")
-            : t("auth.signupCta", "Registrarse")}
+          {loading ? t("auth.loading", "Cargando…") : mode === "login" ? t("auth.loginCta", "Entrar") : t("auth.signupCta", "Registrarse")}
         </button>
       </form>
 
-      {/* Bloque especial cuando ya existe la cuenta */}
-      {existingUser && (
-        <div className="text-sm mt-2 text-center">
-          <p className="mb-2">Ya tienes cuenta con ese correo.</p>
-          <div className="flex items-center justify-center gap-3">
-            <Link href="/auth" className="underline">Entrar</Link>
-            <button
-              type="button"
-              onClick={handleResendConfirmation}
-              className="rounded-full border px-3 py-1 text-sm hover:opacity-90"
-            >
-              Reenviar confirmación
-            </button>
-          </div>
-          {resentOk && <p className="text-green-700 mt-2">{resentOk}</p>}
-          {resentErr && <p className="text-red-600 mt-2">{resentErr}</p>}
+      {/* Mensajes */}
+      {message && <p className="mt-2 text-sm text-center">{message}</p>}
+
+      {/* Mostrar reenviar SOLO tras haber enviado el email de signup */}
+      {mode === "signup" && signupSent && email && (
+        <div className="text-xs mt-2 text-center">
+          ¿No has recibido el email?{" "}
+          <button
+            type="button"
+            onClick={handleResend}
+            className="underline hover:opacity-80"
+          >
+            Reenviar
+          </button>
+          {resendOk && <p className="text-green-700 mt-2">{resendOk}</p>}
+          {resendErr && <p className="text-red-600 mt-2">{resendErr}</p>}
         </div>
       )}
 
       <p className="text-sm mt-3 text-center">
-        {mode === "login"
-          ? t("auth.switch.toSignupPrompt", "¿Aún no tienes cuenta?")
-          : t("auth.switch.toLoginPrompt", "¿Ya tienes una cuenta?")}{" "}
+        {mode === "login" ? t("auth.switch.toSignupPrompt", "¿Aún no tienes cuenta?") : t("auth.switch.toLoginPrompt", "¿Ya tienes una cuenta?")}{" "}
         <button
           type="button"
           onClick={() => setMode(mode === "login" ? "signup" : "login")}
@@ -222,8 +209,6 @@ export default function AuthForm() {
           {mode === "login" ? t("auth.switch.signupLink", "Regístrate") : t("auth.switch.loginLink", "Entrar")}
         </button>
       </p>
-
-      {message && <p className="mt-2 text-sm text-center">{message}</p>}
     </div>
   );
 }
