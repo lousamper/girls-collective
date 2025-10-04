@@ -24,6 +24,9 @@ export const DICT = {
         submit: "Enviar",
         submitting: "Enviando…",
         orWriteUs: "O escríbenos a",
+        prev: "Anterior",
+        next: "Siguiente",
+
       },
       // NEW
       misc: {
@@ -474,6 +477,21 @@ auth: {
   resetSent: "Te hemos enviado un correo con instrucciones 💌",
   resetError: "No se pudo enviar el correo.",
 },
+valencia: {
+  alt: "Valencia",
+  intro: {
+    title1: "¿Recién llegada a Valencia?",
+    title2: "¿O con ganas de reconectar con la ciudad?",
+    p1: "Este es tu espacio para encontrar nuevas amigas, compartir intereses y crear",
+    p1b: "planes que de verdad te llenen.",
+    p2: "Aquí tú tienes el control 🤝",
+    p3: "Puedes crear el grupo, proponer planes o simplemente",
+    p3b: "unirte a los grupos ya creados que vibren con lo que te gusta.",
+    p4: "¡Elige la categoría que más resuene contigo y empieza a construir comunidad!",
+    p5: "A tu ritmo, a tu manera.",
+  },
+  categories: { title: "Encuentra tu tribu" },
+},
 
 
 
@@ -501,6 +519,8 @@ auth: {
         submit: "Send",
         submitting: "Sending…",
         orWriteUs: "Or write us at",
+        prev: "Previous",
+        next: "Next",
       },
       // NEW
       misc: {
@@ -941,6 +961,21 @@ auth: {
   },
   resetSent: "We’ve sent you an email with instructions 💌",
   resetError: "Couldn't send the email.",
+},
+valencia: {
+  alt: "Valencia",
+  intro: {
+    title1: "New in Valencia?",
+    title2: "Or want to reconnect with the city?",
+    p1: "This is your space to find new friends, share interests and create",
+    p1b: "plans that truly light you up.",
+    p2: "You’re in control here 🤝",
+    p3: "You can create a group, suggest plans or simply",
+    p3b: "join existing groups that vibe with what you love.",
+    p4: "Pick the category that resonates most and start building community!",
+    p5: "At your pace, in your way.",
+  },
+  categories: { title: "Find your tribe" },
 },
 
 

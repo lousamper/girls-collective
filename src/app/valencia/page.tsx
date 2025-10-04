@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+// i18n
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
 
 type Category = { id: string; name: string; slug: string };
 
@@ -21,6 +25,12 @@ export default function ValenciaPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // i18n
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => setLang(getLang()), []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const railRef = useRef<HTMLDivElement | null>(null);
 
@@ -34,7 +44,7 @@ export default function ValenciaPage() {
       if (data) {
         const mapped = data
           .map((c) => ({ id: c.id, name: c.name, slug: slugify(c.name) }))
-          // 3) hide "otro" from the carousel
+          // hide "otro" from the carousel
           .filter((c) => c.slug !== "otro" && c.name.toLowerCase() !== "otro");
         setCategories(mapped);
       }
@@ -53,26 +63,24 @@ export default function ValenciaPage() {
   }
 
   if (loading || !user) {
-    return <div className="min-h-screen grid place-items-center">Cargando…</div>;
+    return <div className="min-h-screen grid place-items-center">{t("common.misc.loading", "Cargando…")}</div>;
   }
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       {/* HERO IMAGE */}
-      {/* Mobile: show full image scaled to screen width (no crop). */}
-      {/* Desktop: same as before (cover, fixed viewport height). */}
       <section className="w-full">
         {/* Mobile-only hero (no cropping, fits width) */}
         <img
           src="/cities/valencia-hero.jpg"
-          alt="Valencia"
+          alt={t("valencia.alt", "Valencia")}
           className="block md:hidden w-screen h-auto"
         />
-        {/* Desktop/Tablet hero (unchanged) */}
+        {/* Desktop/Tablet hero */}
         <div className="relative hidden md:block w-full h-[70vh]">
           <img
             src="/cities/valencia-hero.jpg"
-            alt="Valencia"
+            alt={t("valencia.alt", "Valencia")}
             className="absolute inset-0 w-full h-full object-cover"
           />
         </div>
@@ -80,40 +88,46 @@ export default function ValenciaPage() {
 
       {/* INTRO TEXT BELOW HERO */}
       <section className="max-w-3xl mx-auto px-6 py-12 text-center">
-        {/* 2) Make this the same size as “Encuentra tu tribu” */}
-        <h1 className="text-2xl md:text-4xl font-dmserif mb-6 leading-tight">
-          ¿Recién llegada a Valencia? <br />
-          ¿O con ganas de reconectar con la ciudad?
+        <h1 className="text-2xl md:text-4xl font-dmserif mb-6 leading-[1.1] md:leading-[1.05]">
+          {t("valencia.intro.title1", "¿Recién llegada a Valencia?")} <br />
+          {t("valencia.intro.title2", "¿O con ganas de reconectar con la ciudad?")}
         </h1>
-        <p className="text-base md:text-lg leading-normal md:leading-relaxed">
-          Este es tu espacio para encontrar nuevas amigas, compartir intereses y crear
-          planes que de verdad te llenen. <br /><br />
-          Aquí tú tienes el control 🤝 <br />
-          Puedes crear el grupo, proponer planes o simplemente
-          unirte a los grupos ya creados que vibren con lo que te gusta. <br /><br />
-          ¡Elige la categoría que más resuene contigo y empieza a construir comunidad!
+        <p className="text-base md:text-lg leading-[1.35] md:leading-[1.4]">
+          {t("valencia.intro.p1", "Este es tu espacio para encontrar nuevas amigas, compartir intereses y crear")}
           <br />
-          A tu ritmo, a tu manera.
+          {t("valencia.intro.p1b", "planes que de verdad te llenen.")}
+          <br />
+          <br />
+          {t("valencia.intro.p2", "Aquí tú tienes el control 🤝")}
+          <br />
+          {t("valencia.intro.p3", "Puedes crear el grupo, proponer planes o simplemente")}
+          <br />
+          {t("valencia.intro.p3b", "unirte a los grupos ya creados que vibren con lo que te gusta.")}
+          <br />
+          <br />
+          {t("valencia.intro.p4", "¡Elige la categoría que más resuene contigo y empieza a construir comunidad!")}
+          <br />
+          {t("valencia.intro.p5", "A tu ritmo, a tu manera.")}
         </p>
       </section>
 
       {/* CATEGORIES */}
       <section className="max-w-6xl mx-auto p-6">
         <h2 className="text-2xl md:text-4xl font-dmserif text-center mb-8">
-          Encuentra tu tribu
+          {t("valencia.categories.title", "Encuentra tu tribu")}
         </h2>
 
         <div className="relative">
           {/* Arrows (CTA yellow) */}
           <button
-            aria-label="Anterior"
+            aria-label={t("common.prev", "Anterior")}
             onClick={scrollLeft}
             className="absolute left-2 top-1/2 -translate-y-1/2 z-10 text-[#fffacd] hover:scale-110 transition"
           >
             <ChevronLeft size={40} strokeWidth={2.5} />
           </button>
           <button
-            aria-label="Siguiente"
+            aria-label={t("common.next", "Siguiente")}
             onClick={scrollRight}
             className="absolute right-2 top-1/2 -translate-y-1/2 z-10 text-[#fffacd] hover:scale-110 transition"
           >
@@ -131,7 +145,7 @@ export default function ValenciaPage() {
                 className="relative shrink-0 w-[260px] snap-start rounded-[30px] overflow-hidden shadow-lg hover:scale-[1.02] transition"
                 title={cat.name}
               >
-                {/* 1) clean image only (no title overlay or label under it) */}
+                {/* clean image only */}
                 <div className="relative w-full" style={{ paddingTop: "125%" }}>
                   <img
                     src={`/categories/${cat.slug}.jpg`}
@@ -147,3 +161,4 @@ export default function ValenciaPage() {
     </main>
   );
 }
+
