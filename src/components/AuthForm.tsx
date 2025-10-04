@@ -13,15 +13,23 @@ import type { Lang } from "@/lib/dictionaries";
 
 const PW_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
+// ⬇️ (unchanged copy; enhanced matching but SAME messages returned)
 function friendlyAuthError(err: unknown): string {
-  if (!(err instanceof Error)) return "Algo salió mal.";
-  const m = err.message || "";
+  const e = err as { message?: string; status?: number; code?: string };
+  const m = (e?.message || "");
 
-  if (/Invalid login credentials/i.test(m)) return "Correo o contraseña incorrectos.";
-  if (/Email not confirmed/i.test(m)) return "Confirma tu correo para iniciar sesión.";
-  if (/User already registered/i.test(m)) return "Ya existe una cuenta con ese correo.";
+  if (/Invalid login credentials/i.test(m) || e?.status === 400) return "Correo o contraseña incorrectos.";
+  if (/Email not confirmed/i.test(m) || e?.code === "email_not_confirmed") return "Confirma tu correo para iniciar sesión.";
+  if (/User already registered/i.test(m) || e?.code === "user_already_exists") return "Ya existe una cuenta con ese correo.";
   if (/Password should be at least/i.test(m)) return "La contraseña no cumple los requisitos.";
   return "No se pudo completar la operación. Intenta de nuevo.";
+}
+
+// ⬇️ Extra parser to know when to show the Resend button (no UI text changes)
+function isEmailNotConfirmed(err: unknown): boolean {
+  const e = err as { message?: string; status?: number; code?: string };
+  const m = (e?.message || "").toLowerCase();
+  return e?.code === "email_not_confirmed" || m.includes("email not confirmed") || m.includes("confirm");
 }
 
 export default function AuthForm() {
@@ -38,10 +46,13 @@ export default function AuthForm() {
   const [message, setMessage] = useState("");
   const [showPwd, setShowPwd] = useState(false);
 
-  // ⬇️ NUEVO: control de “email enviado” y feedback de reenvío
+  // ⬇️ you already had these
   const [signupSent, setSignupSent] = useState(false);
   const [resendOk, setResendOk] = useState("");
   const [resendErr, setResendErr] = useState("");
+
+  // ⬇️ NEW: when login fails because email isn’t confirmed, show same Resend block
+  const [needConfirm, setNeedConfirm] = useState(false);
 
   // URL destino tras confirmar email
   const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.girls-collective.com").replace(/\/+$/, "");
@@ -71,6 +82,7 @@ export default function AuthForm() {
     setSignupSent(false);
     setResendOk("");
     setResendErr("");
+    setNeedConfirm(false);
 
     try {
       if (mode === "signup") {
@@ -84,7 +96,6 @@ export default function AuthForm() {
           return;
         }
 
-        // ⬇️ incluir redirectTo para el email de confirmación
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -92,16 +103,32 @@ export default function AuthForm() {
         });
         if (error) throw error;
 
-        // ⬇️ marcar que se envió el email → mostrará “Reenviar” y ocultará el switch
         setSignupSent(true);
         setMessage(t("auth.msg.checkEmail", "Revisa tu correo para confirmar el registro."));
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        // LOGIN (password) — no email is sent in this flow
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (error) {
+          console.warn("login error:", error);
+          setMessage(friendlyAuthError(error));
+          if (isEmailNotConfirmed(error)) setNeedConfirm(true);
+          return;
+        }
+
+        // Defensive: older SDKs may return no session if unconfirmed
+        if (!data?.session) {
+          setMessage("Confirma tu correo para iniciar sesión.");
+          setNeedConfirm(true);
+          return;
+        }
+
         setMessage(t("auth.msg.loginSuccess", "¡Has iniciado sesión con éxito!"));
       }
     } catch (err: unknown) {
+      console.warn("auth submit error:", err);
       setMessage(friendlyAuthError(err));
+      if (isEmailNotConfirmed(err)) setNeedConfirm(true);
     } finally {
       setLoading(false);
     }
@@ -187,8 +214,8 @@ export default function AuthForm() {
       {/* Mensajes */}
       {message && <p className="mt-2 text-sm text-center">{message}</p>}
 
-      {/* Mostrar “Reenviar” SOLO tras haber enviado el email de signup */}
-      {mode === "signup" && signupSent && email && (
+      {/* Reenviar SI: (A) signup enviado, o (B) login detectó email sin confirmar */}
+      {email && ((mode === "signup" && signupSent) || (mode === "login" && needConfirm)) && (
         <div className="text-xs mt-2 text-center">
           ¿No has recibido el email?{" "}
           <button type="button" onClick={handleResend} className="underline hover:opacity-80">
@@ -199,7 +226,7 @@ export default function AuthForm() {
         </div>
       )}
 
-      {/* ⛳️ Ocultar el switch cuando signupSent = true (justo lo que pediste) */}
+      {/* ⛳️ Ocultar el switch cuando signupSent = true */}
       {!(mode === "signup" && signupSent) && (
         <p className="text-sm mt-3 text-center">
           {mode === "login"
