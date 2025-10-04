@@ -15,6 +15,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
+// i18n
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
+
 type GroupRow = {
   id: string;
   slug: string;
@@ -63,6 +67,14 @@ export default function CategoryPage({
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // i18n setup
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => {
+    setLang(getLang());
+  }, []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
+
   const [open, setOpen] = useState(false);
   const [gName, setGName] = useState("");
   const [gDesc, setGDesc] = useState("");
@@ -73,7 +85,7 @@ export default function CategoryPage({
     if (!loading && !user) router.push("/auth");
   }, [loading, user, router]);
 
-  const meta = CATEGORY_COPY[category] ?? { title: "Explora esta categoría" };
+  const meta = CATEGORY_COPY[category] ?? { title: t("category.meta.defaultTitle", "Explora esta categoría") };
 
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -154,7 +166,7 @@ export default function CategoryPage({
         .eq("slug", category)
         .maybeSingle();
 
-      if (!city?.id || !cat?.id) throw new Error("Ciudad o categoría no encontrada.");
+      if (!city?.id || !cat?.id) throw new Error(t("category.errors.cityOrCatMissing", "Ciudad o categoría no encontrada."));
 
       const newSlug = slugify(gName);
 
@@ -170,14 +182,13 @@ export default function CategoryPage({
       });
       if (insErr) throw insErr;
 
-      setSubmitMsg("¡Gracias! Revisaremos tu grupo y lo publicaremos si todo está OK.");
+      setSubmitMsg(t("category.create.thanks", "¡Gracias! Revisaremos tu grupo y lo publicaremos si todo está OK."));
       setGName("");
       setGDesc("");
       setOpen(false);
       fetchGroups();
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "No se pudo crear el grupo.";
+      const msg = err instanceof Error ? err.message : t("category.create.fail", "No se pudo crear el grupo.");
       setSubmitMsg(msg);
     } finally {
       setSubmitting(false);
@@ -187,7 +198,7 @@ export default function CategoryPage({
   if (loading || !user) {
     return (
       <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">
-        Cargando…
+        {t("common.misc.loading", "Cargando…")}
       </main>
     );
   }
@@ -204,33 +215,50 @@ export default function CategoryPage({
               href="/valencia"
               className="ml-auto text-xs md:text-sm underline underline-offset-2 hover:opacity-80"
             >
-              ← Volver
+              {t("category.back", "← Volver")}
             </Link>
           </div>
 
           <p className="max-w-3xl text-base md:text-lg leading-relaxed">
-            Ya sea que quieras unirte a un grupo ya creado o iniciar uno nuevo,
-            aquí puedes hacerlo a tu ritmo, sin presiones. Conecta desde lo que te
-            inspira, propone planes o simplemente mira qué está pasando cerca de ti. 
+            {t(
+              "category.intro.l1",
+              "Ya sea que quieras unirte a un grupo ya creado o iniciar uno nuevo,"
+            )}{" "}
+            {t(
+              "category.intro.l2",
+              "aquí puedes hacerlo a tu ritmo, sin presiones. Conecta desde lo que te"
+            )}{" "}
+            {t(
+              "category.intro.l3",
+              "inspira, propone planes o simplemente mira qué está pasando cerca de ti."
+            )}
             <br />
             <br />
-            Dentro podrás filtrar por <u>ubicaciones o por edades</u> si así lo prefieres.
+            {t(
+              "category.intro.l4",
+              "Dentro podrás filtrar por "
+            )}
+            <u>{t("category.intro.l5u1", "ubicaciones o por edades")}</u>{" "}
+            {t("category.intro.l6", "si así lo prefieres.")}
             <br />
-            Sigue los grupos que quieras para poder verlos en tu cuenta.
+            {t(
+              "category.intro.l7",
+              "Sigue los grupos que quieras para poder verlos en tu cuenta."
+            )}
           </p>
         </header>
 
         {/* GROUPS rail */}
         <section className="mb-10 relative">
           <button
-            aria-label="Anterior"
+            aria-label={t("common.prev", "Anterior")}
             onClick={() => scroll(groupsRef, -360)}
             className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1 hover:opacity-80"
           >
             <ChevronLeft className="w-8 h-8 text-[#fffacd]" />
           </button>
           <button
-            aria-label="Siguiente"
+            aria-label={t("common.next", "Siguiente")}
             onClick={() => scroll(groupsRef, 360)}
             className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-1 hover:opacity-80"
           >
@@ -241,9 +269,15 @@ export default function CategoryPage({
             ref={groupsRef}
             className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-10 pb-2 no-scrollbar"
           >
-            {loadingGroups && <div className="py-8 opacity-70">Cargando grupos…</div>}
+            {loadingGroups && (
+              <div className="py-8 opacity-70">
+                {t("category.groups.loading", "Cargando grupos…")}
+              </div>
+            )}
             {!loadingGroups && groups.length === 0 && (
-              <div className="py-8 opacity-70">Aún no hay grupos aprobados en esta categoría.</div>
+              <div className="py-8 opacity-70">
+                {t("category.groups.none", "Aún no hay grupos aprobados en esta categoría.")}
+              </div>
             )}
 
             {!loadingGroups &&
@@ -268,14 +302,16 @@ export default function CategoryPage({
 
           <div className="mt-4 text-left px-1">
             <button onClick={() => setOpen(true)} className="underline">
-              Solicitar un nuevo grupo
+              {t("category.create.cta", "Solicitar un nuevo grupo")}
             </button>
           </div>
         </section>
 
         {/* EVENTS — now always visible, with the new link card first */}
         <section className="mb-10">
-          <h2 className="font-dmserif text-2xl mb-4">Eventos relacionados</h2>
+          <h2 className="font-dmserif text-2xl mb-4">
+            {t("category.events.title", "Eventos relacionados")}
+          </h2>
           <div
             ref={eventsRef}
             className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-2 no-scrollbar"
@@ -284,12 +320,12 @@ export default function CategoryPage({
             <Link
               href={`/valencia/${category}/events`}
               className="relative shrink-0 w/[300px] w-[300px] snap-start rounded-2xl overflow-hidden shadow-md hover:scale-[1.02] transition"
-              title="Eventos de tus grupos seguidos"
+              title={t("category.events.followedTitle", "Eventos de tus grupos seguidos")}
             >
               <div className="relative w-full" style={{ paddingTop: "66.66%" }}>
                 <Image
                   src="/events/community-followed.jpg"
-                  alt="Eventos de tus grupos seguidos"
+                  alt={t("category.events.followedAlt", "Eventos de tus grupos seguidos")}
                   fill
                   className="object-cover"
                   sizes="300px"
@@ -305,10 +341,16 @@ export default function CategoryPage({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="relative shrink-0 w-[300px] snap-start rounded-2xl overflow-hidden shadow-md hover:scale-[1.02] transition"
-                title="Evento"
+                title={t("category.events.cardTitle", "Evento")}
               >
                 <div className="relative w-full" style={{ paddingTop: "66.66%" }}>
-                  <Image src={ev.img} alt="Evento" fill className="object-cover" sizes="300px" />
+                  <Image
+                    src={ev.img}
+                    alt={t("category.events.cardAlt", "Evento")}
+                    fill
+                    className="object-cover"
+                    sizes="300px"
+                  />
                 </div>
               </a>
             ))}
@@ -318,7 +360,7 @@ export default function CategoryPage({
               href="mailto:contact@girls-collective.com?subject=Promocionar%20evento"
               className="underline"
             >
-              Me gustaría promocionar un evento
+              {t("category.events.promote", "Me gustaría promocionar un evento")}
             </a>
           </div>
         </section>
@@ -326,7 +368,9 @@ export default function CategoryPage({
         {/* PLACES */}
         {places.length > 0 && (
           <section className="mb-4">
-            <h2 className="font-dmserif text-2xl mb-4">Lugares que van con la vibra</h2>
+            <h2 className="font-dmserif text-2xl mb-4">
+              {t("category.places.title", "Lugares que van con la vibra")}
+            </h2>
             <div
               ref={placesRef}
               className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-2 no-scrollbar"
@@ -338,10 +382,16 @@ export default function CategoryPage({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="relative shrink-0 w-[300px] snap-start rounded-2xl overflow-hidden shadow-md hover:scale-[1.02] transition"
-                  title="Lugar"
+                  title={t("category.places.cardTitle", "Lugar")}
                 >
                   <div className="relative w-full" style={{ paddingTop: "66.66%" }}>
-                    <Image src={pl.img} alt="Lugar" fill className="object-cover" sizes="300px" />
+                    <Image
+                      src={pl.img}
+                      alt={t("category.places.cardAlt", "Lugar")}
+                      fill
+                      className="object-cover"
+                      sizes="300px"
+                    />
                   </div>
                 </a>
               ))}
@@ -351,7 +401,7 @@ export default function CategoryPage({
                 href="mailto:contact@girls-collective.com?subject=Promocionar%20lugar"
                 className="underline"
               >
-                Me gustaría promocionar un lugar
+                {t("category.places.promote", "Me gustaría promocionar un lugar")}
               </a>
             </div>
           </section>
@@ -362,32 +412,41 @@ export default function CategoryPage({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md rounded-2xl bg-white p-6 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-dmserif text-gcText">Crear grupo</DialogTitle>
+            <DialogTitle className="text-2xl font-dmserif text-gcText">
+              {t("category.create.title", "Crear grupo")}
+            </DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Propón un nuevo grupo para esta categoría. Lo revisaremos antes de publicarlo.
+              {t(
+                "category.create.description",
+                "Propón un nuevo grupo para esta categoría. Lo revisaremos antes de publicarlo."
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateGroup} className="space-y-3">
             <div>
-              <label className="block text-sm mb-1">Nombre del grupo *</label>
+              <label className="block text-sm mb-1">
+                {t("category.create.nameLabel", "Nombre del grupo *")}
+              </label>
               <input
                 className="w-full rounded-xl border p-3"
                 value={gName}
                 onChange={(e) => setGName(e.target.value)}
-                placeholder="Ej: Art in the park"
+                placeholder={t("category.create.namePh", "Ej: Art in the park")}
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm mb-1">Descripción (opcional)</label>
+              <label className="block text-sm mb-1">
+                {t("category.create.descLabel", "Descripción (opcional)")}
+              </label>
               <textarea
                 className="w-full rounded-xl border p-3"
                 rows={3}
                 value={gDesc}
                 onChange={(e) => setGDesc(e.target.value)}
-                placeholder="Cuéntanos de qué va el grupo"
+                placeholder={t("category.create.descPh", "Cuéntanos de qué va el grupo")}
               />
             </div>
 
@@ -396,7 +455,9 @@ export default function CategoryPage({
               disabled={submitting}
               className="w-full rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90 disabled:opacity-60"
             >
-              {submitting ? "Enviando…" : "Enviar propuesta"}
+              {submitting
+                ? t("category.create.sending", "Enviando…")
+                : t("category.create.submit", "Enviar propuesta")}
             </button>
 
             {submitMsg && <p className="text-sm mt-2">{submitMsg}</p>}
@@ -406,6 +467,7 @@ export default function CategoryPage({
     </main>
   );
 }
+
 
 
 

@@ -492,6 +492,57 @@ valencia: {
   },
   categories: { title: "Encuentra tu tribu" },
 },
+// …dentro de es
+category: {
+  meta: {
+    defaultTitle: "Explora esta categoría",
+  },
+  back: "← Volver",
+  intro: {
+    l1: "Ya sea que quieras unirte a un grupo ya creado o iniciar uno nuevo,",
+    l2: "aquí puedes hacerlo a tu ritmo, sin presiones. Conecta desde lo que te",
+    l3: "inspira, propone planes o simplemente mira qué está pasando cerca de ti.",
+    l4: "Dentro podrás filtrar por ",
+    l5u1: "ubicaciones o por edades",
+    l6: "si así lo prefieres.",
+    l7: "Sigue los grupos que quieras para poder verlos en tu cuenta.",
+  },
+  groups: {
+    loading: "Cargando grupos…",
+    none: "Aún no hay grupos aprobados en esta categoría.",
+  },
+  create: {
+    cta: "Solicitar un nuevo grupo",
+    title: "Crear grupo",
+    description:
+      "Propón un nuevo grupo para esta categoría. Lo revisaremos antes de publicarlo.",
+    nameLabel: "Nombre del grupo *",
+    namePh: "Ej: Art in the park",
+    descLabel: "Descripción (opcional)",
+    descPh: "Cuéntanos de qué va el grupo",
+    sending: "Enviando…",
+    submit: "Enviar propuesta",
+    thanks: "¡Gracias! Revisaremos tu grupo y lo publicaremos si todo está OK.",
+    fail: "No se pudo crear el grupo.",
+  },
+  errors: {
+    cityOrCatMissing: "Ciudad o categoría no encontrada.",
+  },
+  events: {
+    title: "Eventos relacionados",
+    followedTitle: "Eventos de tus grupos seguidos",
+    followedAlt: "Eventos de tus grupos seguidos",
+    cardTitle: "Evento",
+    cardAlt: "Evento",
+    promote: "Me gustaría promocionar un evento",
+  },
+  places: {
+    title: "Lugares que van con la vibra",
+    cardTitle: "Lugar",
+    cardAlt: "Lugar",
+    promote: "Me gustaría promocionar un lugar",
+  },
+},
 
 
 
@@ -976,6 +1027,56 @@ valencia: {
     p5: "At your pace, in your way.",
   },
   categories: { title: "Find your tribe" },
+},
+category: {
+  meta: {
+    defaultTitle: "Explore this category",
+  },
+  back: "← Back",
+  intro: {
+    l1: "Whether you want to join an existing group or start a new one,",
+    l2: "here you can do it at your own pace, no pressure. Connect from what",
+    l3: "inspires you, suggest plans or just see what's happening near you.",
+    l4: "Inside you'll be able to filter by ",
+    l5u1: "areas or ages",
+    l6: "if you prefer.",
+    l7: "Follow the groups you want so you can see them in your account.",
+  },
+  groups: {
+    loading: "Loading groups…",
+    none: "No approved groups in this category yet.",
+  },
+  create: {
+    cta: "Request a new group",
+    title: "Create group",
+    description:
+      "Propose a new group for this category. We'll review it before publishing.",
+    nameLabel: "Group name *",
+    namePh: "e.g., Art in the park",
+    descLabel: "Description (optional)",
+    descPh: "Tell us what the group is about",
+    sending: "Sending…",
+    submit: "Send proposal",
+    thanks: "Thanks! We'll review your group and publish it if everything looks good.",
+    fail: "Couldn't create the group.",
+  },
+  errors: {
+    cityOrCatMissing: "City or category not found.",
+  },
+  events: {
+    title: "Related events",
+    followedTitle: "Events from your followed groups",
+    followedAlt: "Events from your followed groups",
+    cardTitle: "Event",
+    cardAlt: "Event",
+    promote: "I'd like to promote an event",
+  },
+  places: {
+    title: "Places that match the vibe",
+    cardTitle: "Place",
+    cardAlt: "Place",
+    promote: "I'd like to promote a place",
+  },
 },
 
 
