@@ -84,7 +84,7 @@ export default function AuthForm() {
           return;
         }
 
-        // ⬇️ CAMBIO 1: incluir redirectTo
+        // ⬇️ incluir redirectTo para el email de confirmación
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -92,7 +92,7 @@ export default function AuthForm() {
         });
         if (error) throw error;
 
-        // ⬇️ CAMBIO 2: marcar que se envió el email para mostrar “Reenviar”
+        // ⬇️ marcar que se envió el email → mostrará “Reenviar” y ocultará el switch
         setSignupSent(true);
         setMessage(t("auth.msg.checkEmail", "Revisa tu correo para confirmar el registro."));
       } else {
@@ -176,22 +176,22 @@ export default function AuthForm() {
           disabled={loading}
           className="w-full rounded-full bg-[#50415b] text-[#fef8f4] px-6 py-2 text-lg font-dmserif shadow-md hover:opacity-90 disabled:opacity-60"
         >
-          {loading ? t("auth.loading", "Cargando…") : mode === "login" ? t("auth.loginCta", "Entrar") : t("auth.signupCta", "Registrarse")}
+          {loading
+            ? t("auth.loading", "Cargando…")
+            : mode === "login"
+            ? t("auth.loginCta", "Entrar")
+            : t("auth.signupCta", "Registrarse")}
         </button>
       </form>
 
       {/* Mensajes */}
       {message && <p className="mt-2 text-sm text-center">{message}</p>}
 
-      {/* Mostrar reenviar SOLO tras haber enviado el email de signup */}
+      {/* Mostrar “Reenviar” SOLO tras haber enviado el email de signup */}
       {mode === "signup" && signupSent && email && (
         <div className="text-xs mt-2 text-center">
           ¿No has recibido el email?{" "}
-          <button
-            type="button"
-            onClick={handleResend}
-            className="underline hover:opacity-80"
-          >
+          <button type="button" onClick={handleResend} className="underline hover:opacity-80">
             Reenviar
           </button>
           {resendOk && <p className="text-green-700 mt-2">{resendOk}</p>}
@@ -199,16 +199,23 @@ export default function AuthForm() {
         </div>
       )}
 
-      <p className="text-sm mt-3 text-center">
-        {mode === "login" ? t("auth.switch.toSignupPrompt", "¿Aún no tienes cuenta?") : t("auth.switch.toLoginPrompt", "¿Ya tienes una cuenta?")}{" "}
-        <button
-          type="button"
-          onClick={() => setMode(mode === "login" ? "signup" : "login")}
-          className="text-purple-700 underline"
-        >
-          {mode === "login" ? t("auth.switch.signupLink", "Regístrate") : t("auth.switch.loginLink", "Entrar")}
-        </button>
-      </p>
+      {/* ⛳️ Ocultar el switch cuando signupSent = true (justo lo que pediste) */}
+      {!(mode === "signup" && signupSent) && (
+        <p className="text-sm mt-3 text-center">
+          {mode === "login"
+            ? t("auth.switch.toSignupPrompt", "¿Aún no tienes cuenta?")
+            : t("auth.switch.toLoginPrompt", "¿Ya tienes una cuenta?")}{" "}
+          <button
+            type="button"
+            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+            className="text-purple-700 underline"
+          >
+            {mode === "login"
+              ? t("auth.switch.signupLink", "Regístrate")
+              : t("auth.switch.loginLink", "Entrar")}
+          </button>
+        </p>
+      )}
     </div>
   );
 }
