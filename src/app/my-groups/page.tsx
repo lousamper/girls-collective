@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { ArrowRight } from "lucide-react";
+
+// i18n helpers
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
 
 type GroupRow = {
   id: string;
@@ -28,6 +32,14 @@ export default function MyGroupsPage() {
   const [cityMap, setCityMap] = useState<Record<string, string>>({});
   const [catMap, setCatMap] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(true);
+
+  // i18n
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => {
+    setLang(getLang());
+  }, []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
   useEffect(() => {
     if (loading) return;
@@ -96,7 +108,7 @@ export default function MyGroupsPage() {
   if (loading || busy) {
     return (
       <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">
-        Cargando tus grupos…
+        {t("myGroupsPage.loading", "Cargando tus grupos…")}
       </main>
     );
   }
@@ -105,23 +117,25 @@ export default function MyGroupsPage() {
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-6xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-dmserif text-3xl">Mis grupos</h1>
+          <h1 className="font-dmserif text-3xl">
+            {t("myGroupsPage.title", "Mis grupos")}
+          </h1>
           <Link
             href="/find-your-city"
             className="rounded-full border bg-white px-4 py-1.5 text-sm shadow-sm hover:opacity-90"
           >
-            Explorar ciudades
+            {t("myGroupsPage.exploreCities", "Explorar ciudades")}
           </Link>
         </div>
 
         {groups.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 shadow-md">
             <p className="opacity-80">
-              Aún no sigues ningún grupo.{" "}
+              {t("myGroupsPage.emptyLead", "Aún no sigues ningún grupo.")}{" "}
               <Link className="underline" href="/find-your-city">
-                Encuentra tu ciudad
+                {t("myGroupsPage.findYourCity", "Encuentra tu ciudad")}
               </Link>{" "}
-              y únete.
+              {t("myGroupsPage.joinSuffix", "y únete.")}
             </p>
           </div>
         ) : (
@@ -143,18 +157,19 @@ export default function MyGroupsPage() {
                       {href ? (
                         <Link
                           href={href}
-                          aria-label={`Entrar a ${g.name}`}
+                          aria-label={`${t("myGroupsPage.goToGroup", "Ir al grupo")}: ${g.name}`}
                           className="rounded-full bg-[#50415b] text-[#fef8f4] p-2.5 shadow-md hover:opacity-90 inline-flex"
-                          title="Entrar al grupo"
+                          title={t("myGroupsPage.enterGroup", "Entrar al grupo")}
                         >
                           <ArrowRight className="w-5 h-5" />
                         </Link>
                       ) : (
-                        <span className="opacity-60 text-sm">—</span>
+                        <span className="opacity-60 text-sm">
+                          {t("myGroupsPage.missing", "—")}
+                        </span>
                       )}
                     </div>
                   </div>
-
                 </li>
               );
             })}

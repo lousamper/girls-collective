@@ -2,8 +2,19 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
 
 export default function Footer() {
+  // i18n
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => {
+    setLang(getLang());
+  }, []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
+
   function reopenCookiePrefs() {
     try {
       localStorage.removeItem("gc-cookie-consent");
@@ -25,16 +36,16 @@ export default function Footer() {
               href="/privacy-policy"
               className="underline underline-offset-4 hover:opacity-80"
             >
-              Política de Privacidad
+              {t("footer.privacy", "Política de Privacidad")}
             </Link>
 
             <button
               type="button"
               onClick={reopenCookiePrefs}
               className="underline underline-offset-4 hover:opacity-80 text-left md:text-inherit"
-              aria-label="Abrir preferencias de cookies"
+              aria-label={t("footer.cookiePrefsAria", "Abrir preferencias de cookies")}
             >
-              Preferencias de cookies
+              {t("footer.cookiePrefs", "Preferencias de cookies")}
             </button>
           </div>
 
@@ -63,7 +74,7 @@ export default function Footer() {
 
         {/* Row 2: Copyright */}
         <div className="text-center opacity-80">
-          © 2025 GirlsCollective. All rights reserved.
+          {t("footer.copyright", "© 2025 GirlsCollective. All rights reserved.")}
         </div>
 
         {/* Row 3: Marca */}
@@ -74,6 +85,7 @@ export default function Footer() {
     </footer>
   );
 }
+
 
 
 

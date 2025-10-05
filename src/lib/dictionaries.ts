@@ -543,7 +543,59 @@ category: {
     promote: "Me gustaría promocionar un lugar",
   },
 },
-
+myGroupsPage: {
+  title: "Mis grupos",
+  exploreCities: "Explorar ciudades",
+  loading: "Cargando tus grupos…",
+  emptyLead: "Aún no sigues ningún grupo.",
+  findYourCity: "Encuentra tu ciudad",
+  joinSuffix: "y únete.",
+  enterGroup: "Entrar al grupo",
+  goToGroup: "Ir al grupo",
+  missing: "—",
+},
+notificationsPage: {
+  title: "Notificaciones",
+  loading: "Cargando notificaciones…",
+  markAllLine1: "Marcar todo",
+  markAllLine2: "como leído",
+  emptyLead: "No tienes notificaciones todavía.",
+  exploreCommunity: "Explora la comunidad",
+  defaultTitle: "Notificación",
+},
+dmInbox: {
+  loading: "Cargando…",
+  signIn: "Inicia sesión",
+  title: "Mensajes",
+  empty:
+    "No hay conversaciones todavía. ¡Escribe a alguien desde su perfil o un mensaje del grupo!",
+  userFallback: "usuario",
+  open: "Abrir",
+  openChatTitle: "Abrir chat con @{username}",
+},
+cookies: {
+  title: "Política de Cookies",
+  intro:
+    "Usamos cookies esenciales para el funcionamiento del sitio y cookies analíticas (Google Analytics) para medir visitas y mejorar la experiencia. Las analíticas están desactivadas por defecto hasta que das tu consentimiento.",
+  typesTitle: "Tipos de cookies",
+  types: {
+    essentialTitle: "Esenciales",
+    essentialDesc:
+      "necesarias para funciones básicas (seguridad, carga de páginas). No requieren consentimiento.",
+    analyticsTitle: "Analíticas",
+    analyticsDesc:
+      "nos ayudan a entender cómo se usa el sitio. Solo se activan si aceptas.",
+  },
+  consentTitle: "Gestión del consentimiento",
+  consentText:
+    "Puedes aceptar o rechazar cookies en el banner que aparece al visitar la web. Tu decisión se guardará y puedes cambiarla borrando el almacenamiento local del navegador.",
+},
+footer: {
+  privacy: "Política de Privacidad",
+  cookiePrefs: "Preferencias de cookies",
+  cookiePrefsAria: "Abrir preferencias de cookies",
+  copyright: "© 2025 GirlsCollective. Todos los derechos reservados.",
+},
 
 
   },
@@ -1078,7 +1130,59 @@ category: {
     promote: "I'd like to promote a place",
   },
 },
-
+myGroupsPage: {
+  title: "My groups",
+  exploreCities: "Explore cities",
+  loading: "Loading your groups…",
+  emptyLead: "You don't follow any groups yet.",
+  findYourCity: "Find your city",
+  joinSuffix: "and join.",
+  enterGroup: "Enter group",
+  goToGroup: "Go to group",
+  missing: "—",
+},
+notificationsPage: {
+  title: "Notifications",
+  loading: "Loading notifications…",
+  markAllLine1: "Mark all",
+  markAllLine2: "as read",
+  emptyLead: "You don't have any notifications yet.",
+  exploreCommunity: "Explore the community",
+  defaultTitle: "Notification",
+},
+dmInbox: {
+  loading: "Loading…",
+  signIn: "Sign in",
+  title: "Messages",
+  empty:
+    "No conversations yet. Start one from someone’s profile or from a group message!",
+  userFallback: "user",
+  open: "Open",
+  openChatTitle: "Open chat with @{username}",
+},
+cookies: {
+  title: "Cookie Policy",
+  intro:
+    "We use essential cookies for site functionality and analytics cookies (Google Analytics) to measure visits and improve the experience. Analytics are disabled by default until you give consent.",
+  typesTitle: "Types of cookies",
+  types: {
+    essentialTitle: "Essential",
+    essentialDesc:
+      "required for basic functions (security, page loading). No consent required.",
+    analyticsTitle: "Analytics",
+    analyticsDesc:
+      "help us understand how the site is used. They only activate if you accept.",
+  },
+  consentTitle: "Consent management",
+  consentText:
+    "You can accept or reject cookies in the banner shown when visiting the site. Your choice is saved and you can change it by clearing your browser’s local storage.",
+},
+footer: {
+  privacy: "Privacy Policy",
+  cookiePrefs: "Cookie preferences",
+  cookiePrefsAria: "Open cookie preferences",
+  copyright: "© 2025 GirlsCollective. All rights reserved.",
+},
 
   },
 } as const;

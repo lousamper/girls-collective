@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
+
+// i18n
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
 
 type NotificationRow = {
   id: string;
@@ -17,10 +21,10 @@ type NotificationRow = {
 
 export const dynamic = "force-dynamic";
 
-function timeAgo(iso: string) {
+function timeAgo(iso: string, locale: string) {
   const d = new Date(iso);
   const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
-  const rtf = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ["year", 60 * 60 * 24 * 365],
     ["month", 60 * 60 * 24 * 30],
@@ -42,6 +46,14 @@ function timeAgo(iso: string) {
 export default function NotificationsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  // i18n
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => {
+    setLang(getLang());
+  }, []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [busy, setBusy] = useState(true);
@@ -105,7 +117,7 @@ export default function NotificationsPage() {
   if (loading || busy) {
     return (
       <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">
-        Cargando notificaciones…
+        {t("notificationsPage.loading", "Cargando notificaciones…")}
       </main>
     );
   }
@@ -114,25 +126,31 @@ export default function NotificationsPage() {
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-3xl mx-auto px-6 py-10">
         <div className="mb-6 grid grid-cols-[1fr_auto] items-start gap-2">
-  <h1 className="font-dmserif text-2xl md:text-3xl">Notificaciones</h1>
+          <h1 className="font-dmserif text-2xl md:text-3xl">
+            {t("notificationsPage.title", "Notificaciones")}
+          </h1>
 
-  {items.some((i) => !i.read_at) && (
-    <button
-      onClick={markAllRead}
-      className="rounded-full border bg-white px-3 py-1 text-xs md:text-sm shadow-sm hover:opacity-90 text-right leading-tight"
-    >
-      <span className="block">Marcar todo</span>
-      <span className="block">como leído</span>
-    </button>
-  )}
-</div>
+          {items.some((i) => !i.read_at) && (
+            <button
+              onClick={markAllRead}
+              className="rounded-full border bg-white px-3 py-1 text-xs md:text-sm shadow-sm hover:opacity-90 text-right leading-tight"
+            >
+              <span className="block">
+                {t("notificationsPage.markAllLine1", "Marcar todo")}
+              </span>
+              <span className="block">
+                {t("notificationsPage.markAllLine2", "como leído")}
+              </span>
+            </button>
+          )}
+        </div>
 
         {items.length === 0 ? (
           <div className="rounded-2xl bg-white p-6 shadow-md">
             <p className="opacity-80">
-              No tienes notificaciones todavía.{" "}
+              {t("notificationsPage.emptyLead", "No tienes notificaciones todavía.")}{" "}
               <Link className="underline" href="/find-your-city">
-                Explora la comunidad
+                {t("notificationsPage.exploreCommunity", "Explora la comunidad")}
               </Link>
               .
             </p>
@@ -155,7 +173,9 @@ export default function NotificationsPage() {
                     }
                   }}
                   className={`rounded-2xl bg-white p-4 shadow-sm border ${
-                    clickable ? "cursor-pointer hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-black/10" : ""
+                    clickable
+                      ? "cursor-pointer hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-black/10"
+                      : ""
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -164,13 +184,17 @@ export default function NotificationsPage() {
                     )}
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <p className="font-semibold">{n.title ?? "Notificación"}</p>
-                        <span className="text-xs opacity-60">{timeAgo(n.created_at)}</span>
+                        <p className="font-semibold">
+                          {n.title ?? t("notificationsPage.defaultTitle", "Notificación")}
+                        </p>
+                        <span className="text-xs opacity-60">
+                          {timeAgo(n.created_at, lang)}
+                        </span>
                       </div>
                       {n.body && (
                         <p className="mt-1 opacity-90 whitespace-pre-wrap">{n.body}</p>
                       )}
-                      {/* removed the small "Ver" link; the whole card is clickable now */}
+                      {/* whole card is clickable when url exists */}
                     </div>
                   </div>
                 </li>
@@ -182,3 +206,4 @@ export default function NotificationsPage() {
     </main>
   );
 }
+

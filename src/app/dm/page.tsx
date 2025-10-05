@@ -1,9 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
+
+// i18n
+import { getLang, getDict, t as tt } from "@/lib/i18n";
+import type { Lang } from "@/lib/dictionaries";
 
 /** What we show per 1:1 conversation in the inbox */
 type InboxItem = {
@@ -30,6 +34,14 @@ export default function DMInboxPage() {
   const { user, loading } = useAuth();
   const [items, setItems] = useState<InboxItem[]>([]);
   const [err, setErr] = useState("");
+
+  // i18n
+  const [lang, setLang] = useState<Lang>("es");
+  useEffect(() => {
+    setLang(getLang());
+  }, []);
+  const dict = useMemo(() => getDict(lang), [lang]);
+  const t = (k: string, fallback?: string) => tt(dict, k, fallback);
 
   useEffect(() => {
     if (!user || loading) return;
@@ -105,24 +117,37 @@ export default function DMInboxPage() {
     })();
   }, [user, loading]);
 
-  if (loading) return <main className="min-h-screen grid place-items-center">Cargando…</main>;
-  if (!user) return <main className="min-h-screen grid place-items-center">Inicia sesión</main>;
+  if (loading)
+    return (
+      <main className="min-h-screen grid place-items-center">
+        {t("dmInbox.loading", "Cargando…")}
+      </main>
+    );
+  if (!user)
+    return (
+      <main className="min-h-screen grid place-items-center">
+        {t("dmInbox.signIn", "Inicia sesión")}
+      </main>
+    );
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="font-dmserif text-3xl mb-4">Mensajes</h1>
+        <h1 className="font-dmserif text-3xl mb-4">{t("dmInbox.title", "Mensajes")}</h1>
 
         {err && <p className="text-red-600 mb-3">{err}</p>}
 
         {items.length === 0 ? (
           <p className="opacity-70">
-            No hay conversaciones todavía. ¡Escribe a alguien desde su perfil o un mensaje del grupo!
+            {t(
+              "dmInbox.empty",
+              "No hay conversaciones todavía. ¡Escribe a alguien desde su perfil o un mensaje del grupo!"
+            )}
           </p>
         ) : (
           <ul className="space-y-3">
             {items.map((it) => {
-              const uname = it.other_username ?? "usuario";
+              const uname = it.other_username ?? t("dmInbox.userFallback", "usuario");
               return (
                 <li
                   key={it.other_id}
@@ -137,9 +162,12 @@ export default function DMInboxPage() {
                   <Link
                     href={`/dm/${encodeURIComponent(uname)}`}
                     className="underline"
-                    title={`Abrir chat con @${uname}`}
+                    title={t("dmInbox.openChatTitle", "Abrir chat con @{username}").replace(
+                      "{username}",
+                      uname
+                    )}
                   >
-                    Abrir
+                    {t("dmInbox.open", "Abrir")}
                   </Link>
                 </li>
               );
@@ -150,3 +178,4 @@ export default function DMInboxPage() {
     </main>
   );
 }
+
