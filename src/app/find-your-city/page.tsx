@@ -46,7 +46,7 @@ export default function FindYourCityPage() {
         .returns<Array<Omit<City, "soon">>>();
 
       if (data) {
-        const soonSlugs = new Set(["madrid", "santander", "sevilla"]);
+        const soonSlugs = new Set(["madrid", "santander", "sevilla", "malaga", "barcelona"]);
 
         const sorted = [...data].sort((a, b) => {
           if (a.slug === "valencia" && b.slug !== "valencia") return -1;
