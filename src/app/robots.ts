@@ -12,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
       // Generic rule for all crawlers (search engines, etc.)
       {
         userAgent: "*",
-        allow: "/",
+        allow: ["/", "/favicon.ico", "/og.jpg"],
         disallow: [
           // auth & account flows
           "/auth",

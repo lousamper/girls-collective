@@ -61,14 +61,14 @@ export const metadata: Metadata = {
     description: "Encuentra tu tribu, estés donde estés 💜",
     url: "/",
     siteName: "Girls Collective",
-    images: [{ url: "/og.jpg", width: 1200, height: 630 }],
+    images: [{ url: "https://www.girls-collective.com/og.jpg", width: 1200, height: 630 }],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Girls Collective",
     description: "Encuentra tu tribu, estés donde estés 💜",
-    images: ["/og.jpg"],
+    images: ["https://www.girls-collective.com/og.jpg"],
   },
   robots: {
     index: true,
