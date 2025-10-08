@@ -69,6 +69,16 @@ export default function Footer() {
             >
               <Image src="/icons/tiktok.png" alt="TikTok" width={24} height={24} />
             </Link>
+            {/* ✅ New: Threads */}
+            <Link
+              href="https://www.threads.com/@girls_collective"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Threads"
+              className="rounded-full overflow-hidden hover:opacity-80 transition"
+            >
+              <Image src="/icons/threads.png" alt="Threads" width={24} height={24} />
+            </Link>
           </div>
         </div>
 
