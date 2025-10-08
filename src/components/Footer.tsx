@@ -39,6 +39,14 @@ export default function Footer() {
               {t("footer.privacy", "Política de Privacidad")}
             </Link>
 
+            {/* ✅ Nuevo: Normas de la comunidad */}
+            <Link
+              href="/community-guidelines"
+              className="underline underline-offset-4 hover:opacity-80"
+            >
+              {t("footer.guidelines", "Normas de la comunidad")}
+            </Link>
+
             <button
               type="button"
               onClick={reopenCookiePrefs}
