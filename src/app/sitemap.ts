@@ -1,4 +1,3 @@
-// src/app/sitemap.ts
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,7 +7,7 @@ const SITE = RAW.replace(/\/+$/, ""); // strip trailing slash
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
-  // --- Static, high-value pages (keep adding here as needed) ---
+  // --- Rutas estáticas de alto valor ---
   const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: `${SITE}/`,
@@ -23,6 +22,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${SITE}/community-guidelines`, // añade la nueva página
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.4,
+    },
+    {
       url: `${SITE}/privacy-policy`,
       lastModified: now,
       changeFrequency: "yearly",
@@ -30,7 +35,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // --- Dynamic: city/category pages ---
   let combos: MetadataRoute.Sitemap = [];
 
   try {
@@ -38,34 +42,36 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-    // get city slugs (fallback to ["valencia"] if none)
-    const { data: citiesData, error: citiesErr } = await supabase
+    // 1) Solo ciudades activas
+    const { data: citiesData /*, error: citiesErr */ } = await supabase
       .from("cities")
-      .select("slug")
+      .select("slug,is_active")
+      .eq("is_active", true)
       .order("name", { ascending: true });
 
-    if (citiesErr) {
-      // swallow and continue with fallback
-      // console.warn("sitemap: cities error", citiesErr);
+    const activeCitySlugs =
+      (citiesData?.filter((c) => c.is_active).map((c) => c.slug).filter(Boolean) as string[]) ||
+      [];
+
+    // Si no hay ciudades activas, devolvemos solo estáticas
+    if (activeCitySlugs.length === 0) {
+      return staticRoutes;
     }
 
-    const citySlugs =
-      (citiesData?.map((c) => c.slug).filter(Boolean) as string[]) || ["valencia"];
-
-    // get category slugs (if none, we won't create combos)
-    const { data: catsData, error: catsErr } = await supabase
+    // 2) Categorías disponibles (si no hay, no generamos combos)
+    const { data: catsData /*, error: catsErr */ } = await supabase
       .from("categories")
       .select("slug")
       .order("name", { ascending: true });
 
-    if (catsErr) {
-      // console.warn("sitemap: categories error", catsErr);
-    }
-
     const catSlugs = (catsData?.map((c) => c.slug).filter(Boolean) as string[]) || [];
 
-    // build /{city}/{category} URLs
-    combos = citySlugs.flatMap<MetadataRoute.Sitemap[number]>((city) =>
+    if (catSlugs.length === 0) {
+      return staticRoutes;
+    }
+
+    // 3) Construimos solo {city activa} × {category}
+    combos = activeCitySlugs.flatMap<MetadataRoute.Sitemap[number]>((city) =>
       catSlugs.map((cat) => ({
         url: `${SITE}/${encodeURIComponent(city)}/${encodeURIComponent(cat)}`,
         lastModified: now,
@@ -74,7 +80,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })),
     );
   } catch {
-    // on any unexpected error, just return statics
+    // Si algo falla, devolvemos solo las rutas estáticas (no rompe nada)
     combos = [];
   }
 
