@@ -26,6 +26,7 @@ export const DICT = {
         orWriteUs: "O escríbenos a",
         prev: "Anterior",
         next: "Siguiente",
+        lastUpdated: "Última actualización",
 
       },
       // NEW
@@ -596,8 +597,97 @@ footer: {
   cookiePrefsAria: "Abrir preferencias de cookies",
   copyright: "© 2025 GirlsCollective. Todos los derechos reservados.",
 },
-
-
+guidelines: {
+    title: "Normas de la comunidad",
+    intro:
+      "Queremos un espacio seguro, amable y divertido. Al usar Girls Collective aceptas seguir estas reglas.",
+    rule1: {
+      title: "1) Respeto primero",
+      body:
+        "No se permiten insultos, acoso, lenguaje de odio, amenazas, ni doxxing. Trátate y trata a las demás con empatía.",
+    },
+    rule2: {
+      title: "2) Contenido sensible",
+      body:
+        "Prohibido contenido sexual explícito, violento o que promueva drogas/armas. Evita compartir materiales que puedan herir a otras personas.",
+    },
+    rule3: {
+      title: "3) Seguridad",
+      body:
+        "No compartas datos personales (teléfono, dirección, documentos). Si organizas un plan, hazlo con sentido común y en lugares públicos.",
+    },
+    rule4: {
+      title: "4) Spam y estafas",
+      body:
+        "Nada de spam, cuentas falsas o promociones sin permiso. Reporta enlaces sospechosos o comportamientos raros.",
+    },
+    rule5: {
+      title: "5) Edad mínima",
+      body:
+        "El uso de Girls Collective es para mayores de 16 años (ajústalo si tu política es diferente).",
+    },
+    rule6: {
+      title: "6) Consecuencias",
+      body:
+        "Podemos aplicar avisos, suspensión temporal o ban permanente ante incumplimientos. Los contenidos reportados o marcados como sensibles pueden ocultarse hasta revisión.",
+    },
+    help: {
+      title: "¿Necesitas ayuda?",
+      body:
+        "Si ves algo que incumple estas normas, usa el botón Reportar o escríbenos desde",
+      linkText: "Política de Privacidad",
+      tail: "para ver cómo contactarnos.",
+    },
+  },
+privacy: {
+      title: "Política de Privacidad",
+      section1: {
+        title: "1. Información que recopilamos",
+        p1: "Cuando utilizas nuestra aplicación, podemos recopilar:",
+        items: {
+          register: {
+            bold: "Datos de registro:",
+            text: "correo electrónico y contraseña (a través de Supabase).",
+          },
+          profile: {
+            bold: "Datos de perfil:",
+            text: "nombre de usuario, ciudad, año de nacimiento, biografía, intereses, foto de perfil e intereses personalizados.",
+          },
+          tech: {
+            bold: "Datos técnicos:",
+            text: "uso de la app, cookies y registros del servidor.",
+          },
+        },
+      },
+      section2: {
+        title: "2. Uso de los datos",
+        items: {
+          improve: "Mejorar la experiencia de la comunidad.",
+          personalize: "Personalizar tu perfil y recomendaciones.",
+          contact: "Contactarte sobre novedades de tu ciudad.",
+        },
+      },
+      section3: {
+        title: "3. Compartición de datos",
+        p: "Nunca venderemos tus datos. Solo se comparten con servicios necesarios para el funcionamiento de la app (como Supabase para autenticación y base de datos).",
+      },
+      section4: {
+        title: "4. Tus derechos",
+        p1: "Puedes solicitar la eliminación o modificación de tus datos en cualquier momento escribiéndonos a",
+      },
+      section5: {
+        title: "5. Cambios",
+        p: "Esta política puede actualizarse. Si hay cambios importantes, te lo notificaremos dentro de la app.",
+      },
+      section6: {
+        title: "6. Edad mínima de uso",
+        p: "Girls Collective está dirigida exclusivamente a personas mayores de 16 años. Si descubrimos que una persona menor de esa edad ha creado una cuenta, podremos eliminar o suspender su acceso para proteger su privacidad y cumplir con la normativa vigente.",
+      },
+      footer: {
+        lastUpdated: "Última actualización",
+      },
+    },
+  
   },
 
   en: {
@@ -624,6 +714,7 @@ footer: {
         orWriteUs: "Or write us at",
         prev: "Previous",
         next: "Next",
+        lastUpdated: "Last updated",
       },
       // NEW
       misc: {
@@ -1183,7 +1274,97 @@ footer: {
   cookiePrefsAria: "Open cookie preferences",
   copyright: "© 2025 GirlsCollective. All rights reserved.",
 },
-
+  guidelines: {
+    title: "Community Guidelines",
+    intro:
+      "We want a safe, kind and fun space. By using Girls Collective you agree to follow these rules.",
+    rule1: {
+      title: "1) Lead with respect",
+      body:
+        "No insults, harassment, hate speech, threats, or doxxing. Treat others (and yourself) with empathy.",
+    },
+    rule2: {
+      title: "2) Sensitive content",
+      body:
+        "No explicit sexual or violent content, or content promoting drugs/weapons. Avoid sharing materials that could harm others.",
+    },
+    rule3: {
+      title: "3) Safety",
+      body:
+        "Don’t share personal data (phone, address, documents). If you organize a plan, use common sense and meet in public places.",
+    },
+    rule4: {
+      title: "4) Spam & scams",
+      body:
+        "No spam, fake accounts, or promotions without permission. Report suspicious links or behavior.",
+    },
+    rule5: {
+      title: "5) Minimum age",
+      body:
+        "Girls Collective is for people aged 16+ (adjust if your policy differs).",
+    },
+    rule6: {
+      title: "6) Consequences",
+      body:
+        "We may issue warnings, temporary suspensions or a permanent ban for violations. Reported or sensitive content may be hidden pending review.",
+    },
+    help: {
+      title: "Need help?",
+      body:
+        "If you see something that breaks these rules, use the Report button or contact us via",
+      linkText: "Privacy Policy",
+      tail: "to see how to reach us.",
+    },
+  },
+    privacy: {
+      title: "Privacy Policy",
+      section1: {
+        title: "1. Information we collect",
+        p1: "When you use our app, we may collect:",
+        items: {
+          register: {
+            bold: "Registration data:",
+            text: "email and password (via Supabase).",
+          },
+          profile: {
+            bold: "Profile data:",
+            text: "username, city, year of birth, bio, interests, profile photo, and custom interests.",
+          },
+          tech: {
+            bold: "Technical data:",
+            text: "app usage, cookies, and server logs.",
+          },
+        },
+      },
+      section2: {
+        title: "2. How we use data",
+        items: {
+          improve: "Improve the community experience.",
+          personalize: "Personalize your profile and recommendations.",
+          contact: "Contact you about news in your city.",
+        },
+      },
+      section3: {
+        title: "3. Data sharing",
+        p: "We will never sell your data. We only share it with services required to run the app (such as Supabase for authentication and database).",
+      },
+      section4: {
+        title: "4. Your rights",
+        p1: "You can request deletion or modification of your data at any time by writing to",
+      },
+      section5: {
+        title: "5. Changes",
+        p: "This policy may be updated. If there are significant changes, we will notify you in the app.",
+      },
+      section6: {
+        title: "6. Minimum age of use",
+        p: "Girls Collective is intended only for people aged 16 or older. If we discover that someone under that age has created an account, we may remove or suspend access to protect their privacy and comply with applicable regulations.",
+      },
+      footer: {
+        lastUpdated: "Last updated",
+      },
+    },
+    
   },
 } as const;
 
