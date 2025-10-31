@@ -87,6 +87,16 @@ export default function Footer() {
             >
               <Image src="/icons/threads.png" alt="Threads" width={24} height={24} />
             </Link>
+            {/* ✅ New: Substack */}
+            <Link
+              href="https://girlscollective.substack.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Substack"
+              className="rounded-full overflow-hidden hover:opacity-80 transition"
+            >
+              <Image src="/icons/substack.png" alt="Substack" width={24} height={24} />
+            </Link>
           </div>
         </div>
 
@@ -103,8 +113,6 @@ export default function Footer() {
     </footer>
   );
 }
-
-
 
 
 

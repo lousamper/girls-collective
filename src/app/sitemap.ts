@@ -22,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
-      url: `${SITE}/community-guidelines`, // añade la nueva página
+      url: `${SITE}/community-guidelines`,
       lastModified: now,
       changeFrequency: "yearly",
       priority: 0.4,
