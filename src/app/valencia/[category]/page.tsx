@@ -219,31 +219,20 @@ export default function CategoryPage({
             </Link>
           </div>
 
-          <p className="max-w-3xl text-base md:text-lg leading-relaxed">
+          <p className="max-w-3xl text-[0.95rem] md:text-[1.05rem] leading-relaxed">
             {t(
               "category.intro.l1",
-              "Ya sea que quieras unirte a un grupo ya creado o iniciar uno nuevo,"
-            )}{" "}
-            {t(
-              "category.intro.l2",
-              "aquí puedes hacerlo a tu ritmo, sin presiones. Conecta desde lo que te"
-            )}{" "}
-            {t(
-              "category.intro.l3",
-              "inspira, propone planes o simplemente mira qué está pasando cerca de ti."
+              "Encuentra los grupos que resuenan contigo… o crea uno tú misma."
             )}
-            <br />
             <br />
             {t(
               "category.intro.l4",
-              "Dentro podrás filtrar por "
+              "Filtra por "
             )}
-            <u>{t("category.intro.l5u1", "ubicaciones o por edades")}</u>{" "}
-            {t("category.intro.l6", "si así lo prefieres.")}
-            <br />
+            <u>{t("category.intro.l5u1", "ubicación o edad")}</u>{" "}
             {t(
-              "category.intro.l7",
-              "Sigue los grupos que quieras para poder verlos en tu cuenta."
+              "category.intro.l6",
+              ", sigue tus favoritos y descubre qué está pasando cerca de ti."
             )}
           </p>
         </header>
@@ -439,7 +428,7 @@ export default function CategoryPage({
 
             <div>
               <label className="block text-sm mb-1">
-                {t("category.create.descLabel", "Descripción (opcional)")}
+                {t("category.create.descLabel", "Descripción (opcional")}
               </label>
               <textarea
                 className="w-full rounded-xl border p-3"
@@ -467,8 +456,3 @@ export default function CategoryPage({
     </main>
   );
 }
-
-
-
-
-

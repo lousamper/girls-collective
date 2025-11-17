@@ -92,22 +92,21 @@ export default function ValenciaPage() {
           {t("valencia.intro.title1", "¿Recién llegada a Valencia?")} <br />
           {t("valencia.intro.title2", "¿O con ganas de reconectar con la ciudad?")}
         </h1>
-        <p className="text-base md:text-lg leading-[1.35] md:leading-[1.4]">
-          {t("valencia.intro.p1", "Este es tu espacio para encontrar nuevas amigas, compartir intereses y crear")}
+        <p className="text-[0.95rem] md:text-[1.05rem] leading-[1.35] md:leading-[1.4]">
+          {t(
+            "valencia.intro.p1",
+            "Este es tu espacio para encontrar nuevas amigas, compartir intereses y crear planes que de verdad te llenen."
+          )}
           <br />
-          {t("valencia.intro.p1b", "planes que de verdad te llenen.")}
+          {t(
+            "valencia.intro.p4",
+            "Elige la categoría que más resuene contigo y empieza a construir comunidad💫"
+          )}
           <br />
-          <br />
-          {t("valencia.intro.p2", "Aquí tú tienes el control 🤝")}
-          <br />
-          {t("valencia.intro.p3", "Puedes crear el grupo, proponer planes o simplemente")}
-          <br />
-          {t("valencia.intro.p3b", "unirte a los grupos ya creados que vibren con lo que te gusta.")}
-          <br />
-          <br />
-          {t("valencia.intro.p4", "¡Elige la categoría que más resuene contigo y empieza a construir comunidad!")}
-          <br />
-          {t("valencia.intro.p5", "A tu ritmo, a tu manera.")}
+          {t(
+            "valencia.intro.p5",
+            "A tu ritmo, a tu manera."
+          )}
         </p>
       </section>
 
@@ -161,4 +160,5 @@ export default function ValenciaPage() {
     </main>
   );
 }
+
 
