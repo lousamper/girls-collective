@@ -213,7 +213,7 @@ export default function CategoryPage({
             <h1 className="font-dmserif text-2xl md:text-3xl m-0 text-left md:text-left">{meta.title}</h1>
             <Link
               href="/valencia"
-              className="ml-auto text-xs md:text-sm underline underline-offset-2 hover:opacity-80"
+              className="ml-auto hidden md:block text-xs md:text-sm underline underline-offset-2 hover:opacity-80"
             >
               {t("category.back", "← Volver")}
             </Link>
@@ -395,6 +395,16 @@ export default function CategoryPage({
             </div>
           </section>
         )}
+
+        {/* Volver (solo mobile, al final de la página) */}
+        <div className="mt-8 md:hidden text-left">
+          <button
+            onClick={() => router.push("/valencia")}
+            className="text-xs underline underline-offset-2 hover:opacity-80"
+          >
+            {t("category.back", "← Volver")}
+          </button>
+        </div>
       </div>
 
       {/* Crear Grupo Modal */}
@@ -456,3 +466,4 @@ export default function CategoryPage({
     </main>
   );
 }
+

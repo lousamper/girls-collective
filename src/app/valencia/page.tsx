@@ -77,11 +77,11 @@ export default function ValenciaPage() {
           className="block md:hidden w-screen h-auto"
         />
         {/* Desktop/Tablet hero */}
-        <div className="relative hidden md:block w-full h-[70vh]">
+        <div className="relative hidden md:flex w-full justify-center bg-gcBackground max-h-[540px]">
           <img
             src="/cities/valencia-hero.jpg"
             alt={t("valencia.alt", "Valencia")}
-            className="absolute inset-0 w-full h-full object-cover"
+            className="w-full h-auto object-contain max-h-[540px]"
           />
         </div>
       </section>
