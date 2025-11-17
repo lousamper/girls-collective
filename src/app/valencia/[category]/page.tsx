@@ -210,7 +210,7 @@ export default function CategoryPage({
         <header className="mb-8">
           {/* title left, back link right */}
           <div className="flex items-center justify-between mb-3">
-            <h1 className="font-dmserif text-2xl md:text-4xl m-0">{meta.title}</h1>
+            <h1 className="font-dmserif text-2xl md:text-3xl m-0 text-left md:text-left">{meta.title}</h1>
             <Link
               href="/valencia"
               className="ml-auto text-xs md:text-sm underline underline-offset-2 hover:opacity-80"
@@ -219,7 +219,7 @@ export default function CategoryPage({
             </Link>
           </div>
 
-          <p className="max-w-3xl text-[0.95rem] md:text-[1.05rem] leading-relaxed">
+          <p className="max-w-3xl text-[0.95rem] md:text-[1.05rem] leading-[1.35] md:leading-[1.4] text-left md:text-left mt-1">
             {t(
               "category.intro.l1",
               "Encuentra los grupos que resuenan contigo… o crea uno tú misma."

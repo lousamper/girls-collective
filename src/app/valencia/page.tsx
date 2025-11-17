@@ -87,12 +87,12 @@ export default function ValenciaPage() {
       </section>
 
       {/* INTRO TEXT BELOW HERO */}
-      <section className="max-w-3xl mx-auto px-6 py-12 text-center">
-        <h1 className="text-2xl md:text-4xl font-dmserif mb-6 leading-[1.1] md:leading-[1.05]">
+      <section className="max-w-3xl mx-auto px-6 py-8 text-center md:text-center">
+        <h1 className="text-lg md:text-2xl font-dmserif mb-3 md:mb-4 leading-[1.2] md:leading-[1.05] text-left md:text-center">
           {t("valencia.intro.title1", "¿Recién llegada a Valencia?")} <br />
           {t("valencia.intro.title2", "¿O con ganas de reconectar con la ciudad?")}
         </h1>
-        <p className="text-[0.95rem] md:text-[1.05rem] leading-[1.35] md:leading-[1.4]">
+        <p className="text-[0.95rem] md:text-[1.05rem] leading-[1.35] md:leading-[1.4] text-left md:text-center mt-1">
           {t(
             "valencia.intro.p1",
             "Este es tu espacio para encontrar nuevas amigas, compartir intereses y crear planes que de verdad te llenen."
@@ -111,8 +111,8 @@ export default function ValenciaPage() {
       </section>
 
       {/* CATEGORIES */}
-      <section className="max-w-6xl mx-auto p-6">
-        <h2 className="text-2xl md:text-4xl font-dmserif text-center mb-8">
+      <section className="max-w-6xl mx-auto px-6 py-4 md:py-6">
+        <h2 className="text-xl md:text-3xl font-dmserif text-left md:text-center mb-4 md:mb-8">
           {t("valencia.categories.title", "Encuentra tu tribu")}
         </h2>
 
