@@ -82,12 +82,12 @@ export default function Navbar() {
     // light polling every 30s
     const iv = setInterval(load, 30_000);
 
-    // refresh when tab becomes visible
+    // refresh cuando tab visible
     const onVis = () => {
       if (document.visibilityState === "visible") load();
     };
 
-    // listen for notif updates signaled via localStorage (e.g., markAllRead)
+    // listen for notif updates signaled via localStorage
     const onStorage = (e: StorageEvent) => {
       if (e.key === "notif-refresh") load();
     };
@@ -376,6 +376,7 @@ export default function Navbar() {
         </div>
 
         <nav className="p-4">
+          {/* Navegación general */}
           <ul className="grid gap-1 text-base">
             <li>
               <Link
@@ -404,9 +405,22 @@ export default function Navbar() {
                 {t("nav.contact")}
               </Link>
             </li>
+          </ul>
 
-            {user && (
-              <>
+          {/* Tu espacio (solo si logueada) */}
+          {user && (
+            <div className="mt-4 border-t pt-4">
+              <div className="text-xs opacity-60 mb-2 px-1">Tu espacio</div>
+              <ul className="grid gap-1 text-base">
+                <li>
+                  <Link
+                    href="/profile"
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
+                    {t("nav.accountShort", "Mi perfil")}
+                  </Link>
+                </li>
                 <li>
                   <Link
                     href="/my-groups"
@@ -434,21 +448,41 @@ export default function Navbar() {
                     {t("nav.messages")}
                   </Link>
                 </li>
-              </>
-            )}
-
-            {isAdmin && (
-              <li>
-                <Link
-                  href="/admin/groups"
-                  onClick={closeMenu}
-                  className="block rounded-xl px-4 py-3 hover:bg-black/5"
-                >
-                  {t("nav.admin")}
-                </Link>
-              </li>
-            )}
-          </ul>
+                <li>
+                  <Link
+                    href="/notifications"
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
+                    {t("nav.notifications", "Notificaciones")}
+                  </Link>
+                </li>
+                {isAdmin && (
+                  <li>
+                    <Link
+                      href="/admin/groups"
+                      onClick={closeMenu}
+                      className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                    >
+                      {t("nav.admin")}
+                    </Link>
+                  </li>
+                )}
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMenu();
+                      handleSignOut();
+                    }}
+                    className="w-full text-left rounded-xl px-4 py-3 hover:bg-black/5 text-base"
+                  >
+                    Cerrar sesión
+                  </button>
+                </li>
+              </ul>
+            </div>
+          )}
 
           {/* Language inside drawer */}
           <div className="mt-4 border-t pt-4">
@@ -475,15 +509,18 @@ export default function Navbar() {
             </div>
           </div>
 
-          <div className="mt-6">
-            <Link
-              href={user ? "/profile" : "/auth"}
-              onClick={closeMenu}
-              className="block text-center rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-3 text-lg shadow-md hover:opacity-90"
-            >
-              {user ? t("nav.accountShort") : t("nav.join")}
-            </Link>
-          </div>
+          {/* CTA inferior: solo si NO está logueada */}
+          {!user && (
+            <div className="mt-6">
+              <Link
+                href="/auth"
+                onClick={closeMenu}
+                className="block text-center rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-3 text-lg shadow-md hover:opacity-90"
+              >
+                {t("nav.join")}
+              </Link>
+            </div>
+          )}
 
           <div className="h-6 pb-[env(safe-area-inset-bottom)]" />
         </nav>
@@ -491,6 +528,3 @@ export default function Navbar() {
     </header>
   );
 }
-
-
-
