@@ -11,7 +11,6 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -79,7 +78,27 @@ type CommunityEventRow = {
   description: string | null;
   location: string | null;
   starts_at: string;
+  image_url: string | null;
+  creator_id: string;
+  creator_username?: string | null;
 };
+
+// helper para nombre seguro de archivo de evento
+function sanitizeEventFileName(name: string) {
+  const base = name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "");
+  const parts = base.split(".");
+  const ext = parts.length > 1 ? parts.pop()!.toLowerCase().replace(/[^a-z0-9]/g, "") : "jpg";
+  const stem = parts.join(".").toLowerCase().replace(/[^a-z0-9._-]/g, "-");
+  const cleanStem = stem.replace(/[-_.]{2,}/g, "-").replace(/^[-_.]+|[-_.]+$/g, "");
+  return `${cleanStem || "event"}.${ext || "jpg"}`;
+}
+function safeEventPath(userId: string, file: File) {
+  const clean = sanitizeEventFileName(file.name || "event.jpg");
+  return `${userId}/events/${Date.now()}_${clean}`;
+}
 
 export default function GroupPage({
   params,
@@ -130,7 +149,6 @@ export default function GroupPage({
   const [pollMulti, setPollMulti] = useState(false);
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const [pollMsg, setPollMsg] = useState("");
-  const [pollsOpen, setPollsOpen] = useState(false); // toggle for archive
 
   // events (create modal)
   const [openEvent, setOpenEvent] = useState(false);
@@ -139,39 +157,44 @@ export default function GroupPage({
   const [evLoc, setEvLoc] = useState("");
   const [evWhen, setEvWhen] = useState<string>("");
   const [evMsg, setEvMsg] = useState("");
+  const [evImageFile, setEvImageFile] = useState<File | null>(null);
+  const [evImagePreview, setEvImagePreview] = useState<string | null>(null);
 
   const [events, setEvents] = useState<CommunityEventRow[]>([]);
+  const [eventGoingMap, setEventGoingMap] = useState<Record<string, boolean>>({});
+  const [eventCountMap, setEventCountMap] = useState<Record<string, number>>({});
+  const [eventBusy, setEventBusy] = useState<string | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   // list scroll & “new messages” toast
   const listRef = useRef<HTMLUListElement | null>(null);
   const firstLoadRef = useRef(true);
-  const bottomRef = useRef<HTMLLIElement | null>(null); // NEW: invisible bottom anchor
+  const bottomRef = useRef<HTMLLIElement | null>(null); // invisible bottom anchor
+  const evImageInputRef = useRef<HTMLInputElement | null>(null);
 
   const [atBottom, setAtBottom] = useState(true);
   const [showNewToast, setShowNewToast] = useState(false);
 
   // First time messages arrive, snap to bottom once (robust via sentinel)
-useEffect(() => {
-  if (!firstLoadRef.current) return;
-  if (!messages.length) return;
+  useEffect(() => {
+    if (!firstLoadRef.current) return;
+    if (!messages.length) return;
 
-  const el = listRef.current;
-  if (!el) return;
+    const el = listRef.current;
+    if (!el) return;
 
-  const snap = () => bottomRef.current?.scrollIntoView({ block: "end" });
+    const snap = () => bottomRef.current?.scrollIntoView({ block: "end" });
 
-  // Double rAF: after paint & layout
-  requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      snap();
-      // Fallback a bit later in case something reflows
-      setTimeout(() => {
-        if (!isNearBottom(el)) snap();
-        firstLoadRef.current = false; // flip only after final snap
-      }, 120);
+      requestAnimationFrame(() => {
+        snap();
+        setTimeout(() => {
+          if (!isNearBottom(el)) snap();
+          firstLoadRef.current = false;
+        }, 120);
+      });
     });
-  });
-}, [messages.length]);
+  }, [messages.length]);
 
   // UNREAD marker
   const [lastReadAt, setLastReadAt] = useState<string | null>(null);
@@ -189,6 +212,17 @@ useEffect(() => {
   useEffect(() => {
     if (!loading && !user) router.push("/auth");
   }, [loading, user, router]);
+
+  // preview imagen de evento
+  useEffect(() => {
+    if (!evImageFile) {
+      setEvImagePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(evImageFile);
+    setEvImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [evImageFile]);
 
   useEffect(() => {
     (async () => {
@@ -259,19 +293,17 @@ useEffect(() => {
           // si no existe la tabla, seguimos sin romper
         }
 
-      firstLoadRef.current = true;
+        firstLoadRef.current = true;
 
-await Promise.all([
-  loadMessages(g.id, "all", "all"),
-  loadPolls(g.id),
-  loadEvents(g.id),
-]);
+        await Promise.all([
+          loadMessages(g.id, "all", "all"),
+          loadPolls(g.id),
+          loadEvents(g.id),
+        ]);
 
-// Final safety snap after initial data paints
-requestAnimationFrame(() => {
-  if (firstLoadRef.current) bottomRef.current?.scrollIntoView({ block: "end" });
-});
-
+        requestAnimationFrame(() => {
+          if (firstLoadRef.current) bottomRef.current?.scrollIntoView({ block: "end" });
+        });
       } catch (err: unknown) {
         console.error(err);
       } finally {
@@ -295,15 +327,13 @@ requestAnimationFrame(() => {
   }, []);
 
   useEffect(() => {
-  if (firstLoadRef.current) return; // don't run during first-load snap
-
-  const el = listRef.current;
-  if (!el) return;
-
-  if (atBottom) {
-    el.scrollTop = el.scrollHeight;
-  }
-}, [messages.length, atBottom]);
+    if (firstLoadRef.current) return;
+    const el = listRef.current;
+    if (!el) return;
+    if (atBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages.length, atBottom]);
 
   async function loadMessages(groupId: string, loc: string, age: string) {
     let q = supabase
@@ -345,12 +375,11 @@ requestAnimationFrame(() => {
     const full = (rows ?? []).map((m) => ({ ...m, sender_profile: profiles[m.sender_id] ?? null }));
     setMessages(full);
 
-    // Ensure first-render lands at the newest (use sentinel)
-if (firstLoadRef.current) {
-  requestAnimationFrame(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  });
-}
+    if (firstLoadRef.current) {
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ block: "end" });
+      });
+    }
 
     // likes
     if (rows?.length) {
@@ -370,7 +399,7 @@ if (firstLoadRef.current) {
       setLikes({});
     }
 
-    // compute unread marker (first message strictly newer than lastReadAt)
+    // compute unread marker
     if (lastReadAt) {
       const firstNew = full.find((m) => new Date(m.created_at) > new Date(lastReadAt));
       setUnreadFirstId(firstNew?.id ?? null);
@@ -379,34 +408,33 @@ if (firstLoadRef.current) {
     }
 
     // new messages toast logic
-{
-  const el = listRef.current;
-  if (el) {
-    if (firstLoadRef.current) {
-      // first-load snap is handled by the first-load effect; no toast here
-      setShowNewToast(false);
-    } else if (isNearBottom(el)) {
-      setShowNewToast(false);
-    } else {
-      setShowNewToast(true);
+    {
+      const el = listRef.current;
+      if (el) {
+        if (firstLoadRef.current) {
+          setShowNewToast(false);
+        } else if (isNearBottom(el)) {
+          setShowNewToast(false);
+        } else {
+          setShowNewToast(true);
+        }
+      }
     }
-  }
-}
   }
 
   function changeLoc(id: string) {
-  setSelLoc(id);
-  if (!group) return;
-  firstLoadRef.current = true;              // ← makes it jump to newest after reload
-  loadMessages(group.id, id, selAge);
-}
+    setSelLoc(id);
+    if (!group) return;
+    firstLoadRef.current = true;
+    loadMessages(group.id, id, selAge);
+  }
 
-function changeAge(id: string) {
-  setSelAge(id);
-  if (!group) return;
-  firstLoadRef.current = true;              // ← makes it jump to newest after reload
-  loadMessages(group.id, selLoc, id);
-}
+  function changeAge(id: string) {
+    setSelAge(id);
+    if (!group) return;
+    firstLoadRef.current = true;
+    loadMessages(group.id, selLoc, id);
+  }
 
   // relative time helper
   function timeAgo(iso: string) {
@@ -448,7 +476,7 @@ function changeAge(id: string) {
   function formatEventDate(iso: string) {
     return new Date(iso).toLocaleString("es-ES", {
       weekday: "short",
-      day: "numeric",
+      day: "2-digit",
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
@@ -465,7 +493,7 @@ function changeAge(id: string) {
       .from("profiles")
       .select("id,username,bio,avatar_url,city_id,favorite_emoji,quote")
       .ilike("username", username)
-      .maybeSingle<ProfileRowDB>(); // ✅ typed result
+      .maybeSingle<ProfileRowDB>();
 
     const preview: ProfilePreview | undefined = prof
       ? {
@@ -501,7 +529,7 @@ function changeAge(id: string) {
         .maybeSingle();
       if (custom?.interest) interests.push(custom.interest);
 
-      // GALLERY: try two possible tables
+      // GALLERY
       let gallery: string[] = [];
       try {
         const { data: gal1 } = await supabase
@@ -558,7 +586,6 @@ function changeAge(id: string) {
     return m ? m[1] : null;
   }
 
-  // helper → when replying to a reply, keep thread under the top-level message and @mention the user
   function replyToMessage(msg: MessageRow) {
     setReplyTo(msg);
     if (msg.parent_message_id && msg.sender_profile?.username) {
@@ -567,14 +594,12 @@ function changeAge(id: string) {
     }
   }
 
-  // NOTE: accepts submit or Enter key
   async function sendMessage(e?: React.FormEvent | React.KeyboardEvent) {
     e?.preventDefault?.();
     if (!user || !group || !following) return;
     if (!msgText.trim()) return;
     setSending(true);
     try {
-      // If replying to a reply → parent is the root (keep single-level thread)
       const parentId = replyTo ? (replyTo.parent_message_id ?? replyTo.id) : null;
 
       const payload = {
@@ -616,15 +641,15 @@ function changeAge(id: string) {
   }
 
   function startEdit(mid: string, current: string) {
-  setEditingId(mid);
-  setEditText(current);
-  // lleva el mensaje al centro de la vista
-  requestAnimationFrame(() => {
-    document.getElementById(`msg-${mid}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
-}
+    setEditingId(mid);
+    setEditText(current);
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`msg-${mid}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
 
-  // ✅ robust save with feedback + sender guard
   async function saveEdit(mid: string) {
     const newText = editText.trim();
     if (!newText) return;
@@ -677,7 +702,7 @@ function changeAge(id: string) {
     if (!error && group) await loadMessages(group.id, selLoc, selAge);
   }
 
-  // follow toggle (existence only; no role column)
+  // follow toggle
   async function toggleFollow() {
     if (!user || !group) return;
     setFollowBusy(true);
@@ -697,7 +722,6 @@ function changeAge(id: string) {
           );
         if (error) throw error;
       }
-      // Re-check from DB for persistence
       const { data: mem, error: mErr } = await supabase
         .from("group_members")
         .select("group_id")
@@ -794,10 +818,16 @@ function changeAge(id: string) {
   }
 
   async function loadEvents(groupId: string) {
+    if (!user) {
+      setEvents([]);
+      setEventGoingMap({});
+      setEventCountMap({});
+      return;
+    }
     const nowIso = new Date().toISOString();
     const { data, error } = await supabase
       .from("community_events")
-      .select("id, title, description, location, starts_at, is_approved")
+      .select("id, title, description, location, starts_at, cover_image_url, creator_id, is_approved")
       .eq("group_id", groupId)
       .gte("starts_at", nowIso)
       .order("starts_at", { ascending: true });
@@ -805,19 +835,64 @@ function changeAge(id: string) {
     if (error) {
       console.error(error);
       setEvents([]);
+      setEventGoingMap({});
+      setEventCountMap({});
       return;
     }
 
-    const approved = (data ?? []).filter((e: any) => e.is_approved !== false);
+    // solo aprobados
+    const approved = (data ?? []).filter((e) => e.is_approved !== false);
+
+    const eventIds = approved.map((e) => e.id);
+    const countMap: Record<string, number> = {};
+    const goingMap: Record<string, boolean> = {};
+
+    if (eventIds.length) {
+      const { data: attRows } = await supabase
+        .from("community_event_attendees")
+        .select("event_id, profile_id")
+        .in("event_id", eventIds);
+
+      (attRows ?? []).forEach((r: { event_id: string; profile_id: string }) => {
+        countMap[r.event_id] = (countMap[r.event_id] ?? 0) + 1;
+        if (r.profile_id === user.id) {
+          goingMap[r.event_id] = true;
+        }
+      });
+
+      eventIds.forEach((id) => {
+        if (!(id in countMap)) countMap[id] = 0;
+        if (!(id in goingMap)) goingMap[id] = false;
+      });
+    }
+
+    // usernames de creadoras
+    const creatorIds = Array.from(new Set(approved.map((e) => e.creator_id))).filter(Boolean);
+    const creatorMap: Record<string, string | null> = {};
+    if (creatorIds.length) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("id", creatorIds as string[]);
+      (profs ?? []).forEach((p: { id: string; username: string | null }) => {
+        creatorMap[p.id] = p.username;
+      });
+    }
+
     setEvents(
-      approved.map((e: any) => ({
+      approved.map((e) => ({
         id: e.id,
         title: e.title,
         description: e.description,
         location: e.location,
         starts_at: e.starts_at,
+        image_url: (e as { cover_image_url: string | null }).cover_image_url ?? null,
+        creator_id: e.creator_id,
+        creator_username: creatorMap[e.creator_id] ?? null,
       }))
     );
+    setEventCountMap(countMap);
+    setEventGoingMap(goingMap);
   }
 
   function changePollOptionText(idx: number, text: string) {
@@ -864,7 +939,6 @@ function changeAge(id: string) {
       const { error: optErr } = await supabase.from("poll_options").insert(rows);
       if (optErr) throw optErr;
 
-      // inline marker message so the poll appears in chat
       await supabase.from("messages").insert({
         group_id: group.id,
         sender_id: user.id,
@@ -886,7 +960,6 @@ function changeAge(id: string) {
     }
   }
 
-  // NEW: vote function (used by InlinePoll & archive)
   async function vote(p: PollWithCounts, optionId: string) {
     if (!user || !group || p.isClosed) return;
     try {
@@ -908,7 +981,7 @@ function changeAge(id: string) {
     }
   }
 
-  // ===== Events (Create modal) =====
+  // ===== Events (Create + asistir) =====
   async function createEvent(e: React.FormEvent) {
     e.preventDefault();
     if (!user || !group) return;
@@ -920,6 +993,21 @@ function changeAge(id: string) {
       }
       const starts_at = new Date(evWhen).toISOString();
 
+      let image_url: string | null = null;
+      if (evImageFile) {
+        const path = safeEventPath(user.id, evImageFile);
+        const { error: upErr } = await supabase.storage
+          .from("Avatars")
+          .upload(path, evImageFile, {
+            upsert: true,
+            cacheControl: "3600",
+            contentType: evImageFile.type || "image/jpeg",
+          });
+        if (upErr) throw upErr;
+        const pub = supabase.storage.from("Avatars").getPublicUrl(path);
+        image_url = pub?.data?.publicUrl ?? null;
+      }
+
       const { error } = await supabase.from("community_events").insert({
         group_id: group.id,
         creator_id: user.id,
@@ -927,6 +1015,7 @@ function changeAge(id: string) {
         description: evDesc.trim() || null,
         location: evLoc.trim() || null,
         starts_at,
+        cover_image_url: image_url,
         is_approved: false,
       });
       if (error) throw error;
@@ -936,10 +1025,44 @@ function changeAge(id: string) {
       setEvDesc("");
       setEvLoc("");
       setEvWhen("");
-      if (group) await loadEvents(group.id);
+      setEvImageFile(null);
+      setEvImagePreview(null);
+      await loadEvents(group.id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "No se pudo crear el evento.";
       setEvMsg(msg);
+    }
+  }
+
+  async function toggleEventGoing(eventId: string) {
+    if (!user) return;
+    setEventBusy(eventId);
+    try {
+      const going = eventGoingMap[eventId] === true;
+      if (going) {
+        const { error } = await supabase
+          .from("community_event_attendees")
+          .delete()
+          .match({ event_id: eventId, profile_id: user.id });
+        if (error) throw error;
+        setEventGoingMap((prev) => ({ ...prev, [eventId]: false }));
+        setEventCountMap((prev) => ({
+          ...prev,
+          [eventId]: Math.max(0, (prev[eventId] ?? 1) - 1),
+        }));
+      } else {
+        const { error } = await supabase
+          .from("community_event_attendees")
+          .insert({ event_id: eventId, profile_id: user.id });
+        if (error) throw error;
+        setEventGoingMap((prev) => ({ ...prev, [eventId]: true }));
+        setEventCountMap((prev) => ({
+          ...prev,
+          [eventId]: (prev[eventId] ?? 0) + 1,
+        }));
+      }
+    } finally {
+      setEventBusy(null);
     }
   }
 
@@ -966,10 +1089,18 @@ function changeAge(id: string) {
   }
 
   if (loading || !user || loadingData) {
-    return <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">Cargando…</main>;
+    return (
+      <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">
+        Cargando…
+      </main>
+    );
   }
   if (!group) {
-    return <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">Grupo no encontrado</main>;
+    return (
+      <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">
+        Grupo no encontrado
+      </main>
+    );
   }
 
   // Build thread structure (1-level)
@@ -984,8 +1115,11 @@ function changeAge(id: string) {
   const topLevel = messages.filter((m) => !m.parent_message_id);
   const pinned = messages.filter((m) => m.is_pinned);
 
-  // helper to show date separators
   let prevDay = "";
+
+  const selectedEvent = selectedEventId
+    ? events.find((ev) => ev.id === selectedEventId) ?? null
+    : null;
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
@@ -1008,7 +1142,7 @@ function changeAge(id: string) {
           </button>
         </header>
 
-        {/* Filters → 3 columnas iguales en desktop */}
+        {/* Filters */}
         <div className="mb-6 grid gap-3 md:grid-cols-3">
           <div>
             <label className="block text-sm mb-1 opacity-70">Zona</label>
@@ -1019,7 +1153,9 @@ function changeAge(id: string) {
             >
               <option value="all">Todos</option>
               {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
               ))}
             </select>
           </div>
@@ -1032,7 +1168,9 @@ function changeAge(id: string) {
             >
               <option value="all">Todas</option>
               {ages.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
               ))}
             </select>
           </div>
@@ -1046,12 +1184,14 @@ function changeAge(id: string) {
           </div>
         </div>
 
-        {/* Messages (bubbles) */}
+        {/* Messages */}
         <section className="bg-white rounded-2xl p-4 shadow-md">
           {/* Pinned scroller */}
           {pinned.length > 0 && (
             <div className="mb-3">
-              <div className="text-xs uppercase tracking-wide opacity-70 mb-1">Fijados</div>
+              <div className="text-xs uppercase tracking-wide opacity-70 mb-1">
+                Fijados
+              </div>
               <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
                 {pinned.map((m) => (
                   <button
@@ -1063,7 +1203,8 @@ function changeAge(id: string) {
                     className="rounded-xl border bg-white/80 px-3 py-2 text-sm hover:opacity-90"
                     title={new Date(m.created_at).toLocaleString()}
                   >
-                    {(m.sender_profile?.username ?? "Usuaria")}: {m.content.slice(0, 60)}
+                    {(m.sender_profile?.username ?? "Usuaria")}:{" "}
+                    {m.content.slice(0, 60)}
                     {m.content.length > 60 ? "…" : ""}
                   </button>
                 ))}
@@ -1071,11 +1212,15 @@ function changeAge(id: string) {
             </div>
           )}
 
-          {topLevel.length === 0 && <div className="opacity-70 py-6">Sé la primera en escribir ✨</div>}
+          {topLevel.length === 0 && (
+            <div className="opacity-70 py-6">Sé la primera en escribir ✨</div>
+          )}
 
-          <ul ref={listRef} className="space-y-6 h-[60vh] overflow-y-auto pr-1 no-scrollbar">
+          <ul
+            ref={listRef}
+            className="space-y-6 h-[60vh] overflow-y-auto pr-1 no-scrollbar"
+          >
             {topLevel.map((m) => {
-              // DATE SEPARATOR
               const curDay = yyyyMmDd(m.created_at);
               const showDateSep = curDay !== prevDay;
               if (showDateSep) prevDay = curDay;
@@ -1083,13 +1228,12 @@ function changeAge(id: string) {
               const mine = m.sender_id === user!.id;
               const t = timeAgo(m.created_at);
               const pollId = matchPollId(m.content);
-              const pollForMsg = pollId ? polls.find(pp => pp.id === pollId) : null;
+              const pollForMsg = pollId ? polls.find((pp) => pp.id === pollId) : null;
               const replies = childrenMap[m.id] ?? [];
               const isOpen = openReplies[m.id] ?? false;
 
               return (
                 <li id={`msg-${m.id}`} key={m.id}>
-                  {/* DATE SEPARATOR */}
                   {showDateSep && (
                     <div className="my-3 flex items-center gap-3">
                       <div className="flex-1 h-px bg-black/10" />
@@ -1100,28 +1244,36 @@ function changeAge(id: string) {
                     </div>
                   )}
 
-                  {/* UNREAD DIVIDER */}
                   {unreadFirstId && unreadFirstId === m.id && (
                     <div className="my-2 flex items-center gap-3">
                       <div className="flex-1 h-px bg-[#50415b]" />
-                      <div className="text-xs px-2 py-0.5 rounded-full border">No leído</div>
+                      <div className="text-xs px-2 py-0.5 rounded-full border">
+                        No leído
+                      </div>
                       <div className="flex-1 h-px bg-[#50415b]" />
                     </div>
                   )}
 
-                  {/* Meta line with clickable author */}
-                  <div className={`flex ${mine ? "justify-end" : "justify-start"} mb-1`}>
+                  {/* Meta */}
+                  <div
+                    className={`flex ${mine ? "justify-end" : "justify-start"} mb-1`}
+                  >
                     <div className="text-xs opacity-70" title={t.title}>
                       <button
                         type="button"
                         className="underline underline-offset-2 hover:opacity-80"
-                        onClick={() => openUserSheet((m.sender_profile?.username ?? "Usuaria"))}
+                        onClick={() =>
+                          openUserSheet(m.sender_profile?.username ?? "Usuaria")
+                        }
                       >
                         {m.sender_profile?.username ?? "Usuaria"}
                       </button>
-                      {" • "}{t.label}
+                      {" • "}
+                      {t.label}
                       {m.is_pinned && (
-                        <span className="ml-2 text-[10px] bg-gcCTA text-gcText px-2 py-0.5 rounded-full">PIN</span>
+                        <span className="ml-2 text-[10px] bg-gcCTA text-gcText px-2 py-0.5 rounded-full">
+                          PIN
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1134,9 +1286,14 @@ function changeAge(id: string) {
                       }`}
                     >
                       {pollForMsg ? (
-                        <InlinePoll poll={pollForMsg} onVote={(optId) => vote(pollForMsg, optId)} />
+                        <InlinePoll
+                          poll={pollForMsg}
+                          onVote={(optId) => vote(pollForMsg, optId)}
+                        />
                       ) : (
-                        <div className="whitespace-pre-wrap">{renderText(m.content)}</div>
+                        <div className="whitespace-pre-wrap">
+                          {renderText(m.content)}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1148,19 +1305,37 @@ function changeAge(id: string) {
                         mine ? "justify-end" : "justify-start"
                       }`}
                     >
-                      <button onClick={() => toggleLike(m.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Me gusta" aria-label="Me gusta">
-                        <Heart className={`w-4 h-4 ${likes[m.id]?.mine ? "fill-[#50415b] text-[#50415b]" : ""}`} />
+                      <button
+                        onClick={() => toggleLike(m.id)}
+                        className="inline-flex items-center gap-1 hover:opacity-80"
+                        title="Me gusta"
+                        aria-label="Me gusta"
+                      >
+                        <Heart
+                          className={`w-4 h-4 ${
+                            likes[m.id]?.mine
+                              ? "fill-[#50415b] text-[#50415b]"
+                              : ""
+                          }`}
+                        />
                         <span>{likes[m.id]?.count ?? 0}</span>
                       </button>
 
-                      <button onClick={() => setReplyTo(m)} className="inline-flex items-center gap-1 hover:opacity-80" title="Responder" aria-label="Responder">
+                      <button
+                        onClick={() => setReplyTo(m)}
+                        className="inline-flex items-center gap-1 hover:opacity-80"
+                        title="Responder"
+                        aria-label="Responder"
+                      >
                         <CornerUpRight className="w-4 h-4" />
                         <span className="sr-only">Responder</span>
                       </button>
 
                       {!mine && m.sender_profile?.username && (
                         <Link
-                          href={`/dm/${encodeURIComponent(m.sender_profile.username)}`}
+                          href={`/dm/${encodeURIComponent(
+                            m.sender_profile.username
+                          )}`}
                           className="underline hover:opacity-80"
                           title="Enviar mensaje directo"
                         >
@@ -1170,7 +1345,6 @@ function changeAge(id: string) {
 
                       {mine && (
                         <>
-                          {/* ✅ solo icono */}
                           <button
                             onClick={() => startEdit(m.id, m.content)}
                             className="inline-flex items-center gap-1 hover:opacity-80"
@@ -1199,10 +1373,18 @@ function changeAge(id: string) {
                             className="inline-flex items-center gap-1 hover:opacity-80"
                             title={m.is_pinned ? "Desfijar" : "Fijar"}
                           >
-                            {m.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                            {m.is_pinned ? (
+                              <PinOff className="w-4 h-4" />
+                            ) : (
+                              <Pin className="w-4 h-4" />
+                            )}
                             {m.is_pinned ? "Desfijar" : "Fijar"}
                           </button>
-                          <button onClick={() => adminDelete(m.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Eliminar">
+                          <button
+                            onClick={() => adminDelete(m.id)}
+                            className="inline-flex items-center gap-1 hover:opacity-80"
+                            title="Eliminar"
+                          >
                             <Trash2 className="w-4 h-4" />
                             Eliminar
                           </button>
@@ -1213,7 +1395,11 @@ function changeAge(id: string) {
 
                   {/* Inline edit */}
                   {editingId === m.id && (
-                    <div className={`mt-2 flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`mt-2 flex ${
+                        mine ? "justify-end" : "justify-start"
+                      }`}
+                    >
                       <div className="w-full max-w-[80%]">
                         <textarea
                           className="w-full rounded-xl border p-3"
@@ -1228,7 +1414,10 @@ function changeAge(id: string) {
                           >
                             Guardar
                           </button>
-                          <button className="underline" onClick={() => setEditingId(null)}>
+                          <button
+                            className="underline"
+                            onClick={() => setEditingId(null)}
+                          >
                             Cancelar
                           </button>
                         </div>
@@ -1240,19 +1429,24 @@ function changeAge(id: string) {
                   {replies.length > 0 && (
                     <div className={`mt-2 ${mine ? "text-right" : "text-left"}`}>
                       <button
-                      onClick={() => {
-                        setOpenReplies((s) => {
-                          const next = { ...s, [m.id]: !isOpen };
-                          requestAnimationFrame(() => {
-                            document.getElementById(`msg-${m.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        onClick={() => {
+                          setOpenReplies((s) => {
+                            const next = { ...s, [m.id]: !isOpen };
+                            requestAnimationFrame(() => {
+                              document
+                                .getElementById(`msg-${m.id}`)
+                                ?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "start",
+                                });
+                            });
+                            return next;
                           });
-                          return next;
-                        });
-                      }}
-                      className="text-sm underline underline-offset-2 hover:opacity-80"
+                        }}
+                        className="text-sm underline underline-offset-2 hover:opacity-80"
                       >
                         {isOpen ? "Ocultar" : "Respuestas"} ({replies.length})
-                        </button>
+                      </button>
                     </div>
                   )}
 
@@ -1263,31 +1457,53 @@ function changeAge(id: string) {
                         const rMine = r.sender_id === user!.id;
                         const rt = timeAgo(r.created_at);
                         const rPollId = matchPollId(r.content);
-                        const rPoll = rPollId ? polls.find(pp => pp.id === rPollId) : null;
+                        const rPoll = rPollId
+                          ? polls.find((pp) => pp.id === rPollId)
+                          : null;
                         return (
                           <li id={`msg-${r.id}`} key={r.id}>
-                            <div className={`flex ${rMine ? "justify-end" : "justify-start"} mb-1`}>
+                            <div
+                              className={`flex ${
+                                rMine ? "justify-end" : "justify-start"
+                              } mb-1`}
+                            >
                               <div className="text-xs opacity-70" title={rt.title}>
                                 <button
                                   type="button"
                                   className="underline underline-offset-2 hover:opacity-80"
-                                  onClick={() => openUserSheet((r.sender_profile?.username ?? "Usuaria"))}
+                                  onClick={() =>
+                                    openUserSheet(
+                                      r.sender_profile?.username ?? "Usuaria"
+                                    )
+                                  }
                                 >
                                   {r.sender_profile?.username ?? "Usuaria"}
                                 </button>
-                                {" • "}{rt.label}
+                                {" • "}
+                                {rt.label}
                               </div>
                             </div>
-                            <div className={`flex ${rMine ? "justify-end" : "justify-start"}`}>
+                            <div
+                              className={`flex ${
+                                rMine ? "justify-end" : "justify-start"
+                              }`}
+                            >
                               <div
                                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                                  rMine ? "bg-gcBackgroundAlt2" : "bg-gcBackgroundAlt/30"
+                                  rMine
+                                    ? "bg-gcBackgroundAlt2"
+                                    : "bg-gcBackgroundAlt/30"
                                 }`}
                               >
                                 {rPoll ? (
-                                  <InlinePoll poll={rPoll} onVote={(optId) => vote(rPoll, optId)} />
+                                  <InlinePoll
+                                    poll={rPoll}
+                                    onVote={(optId) => vote(rPoll, optId)}
+                                  />
                                 ) : (
-                                  <div className="whitespace-pre-wrap">{renderText(r.content)}</div>
+                                  <div className="whitespace-pre-wrap">
+                                    {renderText(r.content)}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1297,19 +1513,37 @@ function changeAge(id: string) {
                                   rMine ? "justify-end" : "justify-start"
                                 }`}
                               >
-                                <button onClick={() => toggleLike(r.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Me gusta" aria-label="Me gusta">
-                                  <Heart className={`w-4 h-4 ${likes[r.id]?.mine ? "fill-[#50415b] text-[#50415b]" : ""}`} />
+                                <button
+                                  onClick={() => toggleLike(r.id)}
+                                  className="inline-flex items-center gap-1 hover:opacity-80"
+                                  title="Me gusta"
+                                  aria-label="Me gusta"
+                                >
+                                  <Heart
+                                    className={`w-4 h-4 ${
+                                      likes[r.id]?.mine
+                                        ? "fill-[#50415b] text-[#50415b]"
+                                        : ""
+                                    }`}
+                                  />
                                   <span>{likes[r.id]?.count ?? 0}</span>
                                 </button>
 
-                                <button onClick={() => replyToMessage(r)} className="inline-flex items-center gap-1 hover:opacity-80" title="Responder" aria-label="Responder">
+                                <button
+                                  onClick={() => replyToMessage(r)}
+                                  className="inline-flex items-center gap-1 hover:opacity-80"
+                                  title="Responder"
+                                  aria-label="Responder"
+                                >
                                   <CornerUpRight className="w-4 h-4" />
                                   <span className="sr-only">Responder</span>
                                 </button>
 
                                 {!rMine && r.sender_profile?.username && (
                                   <Link
-                                    href={`/dm/${encodeURIComponent(r.sender_profile.username)}`}
+                                    href={`/dm/${encodeURIComponent(
+                                      r.sender_profile.username
+                                    )}`}
                                     className="underline hover:opacity-80"
                                     title="Enviar mensaje directo"
                                   >
@@ -1319,7 +1553,6 @@ function changeAge(id: string) {
 
                                 {rMine && (
                                   <>
-                                    {/* ✅ solo icono */}
                                     <button
                                       onClick={() => startEdit(r.id, r.content)}
                                       className="inline-flex items-center gap-1 hover:opacity-80"
@@ -1342,36 +1575,47 @@ function changeAge(id: string) {
                                 )}
 
                                 {!rMine && isAdmin && (
-                                  <button onClick={() => adminDelete(r.id)} className="inline-flex items-center gap-1 hover:opacity-80" title="Eliminar">
+                                  <button
+                                    onClick={() => adminDelete(r.id)}
+                                    className="inline-flex items-center gap-1 hover:opacity-80"
+                                    title="Eliminar"
+                                  >
                                     <Trash2 className="w-4 h-4" />
                                     Eliminar
                                   </button>
                                 )}
                               </div>
                             )}
-                                  {editingId === r.id && (
-                                    <div className={`mt-2 flex ${rMine ? "justify-end" : "justify-start"}`}>
-                                      <div className="w-full max-w-[80%]">
-                                        <textarea
-                                        className="w-full rounded-xl border p-3"
-                                        rows={3}
-                                        value={editText}
-                                        onChange={(e) => setEditText(e.target.value)}
-                                      />
-                                      <div className="flex gap-2 justify-end mt-2">
-                                        <button
-                                        className="rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 font-dmserif"
-                                        onClick={() => saveEdit(r.id)}
-                                      >
-                                        Guardar
-                                      </button>
-                                      <button className="underline" onClick={() => setEditingId(null)}>
-                                        Cancelar
-                                      </button>
-                                    </div>
+                            {editingId === r.id && (
+                              <div
+                                className={`mt-2 flex ${
+                                  rMine ? "justify-end" : "justify-start"
+                                }`}
+                              >
+                                <div className="w-full max-w-[80%]">
+                                  <textarea
+                                    className="w-full rounded-xl border p-3"
+                                    rows={3}
+                                    value={editText}
+                                    onChange={(e) => setEditText(e.target.value)}
+                                  />
+                                  <div className="flex gap-2 justify-end mt-2">
+                                    <button
+                                      className="rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 font-dmserif"
+                                      onClick={() => saveEdit(r.id)}
+                                    >
+                                      Guardar
+                                    </button>
+                                    <button
+                                      className="underline"
+                                      onClick={() => setEditingId(null)}
+                                    >
+                                      Cancelar
+                                    </button>
                                   </div>
                                 </div>
-                              )}
+                              </div>
+                            )}
                           </li>
                         );
                       })}
@@ -1380,11 +1624,14 @@ function changeAge(id: string) {
                 </li>
               );
             })}
-            {/* Invisible bottom anchor for reliable scrolling */}
-  <li ref={bottomRef} id="bottom-sentinel" className="h-0 m-0 p-0" aria-hidden />
+            <li
+              ref={bottomRef}
+              id="bottom-sentinel"
+              className="h-0 m-0 p-0"
+              aria-hidden
+            />
           </ul>
 
-          {/* New messages toast */}
           {showNewToast && !atBottom && (
             <button
               onClick={scrollToBottom}
@@ -1398,12 +1645,19 @@ function changeAge(id: string) {
           {replyTo && (
             <div className="mt-6 mb-2 p-2 rounded-xl bg-gcBackgroundAlt/30 text-sm flex items-center justify-between">
               <div className="truncate">
-                Respondiendo a <strong>{replyTo.sender_profile?.username ?? "Usuaria"}</strong>:{" "}
+                Respondiendo a{" "}
+                <strong>{replyTo.sender_profile?.username ?? "Usuaria"}</strong>:{" "}
                 <span className="italic">
-                  {replyTo.content.slice(0, 80)}{replyTo.content.length > 80 ? "…" : ""}
+                  {replyTo.content.slice(0, 80)}
+                  {replyTo.content.length > 80 ? "…" : ""}
                 </span>
               </div>
-              <button className="underline ml-3 shrink-0" onClick={() => setReplyTo(null)}>Cancelar</button>
+              <button
+                className="underline ml-3 shrink-0"
+                onClick={() => setReplyTo(null)}
+              >
+                Cancelar
+              </button>
             </div>
           )}
 
@@ -1412,7 +1666,11 @@ function changeAge(id: string) {
             {!following && (
               <div className="rounded-xl bg-[#EBDCF5]/70 backdrop-blur p-2 text-sm text-center">
                 Únete al grupo para ver y publicar todos los mensajes.{" "}
-                <button type="button" onClick={toggleFollow} className="underline">
+                <button
+                  type="button"
+                  onClick={toggleFollow}
+                  className="underline"
+                >
                   Seguir grupo
                 </button>
               </div>
@@ -1446,9 +1704,10 @@ function changeAge(id: string) {
 
         {/* Planes del grupo + carrusel de eventos */}
         <section className="mt-10">
-          <div className="flex items-center justify-between mb-3">
+          {/* Layout móvil: título arriba, CTAs debajo; desktop: todo en una fila */}
+          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <h2 className="font-dmserif text-2xl">Planes del grupo</h2>
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-wrap gap-3 text-sm md:justify-end">
               <button
                 type="button"
                 onClick={() => setOpenEvent(true)}
@@ -1459,7 +1718,7 @@ function changeAge(id: string) {
               </button>
               <Link
                 href={`/${"valencia"}/${category}/group/${slug}/events`}
-                className="underline"
+                className="underline inline-flex items-center"
               >
                 Ver todos los eventos
               </Link>
@@ -1471,29 +1730,62 @@ function changeAge(id: string) {
           ) : (
             <div className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-2 no-scrollbar">
               {events.map((ev) => (
-                <div
+                <button
                   key={ev.id}
-                  className="relative shrink-0 w-[260px] snap-start rounded-2xl overflow-hidden shadow-md bg-white p-4"
+                  type="button"
+                  onClick={() => setSelectedEventId(ev.id)}
+                  className="relative shrink-0 w-[260px] snap-start rounded-2xl overflow-hidden shadow-md bg-white text-left"
                 >
-                  <div className="text-xs uppercase tracking-wide opacity-70 mb-1">
-                    {formatEventDate(ev.starts_at)}
+                  {/* Imagen horizontal arriba */}
+                  {ev.image_url && (
+                    <div className="w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={ev.image_url}
+                        alt={ev.title}
+                        className="w-full h-40 object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <div className="p-4">
+                    <div className="text-xs uppercase tracking-wide opacity-70 mb-1">
+                      {formatEventDate(ev.starts_at)}
+                    </div>
+                    <h3 className="font-dmserif text-lg mb-1">{ev.title}</h3>
+
+                    {ev.location && (
+                      <p className="text-sm mb-1">📍 {ev.location}</p>
+                    )}
+
+                    {ev.description && (
+                      <p className="text-sm opacity-80 line-clamp-3">
+                        {ev.description}
+                      </p>
+                    )}
+
+                    <div className="mt-2 flex items-center justify-between text-xs opacity-70">
+                      <span>
+                        👥 {eventCountMap[ev.id] ?? 0}{" "}
+                        {(eventCountMap[ev.id] ?? 0) === 1
+                          ? "asistente"
+                          : "asistentes"}
+                      </span>
+                      {ev.creator_username && (
+                        <span>
+                          Creado por{" "}
+                          <strong>@{ev.creator_username}</strong>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <h3 className="font-dmserif text-lg mb-1">{ev.title}</h3>
-                  {ev.location && (
-                    <p className="text-sm mb-1">{ev.location}</p>
-                  )}
-                  {ev.description && (
-                    <p className="text-sm opacity-80 line-clamp-3">
-                      {ev.description}
-                    </p>
-                  )}
-                </div>
+                </button>
               ))}
             </div>
           )}
         </section>
 
-        {/* Volver a la categoría (abajo de todo) */}
+        {/* Volver a la categoría */}
         <div className="mt-8 text-left">
           <Link href={`/${"valencia"}/${category}`} className="underline text-sm">
             ← Volver a la categoría
@@ -1505,9 +1797,12 @@ function changeAge(id: string) {
       <Dialog open={openSG} onOpenChange={setOpenSG}>
         <DialogContent className="max-w-md rounded-2xl bg-white p-6 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-dmserif text-gcText">Crear subgrupo</DialogTitle>
+            <DialogTitle className="text-2xl font-dmserif text-gcText">
+              Crear subgrupo
+            </DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Crea una zona (p. ej. “Valencia Centro”) o una franja de edad (p. ej. “25–34”).
+              Crea una zona (p. ej. “Valencia Centro”) o una franja de edad
+              (p. ej. “25–34”).
             </DialogDescription>
           </DialogHeader>
 
@@ -1517,7 +1812,9 @@ function changeAge(id: string) {
               <select
                 className="w-full rounded-xl border p-3 bg.white"
                 value={sgType}
-                onChange={(e) => setSgType(e.target.value as "location" | "age")}
+                onChange={(e) =>
+                  setSgType(e.target.value as "location" | "age")
+                }
               >
                 <option value="location">Zona</option>
                 <option value="age">Edad</option>
@@ -1530,7 +1827,9 @@ function changeAge(id: string) {
                 className="w-full rounded-xl border p-3"
                 value={sgName}
                 onChange={(e) => setSgName(e.target.value)}
-                placeholder={sgType === "location" ? "Ej: Valencia Centro" : "Ej: 25–34"}
+                placeholder={
+                  sgType === "location" ? "Ej: Valencia Centro" : "Ej: 25–34"
+                }
                 required
               />
             </div>
@@ -1551,9 +1850,12 @@ function changeAge(id: string) {
       <Dialog open={openPoll} onOpenChange={setOpenPoll}>
         <DialogContent className="max-w-md rounded-2xl bg-white p-6 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-dmserif text-gcText">Crear encuesta</DialogTitle>
+            <DialogTitle className="text-2xl font-dmserif text-gcText">
+              Crear encuesta
+            </DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
-              Añade una pregunta y al menos dos opciones. (Por ahora sin fecha de cierre.)
+              Añade una pregunta y al menos dos opciones. (Por ahora sin fecha
+              de cierre.)
             </DialogDescription>
           </DialogHeader>
 
@@ -1570,8 +1872,15 @@ function changeAge(id: string) {
             </div>
 
             <div className="flex items-center gap-2">
-              <input id="multi" type="checkbox" checked={pollMulti} onChange={(e) => setPollMulti(e.target.checked)} />
-              <label htmlFor="multi" className="text-sm">Permitir seleccionar varias opciones</label>
+              <input
+                id="multi"
+                type="checkbox"
+                checked={pollMulti}
+                onChange={(e) => setPollMulti(e.target.checked)}
+              />
+              <label htmlFor="multi" className="text-sm">
+                Permitir seleccionar varias opciones
+              </label>
             </div>
 
             <div className="space-y-2">
@@ -1581,16 +1890,30 @@ function changeAge(id: string) {
                   <input
                     className="flex-1 rounded-xl border p-3"
                     value={opt}
-                    onChange={(e) => changePollOptionText(idx, e.target.value)}
+                    onChange={(e) =>
+                      changePollOptionText(idx, e.target.value)
+                    }
                     placeholder={`Opción ${idx + 1}`}
                     required
                   />
                   {pollOptions.length > 2 && (
-                    <button type="button" className="underline text-sm" onClick={() => removePollOption(idx)}>Quitar</button>
+                    <button
+                      type="button"
+                      className="underline text-sm"
+                      onClick={() => removePollOption(idx)}
+                    >
+                      Quitar
+                    </button>
                   )}
                 </div>
               ))}
-              <button type="button" className="underline text-sm" onClick={addPollOption}>+ Añadir opción</button>
+              <button
+                type="button"
+                className="underline text-sm"
+                onClick={addPollOption}
+              >
+                + Añadir opción
+              </button>
             </div>
 
             <button
@@ -1609,23 +1932,15 @@ function changeAge(id: string) {
       <Dialog open={openEvent} onOpenChange={setOpenEvent}>
         <DialogContent className="max-w-md rounded-2xl bg-white p-6 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-dmserif text-gcText">Crear evento</DialogTitle>
+            <DialogTitle className="text-2xl font-dmserif text-gcText">
+              Crear evento
+            </DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
               Eventos creados por la comunidad.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={createEvent} className="space-y-3">
-            <div>
-              <label className="block text.sm mb-1">Descripción</label>
-              <textarea
-                className="w-full rounded-xl border p-3"
-                rows={3}
-                value={evDesc}
-                onChange={(e) => setEvDesc(e.target.value)}
-                placeholder="Trae algo para compartir 💜"
-              />
-            </div>
             <div>
               <label className="block text-sm mb-1">Título *</label>
               <input
@@ -1634,6 +1949,16 @@ function changeAge(id: string) {
                 onChange={(e) => setEvTitle(e.target.value)}
                 placeholder="Picnic en el Turia"
                 required
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Descripción</label>
+              <textarea
+                className="w-full rounded-xl border p-3"
+                rows={3}
+                value={evDesc}
+                onChange={(e) => setEvDesc(e.target.value)}
+                placeholder="Trae algo para compartir 💜"
               />
             </div>
             <div>
@@ -1656,6 +1981,65 @@ function changeAge(id: string) {
               />
             </div>
 
+{/* Imagen del evento */}
+<div>
+  <label className="block text-sm mb-1">Imagen (opcional)</label>
+  <p className="text-xs text-gray-500 mb-2">JPG o PNG · Máx 2MB</p>
+
+  {/* Botón con + en círculo pequeño */}
+  <div className="flex items-center gap-3">
+    <button
+      type="button"
+      onClick={() => evImageInputRef.current?.click()}
+      className="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center shadow-sm hover:opacity-90"
+    >
+      <PlusCircle className="w-4 h-4" />
+    </button>
+
+    <span className="text-xs text-gray-600">
+      {evImageFile ? "Imagen seleccionada ✔️" : "Añade una imagen para el plan (opcional)"}
+    </span>
+  </div>
+
+  {/* input real, oculto */}
+  <input
+    ref={evImageInputRef}
+    type="file"
+    accept="image/jpeg,image/png"
+    className="hidden"
+    onChange={(e) => {
+      const file = e.target.files?.[0] || null;
+      if (!file) {
+        setEvImageFile(null);
+        return;
+      }
+      const okType = ["image/jpeg", "image/png"].includes(file.type);
+      const okSize = file.size <= 2 * 1024 * 1024; // 2MB
+      if (!okType) {
+        alert("La imagen debe ser JPG o PNG.");
+        return;
+      }
+      if (!okSize) {
+        alert("Tamaño máximo 2MB.");
+        return;
+      }
+      setEvImageFile(file);
+    }}
+  />
+
+  {evImagePreview && (
+    <div className="mt-3 rounded-2xl overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={evImagePreview}
+        alt="Previsualización del evento"
+        className="w-full h-40 object-cover"
+      />
+    </div>
+  )}
+</div>
+
+
             <button
               type="submit"
               className="w-full rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-lg shadow-md hover:opacity-90"
@@ -1668,11 +2052,92 @@ function changeAge(id: string) {
         </DialogContent>
       </Dialog>
 
+      {/* Popup detalle de evento */}
+      <Dialog
+        open={!!selectedEvent}
+        onOpenChange={(open) => {
+          if (!open) setSelectedEventId(null);
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          {selectedEvent && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-dmserif text-gcText">
+                  {selectedEvent.title}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-gray-600">
+                  {formatEventDate(selectedEvent.starts_at)}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-3 space-y-3">
+                {selectedEvent.image_url && (
+                  <div className="rounded-2xl overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={selectedEvent.image_url}
+                      alt={selectedEvent.title}
+                      className="w-full h-48 object-cover"
+                    />
+                  </div>
+                )}
+
+                {selectedEvent.location && (
+                  <p className="text-sm">
+                    <strong>📍 Lugar:&nbsp;</strong>
+                    {selectedEvent.location}
+                  </p>
+                )}
+
+                {selectedEvent.creator_username && (
+                  <p className="text-sm">
+                    <strong>Creado por:&nbsp;</strong>@{selectedEvent.creator_username}
+                  </p>
+                )}
+
+                <p className="text-sm">
+                  <strong>Asistentes:&nbsp;</strong>
+                  {eventCountMap[selectedEvent.id] ?? 0}
+                </p>
+
+                {selectedEvent.description && (
+                  <p className="text-sm whitespace-pre-wrap">
+                    {selectedEvent.description}
+                  </p>
+                )}
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => toggleEventGoing(selectedEvent.id)}
+                    disabled={eventBusy === selectedEvent.id}
+                    className={`rounded-full px-6 py-2 text-sm border shadow-sm hover:opacity-90 ${
+                      eventGoingMap[selectedEvent.id]
+                        ? "bg-gcBackgroundAlt2"
+                        : "bg-white"
+                    }`}
+                  >
+                    {eventBusy === selectedEvent.id
+                      ? "..."
+                      : eventGoingMap[selectedEvent.id]
+                      ? "Ya vas"
+                      : "Asistiré"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Profile quick-view */}
       <Dialog open={!!openProfile} onOpenChange={() => setOpenProfile(null)}>
         <DialogContent className="max-w-sm bg-white rounded-2xl p-5">
           <DialogHeader>
-            <DialogTitle className="font-dmserif text-2xl">Perfil</DialogTitle>
+            <DialogTitle className="font-dmserif text-2xl">
+              Perfil
+            </DialogTitle>
           </DialogHeader>
           {!openProfile?.data ? (
             <p>Cargando…</p>
@@ -1681,49 +2146,77 @@ function changeAge(id: string) {
               <div className="flex items-start gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={openProfile.data.avatar_url ?? "/placeholder-avatar.png"}
+                  src={
+                    openProfile.data.avatar_url ?? "/placeholder-avatar.png"
+                  }
                   alt=""
                   className="w-12 h-12 rounded-full object-cover"
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <div className="font-semibold">@{openProfile.data.username}</div>
+                    <div className="font-semibold">
+                      @{openProfile.data.username}
+                    </div>
                     {openProfile.data.favorite_emoji ? (
-                      <span className="text-xl leading-none">{openProfile.data.favorite_emoji}</span>
+                      <span className="text-xl leading-none">
+                        {openProfile.data.favorite_emoji}
+                      </span>
                     ) : null}
                   </div>
 
-                  <div className="text-sm opacity-80">{openProfile.data.bio ?? "—"}</div>
+                  <div className="text-sm opacity-80">
+                    {openProfile.data.bio ?? "—"}
+                  </div>
 
                   {openProfile.data.quote ? (
-                    <div className="mt-2 text-sm italic opacity-90">“{openProfile.data.quote}”</div>
+                    <div className="mt-2 text-sm italic opacity-90">
+                      “{openProfile.data.quote}”
+                    </div>
                   ) : null}
 
-                  {openProfile.data.interests && openProfile.data.interests.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {openProfile.data.interests.map((name, i) => (
-                        <span key={i} className="text-xs border rounded-full px-2 py-0.5">{name}</span>
-                      ))}
-                    </div>
-                  )}
+                  {openProfile.data.interests &&
+                    openProfile.data.interests.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {openProfile.data.interests.map((name, i) => (
+                          <span
+                            key={i}
+                            className="text-xs border rounded-full px-2 py-0.5"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
-                  {openProfile.data.gallery && openProfile.data.gallery.length > 0 && (
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      {openProfile.data.gallery.slice(0, 6).map((url, i) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img key={i} src={url} alt="" className="w-full aspect-square object-cover rounded-xl border" />
-                      ))}
-                    </div>
-                  )}
+                  {openProfile.data.gallery &&
+                    openProfile.data.gallery.length > 0 && (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {openProfile.data.gallery
+                          .slice(0, 6)
+                          .map((url, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={i}
+                              src={url}
+                              alt=""
+                              className="w-full aspect-square object-cover rounded-xl border"
+                            />
+                          ))}
+                      </div>
+                    )}
 
-                  {openProfile.data.id && openProfile.data.username && openProfile.data.id !== user?.id && (
-                    <Link
-                      href={`/dm/${encodeURIComponent(openProfile.data.username)}`}
-                      className="inline-block mt-3 rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 text-sm shadow-md hover:opacity-90"
-                    >
-                      Enviar mensaje
-                    </Link>
-                  )}
+                  {openProfile.data.id &&
+                    openProfile.data.username &&
+                    openProfile.data.id !== user?.id && (
+                      <Link
+                        href={`/dm/${encodeURIComponent(
+                          openProfile.data.username
+                        )}`}
+                        className="inline-block mt-3 rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 text-sm shadow-md hover:opacity-90"
+                      >
+                        Enviar mensaje
+                      </Link>
+                    )}
                 </div>
               </div>
             </div>
@@ -1746,12 +2239,22 @@ function InlinePoll({
     <div>
       <div className="flex items-center gap-2">
         <p className="font-semibold">{poll.question}</p>
-        {poll.isClosed && <span className="text-xs bg-gcCTA text-gcText px-2 py-0.5 rounded-full">CERRADA</span>}
-        {poll.is_multi && <span className="text-xs border px-2 py-0.5 rounded-full">Múltiple</span>}
+        {poll.isClosed && (
+          <span className="text-xs bg-gcCTA text-gcText px-2 py-0.5 rounded-full">
+            CERRADA
+          </span>
+        )}
+        {poll.is_multi && (
+          <span className="text-xs border px-2 py-0.5 rounded-full">
+            Múltiple
+          </span>
+        )}
       </div>
       <div className="mt-3 space-y-2">
         {poll.options.map((o) => {
-          const pct = poll.totalVotes ? Math.round((o.votes / poll.totalVotes) * 100) : 0;
+          const pct = poll.totalVotes
+            ? Math.round((o.votes / poll.totalVotes) * 100)
+            : 0;
           const voted = o.mine;
           return (
             <button
@@ -1760,7 +2263,11 @@ function InlinePoll({
               onClick={() => onVote(o.id)}
               className={`w-full text-left rounded-xl border p-3 relative overflow-hidden ${
                 voted ? "bg-gcBackgroundAlt2" : "bg-white"
-              } ${poll.isClosed ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
+              } ${
+                poll.isClosed
+                  ? "opacity-70 cursor-not-allowed"
+                  : "hover:opacity-90"
+              }`}
               title={poll.isClosed ? "Encuesta cerrada" : "Votar"}
             >
               <div className="flex items-center justify-between">
@@ -1770,7 +2277,10 @@ function InlinePoll({
                 </span>
               </div>
               <div className="mt-2 h-1.5 rounded bg-black/10">
-                <div className="h-full rounded" style={{ width: `${pct}%`, background: "#50415b" }} />
+                <div
+                  className="h-full rounded"
+                  style={{ width: `${pct}%`, background: "#50415b" }}
+                />
               </div>
             </button>
           );
@@ -1783,7 +2293,6 @@ function InlinePoll({
   );
 }
 
-/** Small pill button (kept for compatibility elsewhere) */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Pill({
   children,
@@ -1797,11 +2306,11 @@ function Pill({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-1.5 rounded-full border ${selected ? "bg-white" : "bg-transparent"}`}
+      className={`px-4 py-1.5 rounded-full border ${
+        selected ? "bg-white" : "bg-transparent"
+      }`}
     >
       {children}
     </button>
   );
 }
-
-
