@@ -355,7 +355,7 @@ export default function Navbar() {
         aria-modal="true"
         onKeyDown={(e) => e.key === "Escape" && closeMenu()}
         tabIndex={-1}
-        className={`md:hidden fixed right-0 top-0 z-50 h-dvh w-[78%] max-w-[340px] bg-white text-gcText border-l shadow-2xl transition-transform duration-300 ${
+        className={`md:hidden fixed right-0 top-0 z-50 h-dvh w-[78%] max-w-[340px] bg-white text-gcText border-l shadow-2xl transition-transform duration-300 overflow-y-auto ${
           mobileOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >

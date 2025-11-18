@@ -445,7 +445,7 @@ export default function EventsPage({
       <div className="max-w-6xl mx-auto px-6 py-10">
         <header className="mb-6 flex items-start justify-between">
           <h1 className="font-dmserif text-2xl md:text-4xl">
-            Eventos de {group.name}
+            Planes de {group.name}
           </h1>
           <Link
             href={`/${"valencia"}/${category}/group/${slug}`}
