@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Menu, X, Bell, User, MessageSquare } from "lucide-react";
+import { Menu, Bell, User } from "lucide-react";
 import { getLang, setLang as setLangCookie, getDict, t as tt } from "@/lib/i18n";
 import type { Lang } from "@/lib/dictionaries";
 
@@ -17,6 +17,7 @@ export default function Navbar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0); // placeholder badge
+  const [accountOpen, setAccountOpen] = useState(false);
 
   // language
   const [lang, setLangState] = useState<Lang>("es");
@@ -25,6 +26,16 @@ export default function Navbar() {
   }, []);
   const dict = useMemo(() => getDict(lang), [lang]);
   const t = (path: string, fallback?: string) => tt(dict, path, fallback);
+
+  // detectar categoría actual (si estamos en /valencia/[category]/...)
+  const segments = pathname.split("/").filter(Boolean); // ej: ["valencia","arte","group","xxx"]
+  const currentCategory =
+    segments[0] === "valencia" && segments[1] ? segments[1] : null;
+
+  // href para "Mis planes"
+  const myPlansHref = currentCategory
+    ? `/valencia/${currentCategory}/events`
+    : "/find-your-city";
 
   // admin check
   useEffect(() => {
@@ -72,7 +83,9 @@ export default function Navbar() {
     const iv = setInterval(load, 30_000);
 
     // refresh when tab becomes visible
-    const onVis = () => { if (document.visibilityState === "visible") load(); };
+    const onVis = () => {
+      if (document.visibilityState === "visible") load();
+    };
 
     // listen for notif updates signaled via localStorage (e.g., markAllRead)
     const onStorage = (e: StorageEvent) => {
@@ -90,7 +103,8 @@ export default function Navbar() {
     };
   }, [user?.id]);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href);
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href);
 
   function switchLang(next: Lang) {
     if (next === lang) return;
@@ -115,25 +129,57 @@ export default function Navbar() {
   const iconBtn =
     "inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-black/10";
 
+  async function handleSignOut() {
+    try {
+      await supabase.auth.signOut();
+      setAccountOpen(false);
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   return (
     <header className="w-full sticky top-0 z-50 bg-gcBackground/80 backdrop-blur border-b border-white/20">
       <nav className="relative max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         {/* Mobile left: burger */}
         <div className="md:hidden">
-          <button onClick={() => setMobileOpen(true)} aria-label="Abrir menú" className="p-2 -ml-2">
+          <button
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menú"
+            className="p-2 -ml-2"
+          >
             <Menu className="w-6 h-6" />
           </button>
         </div>
 
         {/* Desktop left: logo */}
         <Link href="/" className="hidden md:flex items-center gap-3">
-          <Image src="/logo-gc.png" alt="Girls Collective" width={160} height={30} priority />
+          <Image
+            src="/logo-gc.png"
+            alt="Girls Collective"
+            width={160}
+            height={30}
+            priority
+          />
           <span className="sr-only">Girls Collective</span>
         </Link>
 
         {/* Mobile center: logo */}
-        <Link href="/" className="md:hidden absolute left-1/2 -translate-x-1/2 flex items-center" aria-label="Inicio">
-          <Image src="/logo-gc.png" alt="Girls Collective" width={120} height={22} priority />
+        <Link
+          href="/"
+          className="md:hidden absolute left-1/2 -translate-x-1/2 flex items-center"
+          aria-label="Inicio"
+        >
+          <Image
+            src="/logo-gc.png"
+            alt="Girls Collective"
+            width={120}
+            height={22}
+            priority
+          />
         </Link>
 
         {/* Right side (desktop) */}
@@ -146,7 +192,11 @@ export default function Navbar() {
           <li>
             <Link
               href="/find-your-city"
-              className={`hover:opacity-80 transition ${isActive("/find-your-city") ? "underline underline-offset-4" : ""}`}
+              className={`hover:opacity-80 transition ${
+                isActive("/find-your-city")
+                  ? "underline underline-offset-4"
+                  : ""
+              }`}
             >
               {t("nav.cities")}
             </Link>
@@ -157,60 +207,13 @@ export default function Navbar() {
             </Link>
           </li>
 
-          {/* Mis grupos */}
-          {user && (
-            <li>
-              <Link
-                href="/my-groups"
-                className={`hover:opacity-80 transition ${isActive("/my-groups") ? "underline underline-offset-4" : ""}`}
-              >
-                {t("nav.myGroups", "Mis grupos")}
-              </Link>
-            </li>
-          )}
-
-          {/* Messages icon */}
-          {user && (
-            <li>
-              <Link href="/dm" title={t("nav.messages")} aria-label={t("nav.messages")} className={iconBtn}>
-                <MessageSquare className="w-5 h-5" />
-              </Link>
-            </li>
-          )}
-
-          {/* Notifications bell */}
-          <li>
-            <Link
-              href={user ? "/notifications" : "/auth"}
-              title={t("nav.notifications", "Notificaciones")}
-              aria-label={t("nav.notifications", "Notificaciones")}
-              className={iconBtn}
-            >
-              <span className="relative inline-block">
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
-                )}
-              </span>
-            </Link>
-          </li>
-
-          {isAdmin && (
-            <li>
-              <Link
-                href="/admin/groups"
-                className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-5 py-2 shadow-md hover:opacity-90"
-              >
-                {t("nav.admin")}
-              </Link>
-            </li>
-          )}
-
           {/* Language toggle */}
           <li className="ml-2 flex items-center gap-2 text-sm">
             <button
               onClick={() => switchLang("es")}
-              className={`px-2 py-1 rounded ${lang === "es" ? "bg-white" : "hover:opacity-80"}`}
+              className={`px-2 py-1 rounded ${
+                lang === "es" ? "bg-white" : "hover:opacity-80"
+              }`}
               aria-pressed={lang === "es"}
             >
               ES
@@ -218,20 +221,96 @@ export default function Navbar() {
             <span className="opacity-50">|</span>
             <button
               onClick={() => switchLang("en")}
-              className={`px-2 py-1 rounded ${lang === "en" ? "bg-white" : "hover:opacity-80"}`}
+              className={`px-2 py-1 rounded ${
+                lang === "en" ? "bg-white" : "hover:opacity-80"
+              }`}
               aria-pressed={lang === "en"}
             >
               EN
             </button>
           </li>
 
-          <li>
-            <Link
-              href={user ? "/profile" : "/auth"}
-              className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-5 py-2 shadow-md hover:opacity-90"
-            >
-              {user ? t("nav.account") : t("nav.join")}
-            </Link>
+          {/* Mi cuenta / Únete */}
+          <li className="relative">
+            {user ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setAccountOpen((o) => !o)}
+                  className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-5 py-2 shadow-md hover:opacity-90 flex items-center gap-2"
+                >
+                  {t("nav.account")}
+                  <span className="text-xs">▾</span>
+                </button>
+                {accountOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white text-gcText shadow-lg border py-2 z-50">
+                    <Link
+                      href="/profile"
+                      onClick={() => setAccountOpen(false)}
+                      className="block px-4 py-2 text-sm hover:bg-black/5"
+                    >
+                      {t("nav.accountShort", "Mi perfil")}
+                    </Link>
+                    <Link
+                      href="/my-groups"
+                      onClick={() => setAccountOpen(false)}
+                      className="block px-4 py-2 text-sm hover:bg-black/5"
+                    >
+                      {t("nav.myGroups", "Mis grupos")}
+                    </Link>
+                    <Link
+                      href={myPlansHref}
+                      onClick={() => setAccountOpen(false)}
+                      className="block px-4 py-2 text-sm hover:bg-black/5"
+                    >
+                      {t("nav.myPlans", "Mis planes")}
+                    </Link>
+                    <Link
+                      href="/dm"
+                      onClick={() => setAccountOpen(false)}
+                      className="block px-4 py-2 text-sm hover:bg-black/5"
+                    >
+                      {t("nav.messages")}
+                    </Link>
+                    <Link
+                      href="/notifications"
+                      onClick={() => setAccountOpen(false)}
+                      className="flex items-center justify-between px-4 py-2 text-sm hover:bg-black/5"
+                    >
+                      <span>{t("nav.notifications", "Notificaciones")}</span>
+                      {unreadCount > 0 && (
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+                      )}
+                    </Link>
+                    {isAdmin && (
+                      <Link
+                        href="/admin/groups"
+                        onClick={() => setAccountOpen(false)}
+                        className="block px-4 py-2 text-sm hover:bg-black/5"
+                      >
+                        {t("nav.admin")}
+                      </Link>
+                    )}
+                    <div className="border-t mt-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-black/5"
+                      >
+                        Cerrar sesión
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <Link
+                href="/auth"
+                className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-5 py-2 shadow-md hover:opacity-90"
+              >
+                {t("nav.join")}
+              </Link>
+            )}
           </li>
         </ul>
 
@@ -264,7 +343,9 @@ export default function Navbar() {
         onClick={closeMenu}
         aria-label="Cerrar menú"
         className={`md:hidden fixed inset-0 z-40 bg-black/30 transition-opacity ${
-          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          mobileOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
         }`}
       />
 
@@ -279,25 +360,47 @@ export default function Navbar() {
         }`}
       >
         <div className="flex items-center justify-between p-4 border-b">
-          <Link href="/" onClick={closeMenu} className="flex items-center gap-2" aria-label="Inicio">
-            <Image src="/logo-gc.png" alt="Girls Collective" width={120} height={24} />
+          <Link
+            href="/"
+            onClick={closeMenu}
+            className="flex items-center gap-2"
+            aria-label="Inicio"
+          >
+            <Image
+              src="/logo-gc.png"
+              alt="Girls Collective"
+              width={120}
+              height={24}
+            />
           </Link>
         </div>
 
         <nav className="p-4">
           <ul className="grid gap-1 text-base">
             <li>
-              <Link href="/#about" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
+              <Link
+                href="/#about"
+                onClick={closeMenu}
+                className="block rounded-xl px-4 py-3 hover:bg-black/5"
+              >
                 {t("nav.about")}
               </Link>
             </li>
             <li>
-              <Link href="/find-your-city" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
+              <Link
+                href="/find-your-city"
+                onClick={closeMenu}
+                className="block rounded-xl px-4 py-3 hover:bg-black/5"
+              >
                 {t("nav.cities")}
               </Link>
             </li>
             <li>
-              <Link href="/#contact" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
+              <Link
+                href="/#contact"
+                onClick={closeMenu}
+                className="block rounded-xl px-4 py-3 hover:bg-black/5"
+              >
                 {t("nav.contact")}
               </Link>
             </li>
@@ -305,12 +408,29 @@ export default function Navbar() {
             {user && (
               <>
                 <li>
-                  <Link href="/my-groups" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
+                  <Link
+                    href="/my-groups"
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
                     {t("nav.myGroups", "Mis grupos")}
                   </Link>
                 </li>
                 <li>
-                  <Link href="/dm" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
+                  <Link
+                    href={myPlansHref}
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
+                    {t("nav.myPlans", "Mis planes")}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/dm"
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
                     {t("nav.messages")}
                   </Link>
                 </li>
@@ -319,7 +439,11 @@ export default function Navbar() {
 
             {isAdmin && (
               <li>
-                <Link href="/admin/groups" onClick={closeMenu} className="block rounded-xl px-4 py-3 hover:bg-black/5">
+                <Link
+                  href="/admin/groups"
+                  onClick={closeMenu}
+                  className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                >
                   {t("nav.admin")}
                 </Link>
               </li>
@@ -332,14 +456,18 @@ export default function Navbar() {
             <div className="flex gap-2">
               <button
                 onClick={() => switchLang("es")}
-                className={`px-3 py-1.5 rounded-full border ${lang === "es" ? "bg-gcBackgroundAlt2" : "bg-white"}`}
+                className={`px-3 py-1.5 rounded-full border ${
+                  lang === "es" ? "bg-gcBackgroundAlt2" : "bg-white"
+                }`}
                 aria-pressed={lang === "es"}
               >
                 ES
               </button>
               <button
                 onClick={() => switchLang("en")}
-                className={`px-3 py-1.5 rounded-full border ${lang === "en" ? "bg-gcBackgroundAlt2" : "bg-white"}`}
+                className={`px-3 py-1.5 rounded-full border ${
+                  lang === "en" ? "bg-gcBackgroundAlt2" : "bg-white"
+                }`}
                 aria-pressed={lang === "en"}
               >
                 EN
@@ -363,4 +491,6 @@ export default function Navbar() {
     </header>
   );
 }
+
+
 
