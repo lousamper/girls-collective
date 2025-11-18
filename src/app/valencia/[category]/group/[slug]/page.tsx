@@ -73,6 +73,14 @@ type ProfileRowDB = {
   quote: string | null;
 };
 
+type CommunityEventRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+};
+
 export default function GroupPage({
   params,
 }: {
@@ -131,6 +139,8 @@ export default function GroupPage({
   const [evLoc, setEvLoc] = useState("");
   const [evWhen, setEvWhen] = useState<string>("");
   const [evMsg, setEvMsg] = useState("");
+
+  const [events, setEvents] = useState<CommunityEventRow[]>([]);
 
   // list scroll & “new messages” toast
   const listRef = useRef<HTMLUListElement | null>(null);
@@ -251,7 +261,11 @@ useEffect(() => {
 
       firstLoadRef.current = true;
 
-await Promise.all([loadMessages(g.id, "all", "all"), loadPolls(g.id)]);
+await Promise.all([
+  loadMessages(g.id, "all", "all"),
+  loadPolls(g.id),
+  loadEvents(g.id),
+]);
 
 // Final safety snap after initial data paints
 requestAnimationFrame(() => {
@@ -428,6 +442,16 @@ function changeAge(id: string) {
       year: "numeric",
       month: "long",
       day: "numeric",
+    });
+  }
+
+  function formatEventDate(iso: string) {
+    return new Date(iso).toLocaleString("es-ES", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }
 
@@ -769,6 +793,33 @@ function changeAge(id: string) {
     setPolls(Object.values(byPoll));
   }
 
+  async function loadEvents(groupId: string) {
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("community_events")
+      .select("id, title, description, location, starts_at, is_approved")
+      .eq("group_id", groupId)
+      .gte("starts_at", nowIso)
+      .order("starts_at", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      setEvents([]);
+      return;
+    }
+
+    const approved = (data ?? []).filter((e: any) => e.is_approved !== false);
+    setEvents(
+      approved.map((e: any) => ({
+        id: e.id,
+        title: e.title,
+        description: e.description,
+        location: e.location,
+        starts_at: e.starts_at,
+      }))
+    );
+  }
+
   function changePollOptionText(idx: number, text: string) {
     const copy = [...pollOptions];
     copy[idx] = text;
@@ -885,6 +936,7 @@ function changeAge(id: string) {
       setEvDesc("");
       setEvLoc("");
       setEvWhen("");
+      if (group) await loadEvents(group.id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "No se pudo crear el evento.";
       setEvMsg(msg);
@@ -943,11 +995,6 @@ function changeAge(id: string) {
           <div>
             <h1 className="font-dmserif text-2xl md:text-4xl">{group.name}</h1>
             {group.description && <p className="mt-2 max-w-3xl">{group.description}</p>}
-            <div className="mt-2">
-              <Link href={`/${"valencia"}/${category}`} className="underline text-sm">
-                ← Volver a la categoría
-              </Link>
-            </div>
           </div>
           <button
             onClick={toggleFollow}
@@ -1385,53 +1432,7 @@ function changeAge(id: string) {
               }}
               maxLength={1000}
             />
-            <div className="flex items-center justify-between">
-              {/* Desktop controls (inline) */}
-              <div className="hidden md:flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => setOpenPoll(true)}
-                  className="underline inline-flex items-center gap-1"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  Crear encuesta
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOpenEvent(true)}
-                  className="underline inline-flex items-center gap-1"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  Crear evento
-                </button>
-                <Link
-                  href={`/${"valencia"}/${category}/group/${slug}/events`}
-                  className="underline"
-                >
-                  Ver todos los eventos
-                </Link>
-              </div>
-
-              {/* Mobile controls (stacked vertically) */}
-              <div className="flex md:hidden flex-col items-start gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOpenPoll(true)}
-                  className="underline inline-flex items-center gap-1"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  Crear encuesta
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOpenEvent(true)}
-                  className="underline inline-flex items-center gap-1"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  Crear evento
-                </button>
-              </div>
-
+            <div className="flex items-center justify-end">
               <button
                 type="submit"
                 disabled={sending || !msgText.trim() || !following}
@@ -1443,75 +1444,61 @@ function changeAge(id: string) {
           </form>
         </section>
 
-        {/* Mobile-only: Ver todos los eventos (outside bubble, left) */}
-        <div className="md:hidden mt-3">
-          <Link
-            href={`/${"valencia"}/${category}/group/${slug}/events`}
-            className="underline"
-          >
-            Ver todos los eventos
-          </Link>
-        </div>
+        {/* Planes del grupo + carrusel de eventos */}
+        <section className="mt-10">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-dmserif text-2xl">Planes del grupo</h2>
+            <div className="flex items-center gap-4 text-sm">
+              <button
+                type="button"
+                onClick={() => setOpenEvent(true)}
+                className="underline inline-flex items-center gap-1"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Crear evento
+              </button>
+              <Link
+                href={`/${"valencia"}/${category}/group/${slug}/events`}
+                className="underline"
+              >
+                Ver todos los eventos
+              </Link>
+            </div>
+          </div>
 
-        {/* Polls archive (toggle) */}
-        <section className="mt-8">
-          <button
-            type="button"
-            onClick={() => setPollsOpen((v) => !v)}
-            className="w-full text-left flex items-center justify-between bg-white rounded-2xl px-4 py-3 shadow-md"
-          >
-            <span className="font-dmserif text-2xl">Encuestas</span>
-            <span className="text-sm opacity-70">{polls.length} {polls.length === 1 ? "encuesta" : "encuestas"} {pollsOpen ? "▲" : "▼"}</span>
-          </button>
-
-          {pollsOpen && (
-            <div className="mt-4">
-              {polls.length === 0 && <div className="opacity-70">No hay encuestas todavía.</div>}
-
-              <ul className="space-y-4">
-                {polls.map((p) => {
-                  return (
-                    <li key={p.id} className="bg-white rounded-2xl p-4 shadow-md">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">{p.question}</p>
-                        {p.isClosed && <span className="text-xs bg-gcCTA text-gcText px-2 py-0.5 rounded-full">CERRADA</span>}
-                        {p.is_multi && <span className="text-xs border px-2 py-0.5 rounded-full">Múltiple</span>}
-                      </div>
-
-                      <div className="mt-3 space-y-2">
-                        {p.options.map((o) => {
-                          const pct = p.totalVotes ? Math.round((o.votes / p.totalVotes) * 100) : 0;
-                          const voted = o.mine;
-                          return (
-                            <button
-                              key={o.id}
-                              disabled={p.isClosed}
-                              onClick={() => vote(p, o.id)}
-                              className={`w-full text-left rounded-xl border p-3 relative overflow-hidden ${
-                                voted ? "bg-gcBackgroundAlt2" : "bg-white"
-                              } ${p.isClosed ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"}`}
-                              title={p.isClosed ? "Encuesta cerrada" : "Votar"}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span>{o.label}</span>
-                                <span className="text-sm opacity-70">{o.votes} {o.votes === 1 ? "voto" : "votos"}</span>
-                              </div>
-                              <div className="mt-2 h-1.5 rounded bg-black/10">
-                                <div className="h-full rounded" style={{ width: `${pct}%`, background: "#50415b" }} />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <div className="mt-2 text-sm opacity-70">{p.totalVotes} {p.totalVotes === 1 ? "voto" : "votos"} totales</div>
-                    </li>
-                  );
-                })}
-              </ul>
+          {events.length === 0 ? (
+            <p className="text-sm opacity-70">Aún no hay planes creados.</p>
+          ) : (
+            <div className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-2 no-scrollbar">
+              {events.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="relative shrink-0 w-[260px] snap-start rounded-2xl overflow-hidden shadow-md bg-white p-4"
+                >
+                  <div className="text-xs uppercase tracking-wide opacity-70 mb-1">
+                    {formatEventDate(ev.starts_at)}
+                  </div>
+                  <h3 className="font-dmserif text-lg mb-1">{ev.title}</h3>
+                  {ev.location && (
+                    <p className="text-sm mb-1">{ev.location}</p>
+                  )}
+                  {ev.description && (
+                    <p className="text-sm opacity-80 line-clamp-3">
+                      {ev.description}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </section>
+
+        {/* Volver a la categoría (abajo de todo) */}
+        <div className="mt-8 text-left">
+          <Link href={`/${"valencia"}/${category}`} className="underline text-sm">
+            ← Volver a la categoría
+          </Link>
+        </div>
       </div>
 
       {/* Crear Subgrupo Modal */}
@@ -1816,4 +1803,5 @@ function Pill({
     </button>
   );
 }
+
 
