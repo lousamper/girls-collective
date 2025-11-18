@@ -149,9 +149,11 @@ export default function EventsPage({
           .select("id,username")
           .in("id", creatorIds);
         creatorMap = {};
-        (creators ?? []).forEach((p: { id: string; username: string | null }) => {
-          creatorMap[p.id] = p.username ?? null;
-        });
+        (creators ?? []).forEach(
+          (p: { id: string; username: string | null }) => {
+            creatorMap[p.id] = p.username ?? null;
+          }
+        );
       }
 
       const filtered: EventRow[] = dbList
@@ -394,9 +396,7 @@ export default function EventsPage({
         .order("position", { ascending: true })
         .order("created_at", { ascending: false });
       gallery = (gal1 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
-    } catch {
-      // ignore
-    }
+    } catch {}
     if (!gallery.length) {
       try {
         const { data: gal2 } = await supabase
@@ -406,15 +406,38 @@ export default function EventsPage({
           .order("position", { ascending: true })
           .order("created_at", { ascending: false });
         gallery = (gal2 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
     setOpenProfile({
       username,
       data: { ...preview, interests, gallery },
     });
+  }
+
+  // compartir evento (usa anchor al evento)
+  async function handleShare(ev: EventRow) {
+    if (typeof window === "undefined") return;
+    const url = `${window.location.origin}/valencia/${category}/group/${slug}/events#${ev.id}`;
+
+    const shareData = {
+      title: ev.title,
+      text: ev.description ?? `Plan en ${group?.name ?? "Girls Collective"}`,
+      url,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        alert("Enlace del plan copiado ✨");
+      } else {
+        alert(url);
+      }
+    } catch {
+      // usuario canceló → nada
+    }
   }
 
   if (loading)
@@ -481,17 +504,32 @@ export default function EventsPage({
                     return (
                       <li
                         key={ev.id}
+                        id={ev.id}
                         className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between"
                       >
                         <div>
                           {ev.image_url && (
-                            <div className="-mx-4 -mt-4 mb-3 rounded-t-2xl overflow-hidden">
+                            <div className="-mx-4 -mt-4 mb-3 rounded-t-2xl overflow-hidden relative">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={ev.image_url}
                                 alt={ev.title}
                                 className="w-full h-40 object-cover"
                               />
+                              <button
+                                type="button"
+                                onClick={() => handleShare(ev)}
+                                className="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#c197d2] text-white shadow-md hover:opacity-90"
+                                aria-label="Compartir plan"
+                              >
+                                {/* usa tu icono en /public/icons/share-ios.png */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src="/icons/share-ios.svg"
+                                  alt=""
+                                  className="w-5 h-5"
+                                />
+                              </button>
                             </div>
                           )}
 
@@ -681,17 +719,31 @@ export default function EventsPage({
                     return (
                       <li
                         key={ev.id}
+                        id={ev.id}
                         className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between opacity-90"
                       >
                         <div>
                           {ev.image_url && (
-                            <div className="-mx-4 -mt-4 mb-3 rounded-t-2xl overflow-hidden">
+                            <div className="-mx-4 -mt-4 mb-3 rounded-t-2xl overflow-hidden relative">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={ev.image_url}
                                 alt={ev.title}
                                 className="w-full h-40 object-cover"
                               />
+                              <button
+                                type="button"
+                                onClick={() => handleShare(ev)}
+                                className="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#c197d2] text-white shadow-md hover:opacity-90"
+                                aria-label="Compartir plan"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src="/icons/share-ios.png"
+                                  alt=""
+                                  className="w-4 h-4"
+                                />
+                              </button>
                             </div>
                           )}
 
@@ -931,17 +983,15 @@ export default function EventsPage({
                 {openProfile.data.gallery &&
                   openProfile.data.gallery.length > 0 && (
                     <div className="mt-3 grid grid-cols-3 gap-2">
-                      {openProfile.data.gallery
-                        .slice(0, 6)
-                        .map((url, i) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            key={i}
-                            src={url}
-                            alt=""
-                            className="w-full aspect-square object-cover rounded-xl border"
-                          />
-                        ))}
+                      {openProfile.data.gallery.slice(0, 6).map((url, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={i}
+                          src={url}
+                          alt=""
+                          className="w-full aspect-square object-cover rounded-xl border"
+                        />
+                      ))}
                     </div>
                   )}
               </div>

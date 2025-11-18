@@ -270,6 +270,39 @@ export default function CategoryEventsPage({
     });
   }
 
+  // 🔗 compartir plan (usa Web Share API si existe, si no copia el link)
+  async function shareEvent(ev: EventRow) {
+    try {
+      if (typeof window === "undefined") return;
+
+      const group = groups[ev.group_id];
+      const baseUrl = window.location.origin;
+      const eventUrl = group
+        ? `${baseUrl}/valencia/${category}/group/${group.slug}/events`
+        : `${baseUrl}/valencia/${category}`;
+
+      const shareData = {
+        title: ev.title,
+        text:
+          ev.description ||
+          `Plan en ${group?.name ?? "Girls Collective"} ✨`,
+        url: eventUrl,
+      };
+
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(eventUrl);
+        alert("Enlace copiado ✨");
+      } else {
+        alert("No se pudo compartir este plan.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo compartir este plan.");
+    }
+  }
+
   if (loading || !user || loadingData) {
     return (
       <main className="min-h-screen grid place-items-center bg-gcBackground text-gcText">
@@ -325,6 +358,21 @@ export default function CategoryEventsPage({
                         key={ev.id}
                         className="relative shrink-0 w-[260px] snap-start rounded-2xl overflow-hidden shadow-md bg-white flex flex-col justify-between"
                       >
+                        {/* Botón compartir */}
+                        <button
+                          type="button"
+                          onClick={() => shareEvent(ev)}
+                          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-[#50415b]/90 flex items-center justify-center shadow-md hover:opacity-90"
+                          aria-label="Compartir plan"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src="/icons/share-ios.svg"
+                            alt=""
+                            className="w-5 h-5"
+                          />
+                        </button>
+
                         {ev.image_url && (
                           <div className="w-full">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -408,6 +456,21 @@ export default function CategoryEventsPage({
                         key={ev.id}
                         className="relative shrink-0 w-[260px] snap-start rounded-2xl overflow-hidden shadow-md bg-white flex flex-col justify-between opacity-90"
                       >
+                        {/* Botón compartir */}
+                        <button
+                          type="button"
+                          onClick={() => shareEvent(ev)}
+                          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-[#50415b]/90 flex items-center justify-center shadow-md hover:opacity-90"
+                          aria-label="Compartir plan"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src="/icons/share-ios.svg"
+                            alt=""
+                            className="w-5 h-5"
+                          />
+                        </button>
+
                         {ev.image_url && (
                           <div className="w-full">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
