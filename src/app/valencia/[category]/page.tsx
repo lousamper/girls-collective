@@ -46,7 +46,7 @@ const DEMO_EVENTS: Record<string, PromoCard[]> = {
 };
 
 const DEMO_PLACES: Record<string, PromoCard[]> = {
-  arte: [{ img: "/places/arte/place-1.jpg", url: "https://www.elmolilab.com/" }],
+  arte: [{ img: "/places/arte/place-1.jpg", url: "https://www.elmolilab.com/" },{ img: "/places/arte/place-2.jpg", url: "https://theespanista.com/" }],
 };
 
 function slugify(input: string) {
