@@ -43,10 +43,12 @@ const CATEGORY_COPY: Record<string, { title: string }> = {
 
 const DEMO_EVENTS: Record<string, PromoCard[]> = {
   arte: [{ img: "/events/arte/event-1.jpg", url: "https://www.instagram.com/antesydespues.estudio" }],
+  "deporte-y-movimiento": [{ img: "/events/deporte-y-movimiento/event-1.jpg", url: "https://onfitt.es/onfitt-presencial/" }],
 };
 
 const DEMO_PLACES: Record<string, PromoCard[]> = {
   arte: [{ img: "/places/arte/place-1.jpg", url: "https://www.elmolilab.com/" },{ img: "/places/arte/place-2.jpg", url: "https://theespanista.com/" }],
+  wellness: [{ img: "/places/wellness/place-1.jpg", url: "https://www.suavestudio.eu/" }],
 };
 
 function slugify(input: string) {
@@ -299,7 +301,7 @@ export default function CategoryPage({
         {/* EVENTS — now always visible, with the new link card first */}
         <section className="mb-10">
           <h2 className="font-dmserif text-2xl mb-4">
-            {t("category.events.title", "Eventos relacionados")}
+            {t("category.events.title", "Planes relacionados")}
           </h2>
           <div
             ref={eventsRef}
