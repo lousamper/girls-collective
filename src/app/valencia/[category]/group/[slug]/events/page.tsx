@@ -4,6 +4,12 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Group = { id: string; name: string; slug: string };
 
@@ -15,6 +21,39 @@ type EventRow = {
   starts_at: string;
   is_approved: boolean;
   creator_id: string | null;
+  image_url: string | null;
+  creator_username: string | null;
+};
+
+type EventRowDB = {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  starts_at: string;
+  is_approved: boolean;
+  creator_id: string | null;
+  cover_image_url: string | null;
+};
+
+type ProfileRowDB = {
+  id: string;
+  username: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  favorite_emoji: string | null;
+  quote: string | null;
+};
+
+type ProfilePreview = {
+  id: string;
+  username: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  favorite_emoji?: string | null;
+  quote?: string | null;
+  interests?: string[];
+  gallery?: string[];
 };
 
 export default function EventsPage({
@@ -34,6 +73,17 @@ export default function EventsPage({
   // asistencia
   const [goingMap, setGoingMap] = useState<Record<string, boolean>>({});
   const [countMap, setCountMap] = useState<Record<string, number>>({});
+
+  // edición
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editLoc, setEditLoc] = useState("");
+  const [editWhen, setEditWhen] = useState("");
+
+  // popup de perfil
+  const [openProfile, setOpenProfile] =
+    useState<null | { username: string; data?: ProfilePreview }>(null);
 
   useEffect(() => {
     (async () => {
@@ -73,26 +123,63 @@ export default function EventsPage({
       if (!g?.id) return;
       setGroup(g);
 
-      // load events (admin ve todos; user normal: aprobados + sus borradores)
+      // load events
       const { data: rows } = await supabase
         .from("community_events")
-        .select("id,title,description,location,starts_at,is_approved,creator_id")
+        .select(
+          "id,title,description,location,starts_at,is_approved,creator_id,cover_image_url"
+        )
         .eq("group_id", g.id)
         .order("starts_at", { ascending: true });
 
-      const list = (rows ?? []).filter((ev: EventRow) => {
-        if (ev.is_approved) return true;
-        if (!user) return false;
-        if (isAdmin) return true;
-        return ev.creator_id === user.id; // creadora ve su borrador
-      });
+      const dbList = (rows ?? []) as EventRowDB[];
 
-      setEvents(list);
+      // map creadoras
+      const creatorIds = Array.from(
+        new Set(
+          dbList
+            .map((e) => e.creator_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+      let creatorMap: Record<string, string | null> = {};
+      if (creatorIds.length) {
+        const { data: creators } = await supabase
+          .from("profiles")
+          .select("id,username")
+          .in("id", creatorIds);
+        creatorMap = {};
+        (creators ?? []).forEach((p: { id: string; username: string | null }) => {
+          creatorMap[p.id] = p.username ?? null;
+        });
+      }
 
-      // asistencia: cargar para los ids listados
-      const ids = list.map((e) => e.id);
+      const filtered: EventRow[] = dbList
+        .filter((ev) => {
+          if (ev.is_approved) return true;
+          if (!user) return false;
+          if (isAdmin) return true;
+          return ev.creator_id === user.id;
+        })
+        .map((ev) => ({
+          id: ev.id,
+          title: ev.title,
+          description: ev.description,
+          location: ev.location,
+          starts_at: ev.starts_at,
+          is_approved: ev.is_approved,
+          creator_id: ev.creator_id,
+          image_url: ev.cover_image_url ?? null,
+          creator_username: ev.creator_id
+            ? creatorMap[ev.creator_id] ?? null
+            : null,
+        }));
+
+      setEvents(filtered);
+
+      // asistencia
+      const ids = filtered.map((e) => e.id);
       if (ids.length && user) {
-        // quién va (todas las filas) para contar + si yo voy
         const { data: attRows } = await supabase
           .from("community_event_attendees")
           .select("event_id, profile_id")
@@ -106,7 +193,6 @@ export default function EventsPage({
             if (r.profile_id === user.id) gMap[r.event_id] = true;
           }
         );
-        // asegurar key con 0 si no hay filas
         ids.forEach((id) => {
           if (!(id in cMap)) cMap[id] = 0;
           if (!(id in gMap)) gMap[id] = false;
@@ -131,7 +217,6 @@ export default function EventsPage({
         .eq("id", id);
       if (error) throw error;
       setEvents((prev) => prev.filter((e) => e.id !== id));
-      // limpiar contadores locales
       const nextCount = { ...countMap };
       const nextGoing = { ...goingMap };
       delete nextCount[id];
@@ -168,7 +253,7 @@ export default function EventsPage({
 
   async function toggleGoing(id: string, isApproved: boolean) {
     if (!user) return;
-    if (!isApproved) return; // no permitir asistir a borradores
+    if (!isApproved) return;
     setBusy(`going-${id}`);
     try {
       const going = goingMap[id] === true;
@@ -196,8 +281,146 @@ export default function EventsPage({
     }
   }
 
+  function toLocalInputValue(iso: string) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+      d.getDate()
+    )}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function startEdit(ev: EventRow) {
+    setEditingId(ev.id);
+    setEditTitle(ev.title);
+    setEditDesc(ev.description ?? "");
+    setEditLoc(ev.location ?? "");
+    setEditWhen(toLocalInputValue(ev.starts_at));
+  }
+
+  async function saveEdit(id: string) {
+    if (!user) return;
+    if (!editTitle.trim() || !editWhen) {
+      alert("Título y fecha son obligatorios.");
+      return;
+    }
+    setBusy(`edit-${id}`);
+    try {
+      const starts_at = new Date(editWhen).toISOString();
+      const { error } = await supabase
+        .from("community_events")
+        .update({
+          title: editTitle.trim(),
+          description: editDesc.trim() || null,
+          location: editLoc.trim() || null,
+          starts_at,
+        })
+        .eq("id", id)
+        .eq("creator_id", user.id);
+      if (error) throw error;
+
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === id
+            ? {
+                ...e,
+                title: editTitle.trim(),
+                description: editDesc.trim() || null,
+                location: editLoc.trim() || null,
+                starts_at,
+              }
+            : e
+        )
+      );
+      setEditingId(null);
+      setMsg("Evento actualizado ✅");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo actualizar el evento.";
+      setMsg(message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function openUserSheet(username: string) {
+    setOpenProfile({ username });
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("id,username,bio,avatar_url,favorite_emoji,quote")
+      .ilike("username", username)
+      .maybeSingle<ProfileRowDB>();
+
+    if (!prof) {
+      setOpenProfile({ username });
+      return;
+    }
+
+    const preview: ProfilePreview = {
+      id: prof.id,
+      username: prof.username,
+      bio: prof.bio,
+      avatar_url: prof.avatar_url,
+      favorite_emoji: prof.favorite_emoji ?? null,
+      quote: prof.quote ?? null,
+    };
+
+    const interests: string[] = [];
+    const { data: pcats } = await supabase
+      .from("profile_categories")
+      .select("category_id")
+      .eq("profile_id", prof.id);
+    const catIds = (pcats ?? []).map((c: { category_id: string }) => c.category_id);
+    if (catIds.length) {
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("id,name")
+        .in("id", catIds);
+      interests.push(...((cats ?? []).map((c: { name: string }) => c.name)));
+    }
+    const { data: custom } = await supabase
+      .from("profile_custom_interests")
+      .select("interest")
+      .eq("profile_id", prof.id)
+      .maybeSingle();
+    if (custom?.interest) interests.push(custom.interest);
+
+    let gallery: string[] = [];
+    try {
+      const { data: gal1 } = await supabase
+        .from("profile_gallery")
+        .select("url, position, created_at")
+        .eq("profile_id", prof.id)
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: false });
+      gallery = (gal1 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
+    } catch {
+      // ignore
+    }
+    if (!gallery.length) {
+      try {
+        const { data: gal2 } = await supabase
+          .from("profile_photos")
+          .select("url, position, created_at")
+          .eq("profile_id", prof.id)
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: false });
+        gallery = (gal2 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
+      } catch {
+        // ignore
+      }
+    }
+
+    setOpenProfile({
+      username,
+      data: { ...preview, interests, gallery },
+    });
+  }
+
   if (loading)
-    return <main className="min-h-screen grid place-items-center">Cargando…</main>;
+    return (
+      <main className="min-h-screen grid place-items-center">Cargando…</main>
+    );
   if (!group)
     return (
       <main className="min-h-screen grid place-items-center">
@@ -205,16 +428,28 @@ export default function EventsPage({
       </main>
     );
 
+  const now = new Date();
+  const upcoming = events.filter(
+    (e) => new Date(e.starts_at).getTime() >= now.getTime()
+  );
+  const past = events
+    .filter((e) => new Date(e.starts_at).getTime() < now.getTime())
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime()
+    );
+
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-6xl mx-auto px-6 py-10">
         <header className="mb-6 flex items-start justify-between">
-          <h1 className="font-dmserif text-3xl md:text-4xl">
+          <h1 className="font-dmserif text-2xl md:text-4xl">
             Eventos de {group.name}
           </h1>
           <Link
             href={`/${"valencia"}/${category}/group/${slug}`}
-            className="underline"
+            className="underline hidden md:inline"
           >
             Volver al grupo
           </Link>
@@ -227,95 +462,493 @@ export default function EventsPage({
             No hay eventos todavía. ¡Crea el primero desde el grupo! ✨
           </p>
         ) : (
-          <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {events.map((ev) => {
-              const when = new Date(ev.starts_at);
-              const canDelete = isAdmin || (user && ev.creator_id === user.id);
-              const canApprove = isAdmin && !ev.is_approved;
-              const going = goingMap[ev.id] === true;
-              const count = countMap[ev.id] ?? 0;
+          <>
+            {/* Próximos eventos */}
+            {upcoming.length > 0 && (
+              <>
+                <h2 className="font-dmserif text-xl mb-4">Próximos planes</h2>
+                <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                  {upcoming.map((ev) => {
+                    const when = new Date(ev.starts_at);
+                    const canDelete =
+                      isAdmin || (user && ev.creator_id === user.id);
+                    const canApprove = isAdmin && !ev.is_approved;
+                    const canEdit = user && ev.creator_id === user.id;
+                    const going = goingMap[ev.id] === true;
+                    const count = countMap[ev.id] ?? 0;
+                    const isEditing = editingId === ev.id;
 
-              return (
-                <li
-                  key={ev.id}
-                  className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold">{ev.title}</h3>
-                      {!ev.is_approved && (
-                        <span className="text-xs border px-2 py-0.5 rounded-full">
-                          Borrador
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm opacity-80">
-                      {when.toLocaleDateString()} •{" "}
-                      {when.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                    {ev.location && (
-                      <div className="text-sm opacity-80 mt-1">
-                        📍 {ev.location}
-                      </div>
-                    )}
-                    {ev.description && <p className="mt-3">{ev.description}</p>}
-                  </div>
-
-                  {/* Acciones: Asistencia + Admin */}
-                  <div className="mt-4 flex items-center justify-between">
-                    {/* Lado izquierdo: asistencia (solo si aprobado) */}
-                    <div className="text-sm opacity-80">
-                      {count} {count === 1 ? "asistencia" : "asistencias"}
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => toggleGoing(ev.id, ev.is_approved)}
-                        disabled={busy === `going-${ev.id}` || !ev.is_approved}
-                        className={`rounded-full px-4 py-1.5 text-sm border shadow-sm hover:opacity-90 ${
-                          going ? "bg-gcBackgroundAlt2" : "bg-white"
-                        } ${!ev.is_approved ? "opacity-60 cursor-not-allowed" : ""}`}
-                        title={
-                          ev.is_approved
-                            ? going
-                              ? "Cancelar asistencia"
-                              : "Confirmar asistencia"
-                            : "Pendiente de aprobación"
-                        }
+                    return (
+                      <li
+                        key={ev.id}
+                        className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between"
                       >
-                        {busy === `going-${ev.id}` ? "…" : going ? "Ya vas" : "Asistiré"}
-                      </button>
+                        <div>
+                          {ev.image_url && (
+                            <div className="-mx-4 -mt-4 mb-3 rounded-t-2xl overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={ev.image_url}
+                                alt={ev.title}
+                                className="w-full h-40 object-cover"
+                              />
+                            </div>
+                          )}
 
-                      {/* Admin actions */}
-                      {canApprove && (
-                        <button
-                          onClick={() => approveEvent(ev.id)}
-                          disabled={busy === `approve-${ev.id}`}
-                          className="underline text-sm"
-                        >
-                          {busy === `approve-${ev.id}` ? "Aprobando…" : "Aprobar"}
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          onClick={() => deleteEvent(ev.id)}
-                          disabled={busy === ev.id}
-                          className="underline text-sm"
-                        >
-                          {busy === ev.id ? "Eliminando…" : "Eliminar"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <input
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                placeholder="Título"
+                              />
+                              <textarea
+                                className="w-full rounded-xl border p-2 text-sm"
+                                rows={3}
+                                value={editDesc}
+                                onChange={(e) => setEditDesc(e.target.value)}
+                                placeholder="Descripción"
+                              />
+                              <input
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editLoc}
+                                onChange={(e) => setEditLoc(e.target.value)}
+                                placeholder="Ubicación"
+                              />
+                              <input
+                                type="datetime-local"
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editWhen}
+                                onChange={(e) => setEditWhen(e.target.value)}
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold">{ev.title}</h3>
+                                {!ev.is_approved && (
+                                  <span className="text-xs border px-2 py-0.5 rounded-full">
+                                    Borrador
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm opacity-80">
+                                {when.toLocaleDateString()} •{" "}
+                                {when.toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </div>
+                              {ev.location && (
+                                <div className="text-sm opacity-80 mt-1">
+                                  📍 {ev.location}
+                                </div>
+                              )}
+                              {ev.description && (
+                                <p className="mt-3 text-sm">
+                                  {ev.description}
+                                </p>
+                              )}
+                              {ev.creator_username && (
+                                <div className="mt-2 text-xs opacity-80">
+                                  Creado por{" "}
+                                  <button
+                                    type="button"
+                                    className="underline font-semibold hover:opacity-80"
+                                    onClick={() =>
+                                      openUserSheet(ev.creator_username!)
+                                    }
+                                  >
+                                    @{ev.creator_username}
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="text-sm opacity-80">
+                            {count} {count === 1 ? "asistencia" : "asistencias"}
+                          </div>
+                          <div className="flex flex-wrap gap-3 justify-end">
+                            <button
+                              onClick={() => toggleGoing(ev.id, ev.is_approved)}
+                              disabled={
+                                busy === `going-${ev.id}` || !ev.is_approved
+                              }
+                              className={`rounded-full px-4 py-1.5 text-sm border shadow-sm hover:opacity-90 ${
+                                going ? "bg-gcBackgroundAlt2" : "bg-white"
+                              } ${
+                                !ev.is_approved
+                                  ? "opacity-60 cursor-not-allowed"
+                                  : ""
+                              }`}
+                              title={
+                                ev.is_approved
+                                  ? going
+                                    ? "Cancelar asistencia"
+                                    : "Confirmar asistencia"
+                                  : "Pendiente de aprobación"
+                              }
+                            >
+                              {busy === `going-${ev.id}`
+                                ? "…"
+                                : going
+                                ? "Ya vas"
+                                : "Asistiré"}
+                            </button>
+
+                            {isEditing && canEdit ? (
+                              <>
+                                <button
+                                  onClick={() => saveEdit(ev.id)}
+                                  disabled={busy === `edit-${ev.id}`}
+                                  className="underline text-sm"
+                                >
+                                  {busy === `edit-${ev.id}`
+                                    ? "Guardando…"
+                                    : "Guardar"}
+                                </button>
+                                <button
+                                  onClick={() => setEditingId(null)}
+                                  className="underline text-sm"
+                                >
+                                  Cancelar
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {canEdit && (
+                                  <button
+                                    onClick={() => startEdit(ev)}
+                                    className="underline text-sm"
+                                  >
+                                    Editar
+                                  </button>
+                                )}
+                                {canApprove && (
+                                  <button
+                                    onClick={() => approveEvent(ev.id)}
+                                    disabled={busy === `approve-${ev.id}`}
+                                    className="underline text-sm"
+                                  >
+                                    {busy === `approve-${ev.id}`
+                                      ? "Aprobando…"
+                                      : "Aprobar"}
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    onClick={() => deleteEvent(ev.id)}
+                                    disabled={busy === ev.id}
+                                    className="underline text-sm"
+                                  >
+                                    {busy === ev.id
+                                      ? "Eliminando…"
+                                      : "Eliminar"}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+
+            {/* Eventos pasados */}
+            {past.length > 0 && (
+              <>
+                <h2 className="font-dmserif text-xl mb-4">
+                  Planes pasados
+                </h2>
+                <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {past.map((ev) => {
+                    const when = new Date(ev.starts_at);
+                    const canDelete =
+                      isAdmin || (user && ev.creator_id === user.id);
+                    const canApprove = isAdmin && !ev.is_approved;
+                    const canEdit = user && ev.creator_id === user.id;
+                    const going = goingMap[ev.id] === true;
+                    const count = countMap[ev.id] ?? 0;
+                    const isEditing = editingId === ev.id;
+
+                    return (
+                      <li
+                        key={ev.id}
+                        className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between opacity-90"
+                      >
+                        <div>
+                          {ev.image_url && (
+                            <div className="-mx-4 -mt-4 mb-3 rounded-t-2xl overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={ev.image_url}
+                                alt={ev.title}
+                                className="w-full h-40 object-cover"
+                              />
+                            </div>
+                          )}
+
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <input
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                placeholder="Título"
+                              />
+                              <textarea
+                                className="w-full rounded-xl border p-2 text-sm"
+                                rows={3}
+                                value={editDesc}
+                                onChange={(e) => setEditDesc(e.target.value)}
+                                placeholder="Descripción"
+                              />
+                              <input
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editLoc}
+                                onChange={(e) => setEditLoc(e.target.value)}
+                                placeholder="Ubicación"
+                              />
+                              <input
+                                type="datetime-local"
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editWhen}
+                                onChange={(e) => setEditWhen(e.target.value)}
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold">{ev.title}</h3>
+                                {!ev.is_approved && (
+                                  <span className="text-xs border px-2 py-0.5 rounded-full">
+                                    Borrador
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm opacity-80">
+                                {when.toLocaleDateString()} •{" "}
+                                {when.toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </div>
+                              {ev.location && (
+                                <div className="text-sm opacity-80 mt-1">
+                                  📍 {ev.location}
+                                </div>
+                              )}
+                              {ev.description && (
+                                <p className="mt-3 text-sm">
+                                  {ev.description}
+                                </p>
+                              )}
+                              {ev.creator_username && (
+                                <div className="mt-2 text-xs opacity-80">
+                                  Creado por{" "}
+                                  <button
+                                    type="button"
+                                    className="underline font-semibold hover:opacity-80"
+                                    onClick={() =>
+                                      openUserSheet(ev.creator_username!)
+                                    }
+                                  >
+                                    @{ev.creator_username}
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="text-sm opacity-80">
+                            {count} {count === 1 ? "asistencia" : "asistencias"}
+                          </div>
+                          <div className="flex flex-wrap gap-3 justify-end">
+                            <button
+                              onClick={() => toggleGoing(ev.id, ev.is_approved)}
+                              disabled={
+                                busy === `going-${ev.id}` || !ev.is_approved
+                              }
+                              className={`rounded-full px-4 py-1.5 text-sm border shadow-sm hover:opacity-90 ${
+                                going ? "bg-gcBackgroundAlt2" : "bg-white"
+                              } ${
+                                !ev.is_approved
+                                  ? "opacity-60 cursor-not-allowed"
+                                  : ""
+                              }`}
+                              title={
+                                ev.is_approved
+                                  ? going
+                                    ? "Cancelar asistencia"
+                                    : "Confirmar asistencia"
+                                  : "Pendiente de aprobación"
+                              }
+                            >
+                              {busy === `going-${ev.id}`
+                                ? "…"
+                                : going
+                                ? "Ya vas"
+                                : "Asistiré"}
+                            </button>
+
+                            {isEditing && canEdit ? (
+                              <>
+                                <button
+                                  onClick={() => saveEdit(ev.id)}
+                                  disabled={busy === `edit-${ev.id}`}
+                                  className="underline text-sm"
+                                >
+                                  {busy === `edit-${ev.id}`
+                                    ? "Guardando…"
+                                    : "Guardar"}
+                                </button>
+                                <button
+                                  onClick={() => setEditingId(null)}
+                                  className="underline text-sm"
+                                >
+                                  Cancelar
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {canEdit && (
+                                  <button
+                                    onClick={() => startEdit(ev)}
+                                    className="underline text-sm"
+                                  >
+                                    Editar
+                                  </button>
+                                )}
+                                {canApprove && (
+                                  <button
+                                    onClick={() => approveEvent(ev.id)}
+                                    disabled={busy === `approve-${ev.id}`}
+                                    className="underline text-sm"
+                                  >
+                                    {busy === `approve-${ev.id}`
+                                      ? "Aprobando…"
+                                      : "Aprobar"}
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    onClick={() => deleteEvent(ev.id)}
+                                    disabled={busy === ev.id}
+                                    className="underline text-sm"
+                                  >
+                                    {busy === ev.id
+                                      ? "Eliminando…"
+                                      : "Eliminar"}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </>
         )}
+
+        {/* volver al grupo abajo en mobile */}
+        <div className="mt-8 md:hidden">
+          <Link
+            href={`/${"valencia"}/${category}/group/${slug}`}
+            className="underline text-sm"
+          >
+            ← Volver al grupo
+          </Link>
+        </div>
       </div>
+
+      {/* Popup de perfil */}
+      <Dialog open={!!openProfile} onOpenChange={() => setOpenProfile(null)}>
+        <DialogContent className="max-w-sm bg-white rounded-2xl p-5">
+          <DialogHeader>
+            <DialogTitle className="font-dmserif text-2xl">Perfil</DialogTitle>
+          </DialogHeader>
+          {!openProfile?.data ? (
+            <p>Cargando…</p>
+          ) : (
+            <div className="flex items-start gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={
+                  openProfile.data.avatar_url ?? "/placeholder-avatar.png"
+                }
+                alt=""
+                className="w-12 h-12 rounded-full object-cover"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold">
+                    @{openProfile.data.username}
+                  </div>
+                  {openProfile.data.favorite_emoji ? (
+                    <span className="text-xl leading-none">
+                      {openProfile.data.favorite_emoji}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="text-sm opacity-80">
+                  {openProfile.data.bio ?? "—"}
+                </div>
+
+                {openProfile.data.quote && (
+                  <div className="mt-2 text-sm italic opacity-90">
+                    “{openProfile.data.quote}”
+                  </div>
+                )}
+
+                {openProfile.data.interests &&
+                  openProfile.data.interests.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {openProfile.data.interests.map((name, i) => (
+                        <span
+                          key={i}
+                          className="text-xs border rounded-full px-2 py-0.5"
+                        >
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                {openProfile.data.gallery &&
+                  openProfile.data.gallery.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      {openProfile.data.gallery
+                        .slice(0, 6)
+                        .map((url, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={i}
+                            src={url}
+                            alt=""
+                            className="w-full aspect-square object-cover rounded-xl border"
+                          />
+                        ))}
+                    </div>
+                  )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
-

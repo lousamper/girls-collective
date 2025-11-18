@@ -1128,7 +1128,7 @@ export default function GroupPage({
         <header className="mb-6 flex items-start justify-between gap-3">
           <div>
             <h1 className="font-dmserif text-2xl md:text-4xl">{group.name}</h1>
-            {group.description && <p className="mt-2 max-w-3xl">{group.description}</p>}
+            {group.description && <p className="mt-2 max-w-2xl text-[0.95rem] leading-tight">{group.description}</p>}
           </div>
           <button
             onClick={toggleFollow}
@@ -1772,10 +1772,26 @@ export default function GroupPage({
                           : "asistentes"}
                       </span>
                       {ev.creator_username && (
-                        <span>
-                          Creado por{" "}
-                          <strong>@{ev.creator_username}</strong>
-                        </span>
+                        <span className="flex items-center gap-1">
+    Creado por{" "}
+    <span
+      role="button"
+      tabIndex={0}
+      className="underline font-semibold hover:opacity-80 cursor-pointer"
+      onClick={(e) => {
+        e.stopPropagation();             // no abre el modal del evento
+        openUserSheet(ev.creator_username!); // sin @
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.stopPropagation();
+          openUserSheet(ev.creator_username!);
+        }
+      }}
+    >
+      @{ev.creator_username}
+    </span>
+  </span>
                       )}
                     </div>
                   </div>
