@@ -2078,16 +2078,16 @@ export default function GroupPage({
         <DialogContent className="max-w-md rounded-2xl bg-white p-6 shadow-xl">
           {selectedEvent && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-dmserif text-gcText">
+              <DialogHeader className="text-left space-y-0.5">
+                <DialogTitle className="text-2xl font-dmserif text-gcText leading-tight">
                   {selectedEvent.title}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-gray-600">
+                <DialogDescription className="text-sm text-gray-600 leading-tight">
                   {formatEventDate(selectedEvent.starts_at)}
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="mt-3 space-y-3">
+              <div className="mt-1 space-y-2">
                 {selectedEvent.image_url && (
                   <div className="rounded-2xl overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2100,25 +2100,25 @@ export default function GroupPage({
                 )}
 
                 {selectedEvent.location && (
-                  <p className="text-sm">
+                  <p className="text-sm text-gcText">
                     <strong>📍 Lugar:&nbsp;</strong>
                     {selectedEvent.location}
                   </p>
                 )}
 
                 {selectedEvent.creator_username && (
-                  <p className="text-sm">
+                  <p className="text-sm text-gcText">
                     <strong>Creado por:&nbsp;</strong>@{selectedEvent.creator_username}
                   </p>
                 )}
 
-                <p className="text-sm">
+                <p className="text-sm text-gcText">
                   <strong>Asistentes:&nbsp;</strong>
                   {eventCountMap[selectedEvent.id] ?? 0}
                 </p>
 
                 {selectedEvent.description && (
-                  <p className="text-sm whitespace-pre-wrap">
+                  <p className="text-sm text-gcText whitespace-pre-wrap">
                     {selectedEvent.description}
                   </p>
                 )}
