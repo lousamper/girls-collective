@@ -42,7 +42,7 @@ const CATEGORY_COPY: Record<string, { title: string }> = {
 };
 
 const DEMO_EVENTS: Record<string, PromoCard[]> = {
-  arte: [{ img: "/events/arte/event-1.jpg", url: "https://example.com/event-1" }],
+  arte: [{ img: "/events/arte/event-1.jpg", url: "https://www.instagram.com/antesydespues.estudio" }],
 };
 
 const DEMO_PLACES: Record<string, PromoCard[]> = {
