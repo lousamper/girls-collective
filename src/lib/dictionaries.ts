@@ -523,7 +523,7 @@ category: {
     cityOrCatMissing: "Ciudad o categoría no encontrada.",
   },
   events: {
-    title: "Eventos relacionados",
+    title: "Planes relacionados",
     followedTitle: "Eventos de tus grupos seguidos",
     followedAlt: "Eventos de tus grupos seguidos",
     cardTitle: "Evento",
