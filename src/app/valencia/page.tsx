@@ -100,12 +100,12 @@ export default function ValenciaPage() {
           <br />
           {t(
             "valencia.intro.p4",
-            "Elige la categoría que más resuene contigo y empieza a construir comunidad💫"
+            "Elige la categoría que más resuene contigo y empieza a construir comunidad."
           )}
           <br />
           {t(
             "valencia.intro.p5",
-            "A tu ritmo, a tu manera."
+            "A tu ritmo, a tu manera💫"
           )}
         </p>
       </section>
