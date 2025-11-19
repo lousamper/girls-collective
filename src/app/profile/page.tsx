@@ -821,7 +821,7 @@ export default function ProfilePage() {
                     <label className="block text-xs mb-1">
                       {t(
                         "profile.host.bioLabel",
-                        "Descripción como host"
+                        "Descripción"
                       )}
                     </label>
                     <textarea
