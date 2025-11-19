@@ -195,6 +195,25 @@ export const DICT = {
     updated: "Perfil actualizado ✅",
   },
 
+  host: {
+    cardTitle: "Perfil como anfitriona",
+    cardSubtitle: "Estos datos podrán mostrarse en tus eventos y en tu perfil público.",
+    titleLabel: "Título corto como anfitriona",
+    titlePlaceholder: "Ej: Anfitriona de planes de senderismo",
+    bioLabel: "Descripción como host",
+    bioPlaceholder: "Cuenta qué tipo de planes organizas y tu estilo",
+    websiteLabel: "Web principal",
+    websitePlaceholder: "https://tusitio.com",
+    shopLabel: "Tienda o red social principal",
+    shopPlaceholder: "@tuusuario o enlace directo",
+    contactLabel: "Contacto (email o teléfono)",
+    contactPlaceholder: "Email o formulario de contacto",
+    requestPrefix: "¿Eres anfitriona?",
+    requestLink: "Avísanos.",
+    requestOk: "¡Gracias! Revisaremos tu perfil para activarte como anfitriona 💫",
+    requestErr: "No se pudo enviar la solicitud. Inténtalo más tarde.",
+  },
+
   errors: {
     saveFail: "No se pudo guardar.",
     avatarType: "Debe ser .jpg o .png",
@@ -366,10 +385,18 @@ export const DICT = {
     hint: "JPG/PNG · Máx 2MB",
   },
 
+  host: {
+    label: "¿Eres anfitriona? *",
+    yes: "Sí",
+    no: "No",
+  },
+
   username: {
     label: "Nombre de usuario *",
     placeholder: "Ej: tu nombre o apodo",
   },
+
+  
 
   city: {
     label: "Ciudad *",
@@ -941,6 +968,12 @@ privacy: {
     placeholder: "e.g., your name or nickname",
   },
 
+  host: {
+    label: "Are you a host? *",
+    yes: "Yes",
+    no: "No",
+  },
+
   city: {
     label: "City *",
     placeholder: "Select your city",
@@ -1048,6 +1081,25 @@ profile: {
 
   messages: {
     updated: "Profile updated ✅",
+  },
+
+  host: {
+    cardTitle: "Host profile",
+    cardSubtitle: "These details can be shown on your events and public profile.",
+    titleLabel: "Short host title",
+    titlePlaceholder: "e.g. Hiking & outdoor plans host",
+    bioLabel: "Host bio",
+    bioPlaceholder: "Share what kind of plans you organize and your style",
+    websiteLabel: "Main website",
+    websitePlaceholder: "https://yourwebsite.com",
+    shopLabel: "Main shop or social",
+    shopPlaceholder: "@youruser or direct link",
+    contactLabel: "Contact (email or phone number)",
+    contactPlaceholder: "Email or contact form",
+    requestPrefix: "Are you a host?",
+    requestLink: "Let us know.",
+    requestOk: "Thank you! We’ll review your profile to activate your host status 💫",
+    requestErr: "We couldn’t send the request. Please try again later.",
   },
 
   errors: {

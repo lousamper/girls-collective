@@ -29,6 +29,22 @@ type EventRow = {
   group_id: string;
 };
 
+// NUEVO: filas de solicitudes de host (contact_messages)
+type HostRequestRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  message: string | null;
+  created_at: string;
+};
+
+type HostProfile = {
+  id: string;
+  username: string | null;
+  email: string | null;
+  is_host: boolean;
+};
+
 // 👉 Lista blanca por email (opcional, útil mientras pruebas)
 const ADMIN_EMAILS = [
   "valenciagirlscollective@gmail.com",
@@ -40,7 +56,7 @@ export default function AdminModerationPage() {
   const router = useRouter();
 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [tab, setTab] = useState<"groups" | "events">("groups");
+  const [tab, setTab] = useState<"groups" | "events" | "hosts">("groups");
 
   // Groups state
   const [groups, setGroups] = useState<GroupRow[]>([]);
@@ -51,6 +67,11 @@ export default function AdminModerationPage() {
   // Events state
   const [events, setEvents] = useState<EventRow[]>([]);
   const [busyEvent, setBusyEvent] = useState<string | null>(null);
+
+  // NUEVO: Host requests
+  const [hostRequests, setHostRequests] = useState<HostRequestRow[]>([]);
+  const [hostProfileMap, setHostProfileMap] = useState<Record<string, HostProfile | null>>({});
+  const [busyHostId, setBusyHostId] = useState<string | null>(null);
 
   const [msg, setMsg] = useState("");
 
@@ -127,10 +148,49 @@ export default function AdminModerationPage() {
     setEvents(data ?? []);
   }
 
+  // NUEVO: Fetch host requests desde contact_messages
+  async function fetchHostRequests() {
+    const { data } = await supabase
+      .from("contact_messages")
+      .select("id, name, email, message, created_at")
+      .eq("name", "Host Activation Request")
+      .order("created_at", { ascending: true });
+
+    const rows = data ?? [];
+    setHostRequests(rows);
+
+    // mapear emails → perfiles
+    const emails = Array.from(
+      new Set(
+        rows
+          .map((r) => r.email)
+          .filter((e): e is string => !!e)
+      )
+    );
+
+    if (!emails.length) {
+      setHostProfileMap({});
+      return;
+    }
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, username, email, is_admin, is_host")
+      .in("email", emails);
+
+    const map: Record<string, HostProfile | null> = {};
+    emails.forEach((e) => {
+      const p = (profiles ?? []).find((pr) => pr.email === e) as HostProfile | undefined;
+      map[e] = p ?? null;
+    });
+    setHostProfileMap(map);
+  }
+
   useEffect(() => {
     if (!user || !isAdmin) return;
     fetchPendingGroups();
     fetchPendingEvents();
+    fetchHostRequests();
   }, [user, isAdmin]);
 
   // Approve/delete group
@@ -189,8 +249,67 @@ export default function AdminModerationPage() {
     }
   }
 
+  // NUEVO: aprobar solicitud de host
+  async function approveHostRequest(req: HostRequestRow) {
+    if (!req.email) {
+      alert("Esta solicitud no tiene email.");
+      return;
+    }
+    setBusyHostId(req.id);
+    setMsg("");
+    try {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", req.email)
+        .maybeSingle();
+
+      if (!prof?.id) {
+        alert("No se encontró perfil para ese email.");
+        setBusyHostId(null);
+        return;
+      }
+
+      const { error: upErr } = await supabase
+        .from("profiles")
+        .update({ is_host: true })
+        .eq("id", prof.id);
+      if (upErr) throw upErr;
+
+      const { error: delErr } = await supabase
+        .from("contact_messages")
+        .delete()
+        .eq("id", req.id);
+      if (delErr) throw delErr;
+
+      await fetchHostRequests();
+      setMsg("Anfitriona activada ✅");
+    } finally {
+      setBusyHostId(null);
+    }
+  }
+
+  // NUEVO: eliminar solicitud de host sin aprobar
+  async function deleteHostRequest(id: string) {
+    if (!confirm("¿Eliminar esta solicitud de anfitriona?")) return;
+    setBusyHostId(`del-${id}`);
+    setMsg("");
+    try {
+      const { error } = await supabase
+        .from("contact_messages")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      await fetchHostRequests();
+      setMsg("Solicitud eliminada ✅");
+    } finally {
+      setBusyHostId(null);
+    }
+  }
+
   const hasGroups = useMemo(() => groups.length > 0, [groups]);
   const hasEvents = useMemo(() => events.length > 0, [events]);
+  const hasHostRequests = useMemo(() => hostRequests.length > 0, [hostRequests]);
 
   if (loading || !user || !isAdmin) {
     return (
@@ -221,6 +340,13 @@ export default function AdminModerationPage() {
             onClick={() => setTab("events")}
           >
             Eventos
+          </button>
+          {/* NUEVO TAB: anfitrionas */}
+          <button
+            className={`px-4 py-1.5 rounded-full border ${tab === "hosts" ? "bg-white" : "bg-transparent"}`}
+            onClick={() => setTab("hosts")}
+          >
+            Anfitrionas
           </button>
         </div>
 
@@ -286,7 +412,7 @@ export default function AdminModerationPage() {
               </div>
             )}
           </section>
-        ) : (
+        ) : tab === "events" ? (
           <section className="bg-white rounded-2xl p-4 shadow-md">
             <h2 className="font-dmserif text-2xl mb-4">Eventos pendientes</h2>
 
@@ -331,9 +457,84 @@ export default function AdminModerationPage() {
               </ul>
             )}
           </section>
+        ) : (
+          // NUEVA SECCIÓN: solicitudes de anfitriona
+          <section className="bg-white rounded-2xl p-4 shadow-md">
+            <h2 className="font-dmserif text-2xl mb-4">Solicitudes de anfitriona</h2>
+
+            {!hasHostRequests ? (
+              <p>No hay solicitudes pendientes 🎉</p>
+            ) : (
+              <div className="grid gap-4">
+                {hostRequests.map((req) => {
+                  const profile = req.email ? hostProfileMap[req.email] ?? null : null;
+                  const created = new Date(req.created_at);
+                  const alreadyHost = profile?.is_host;
+                  return (
+                    <div key={req.id} className="bg-white rounded-xl p-4 border shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <div className="font-semibold">
+                            {profile?.username ? `@${profile.username}` : "Perfil no encontrado"}
+                          </div>
+                          <div className="text-sm opacity-80">
+                            {req.email ?? "Sin email"} • {created.toLocaleDateString()}{" "}
+                            {created.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </div>
+                        {alreadyHost && (
+                          <span className="text-xs px-2 py-0.5 rounded-full border">
+                            Ya es anfitriona
+                          </span>
+                        )}
+                      </div>
+
+                      {req.message && (
+                        <p className="text-sm opacity-80 mb-2">
+                          {req.message}
+                        </p>
+                      )}
+
+                      {!profile && (
+                        <p className="text-xs text-red-600 mb-2">
+                          No se encontró un perfil con ese email en profiles.
+                        </p>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button
+                          disabled={
+                            busyHostId === req.id ||
+                            !profile ||
+                            alreadyHost
+                          }
+                          onClick={() => approveHostRequest(req)}
+                          className="rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-5 py-1.5 text-sm shadow-md hover:opacity-90 disabled:opacity-60"
+                        >
+                          {busyHostId === req.id
+                            ? "Aprobando…"
+                            : alreadyHost
+                            ? "Ya aprobada"
+                            : "Aprobar como anfitriona"}
+                        </button>
+                        <button
+                          disabled={busyHostId === `del-${req.id}`}
+                          onClick={() => deleteHostRequest(req.id)}
+                          className="underline text-sm"
+                        >
+                          {busyHostId === `del-${req.id}` ? "Eliminando…" : "Eliminar solicitud"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
       </div>
     </main>
   );
 }
+
 

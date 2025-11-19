@@ -62,6 +62,9 @@ export default function OnboardingPage() {
   const [favoriteEmoji, setFavoriteEmoji] = useState("");
   const [inspiringQuote, setInspiringQuote] = useState("");
 
+  // NEW host
+  const [isHost, setIsHost] = useState<boolean>(false);
+
   // Avatar + Gallery
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null); // preview or existing
@@ -104,7 +107,7 @@ export default function OnboardingPage() {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("username,bio,city_id,birth_year,favorite_emoji,quote,avatar_url")
+        .select("username,bio,city_id,birth_year,favorite_emoji,quote,avatar_url,is_host")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -116,6 +119,7 @@ export default function OnboardingPage() {
         setFavoriteEmoji(data.favorite_emoji ?? "");
         setInspiringQuote(data.quote ?? "");
         setAvatarPreview(data.avatar_url ?? null); // show current avatar
+        setIsHost(Boolean(data.is_host)); // nuevo campo
       }
 
       const { data: cats } = await supabase
@@ -204,6 +208,7 @@ export default function OnboardingPage() {
         avatar_url, // may be null if no new file; ok for fresh setup
         favorite_emoji: favoriteEmoji.trim() || null,
         quote: inspiringQuote.trim() || null,
+        is_host: isHost, // NUEVO
       });
       if (profErr) {
         const code = (profErr as { code?: unknown }).code;
@@ -268,6 +273,7 @@ export default function OnboardingPage() {
           hasAvatar: !!avatarFile || !!avatarPreview,
           galleryCount: galleryFiles.length,
           birthYearProvided: !!birthYear,
+          isHost,
         };
         // Vercel Analytics
         track("onboarding_complete", payload);
@@ -356,6 +362,33 @@ export default function OnboardingPage() {
               required
             />
             {usernameError && <p className="text-sm text-red-600">{usernameError}</p>}
+          </div>
+
+          {/* 2b) ¿Eres anfitriona? */}
+          <div>
+            <label className="block text-sm mb-1">
+              {t("setup.host.label", "¿Eres anfitriona? *")}
+            </label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsHost(true)}
+                className={`px-3 py-1.5 rounded-full border text-sm ${
+                  isHost ? "bg-gcBackgroundAlt/40 border-gcText" : "bg-white"
+                }`}
+              >
+                {t("setup.host.yes", "Sí")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsHost(false)}
+                className={`px-3 py-1.5 rounded-full border text-sm ${
+                  !isHost ? "bg-gcBackgroundAlt/40 border-gcText" : "bg-white"
+                }`}
+              >
+                {t("setup.host.no", "No")}
+              </button>
+            </div>
           </div>
 
           {/* 3) Ciudad */}
@@ -549,4 +582,5 @@ export default function OnboardingPage() {
     </main>
   );
 }
+
 
