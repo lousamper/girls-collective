@@ -59,6 +59,14 @@ type ProfilePreview = {
   favorite_emoji?: string | null;
   quote?: string | null;
   gallery?: string[]; // URLs
+
+  // Campos extra de anfitriona
+  is_host?: boolean | null;
+  host_title?: string | null;
+  host_bio?: string | null;
+  host_website?: string | null;
+  host_shop_url?: string | null;
+  host_contact?: string | null;
 };
 
 /** ✅ Typed DB row for profiles to avoid `any` */
@@ -70,6 +78,14 @@ type ProfileRowDB = {
   city_id: string | null;
   favorite_emoji: string | null;
   quote: string | null;
+
+  // Campos host en la tabla profiles
+  is_host: boolean | null;
+  host_title: string | null;
+  host_bio: string | null;
+  host_website: string | null;
+  host_shop_url: string | null;
+  host_contact: string | null;
 };
 
 type CommunityEventRow = {
@@ -484,82 +500,145 @@ export default function GroupPage({
   }
 
   // clickable @mentions → profile sheet
-  const [openProfile, setOpenProfile] =
-    useState<null | { username: string; data?: ProfilePreview }>(null);
+const [openProfile, setOpenProfile] = useState<
+    | null
+    | {
+        username: string;
+        data?: ProfilePreview;
+        isFollowingHost?: boolean;
+      }
+  >(null);
 
   async function openUserSheet(username: string) {
     setOpenProfile({ username });
+
+    // 1) Perfil con campos host
     const { data: prof } = await supabase
       .from("profiles")
-      .select("id,username,bio,avatar_url,city_id,favorite_emoji,quote")
+      .select(
+        "id,username,bio,avatar_url,city_id,favorite_emoji,quote,is_host,host_title,host_bio,host_website,host_shop_url,host_contact"
+      )
       .ilike("username", username)
       .maybeSingle<ProfileRowDB>();
 
-    const preview: ProfilePreview | undefined = prof
-      ? {
-          id: prof.id,
-          username: prof.username,
-          bio: prof.bio,
-          avatar_url: prof.avatar_url,
-          city_id: prof.city_id,
-          favorite_emoji: prof.favorite_emoji ?? null,
-          quote: prof.quote ?? null,
-        }
-      : undefined;
+    if (!prof) {
+      setOpenProfile({ username });
+      return;
+    }
 
-    // fetch interests
-    const interests: string[] = [];
-    if (prof?.id) {
-      const { data: pcats } = await supabase
-        .from("profile_categories")
-        .select("category_id")
-        .eq("profile_id", prof.id);
-      const catIds = (pcats ?? []).map((c: { category_id: string }) => c.category_id);
-      if (catIds.length) {
-        const { data: cats } = await supabase
-          .from("categories")
-          .select("id,name")
-          .in("id", catIds);
-        interests.push(...((cats ?? []).map((c: { name: string }) => c.name)));
-      }
-      const { data: custom } = await supabase
-        .from("profile_custom_interests")
-        .select("interest")
-        .eq("profile_id", prof.id)
+    const preview: ProfilePreview = {
+      id: prof.id,
+      username: prof.username,
+      bio: prof.bio,
+      avatar_url: prof.avatar_url,
+      city_id: prof.city_id,
+      favorite_emoji: prof.favorite_emoji ?? null,
+      quote: prof.quote ?? null,
+      is_host: prof.is_host,
+      host_title: prof.host_title,
+      host_bio: prof.host_bio,
+      host_website: prof.host_website,
+      host_shop_url: prof.host_shop_url,
+      host_contact: prof.host_contact,
+    };
+
+    // 2) ¿Lo sigo como host?
+    let isFollowingHost = false;
+    if (prof.is_host && user && user.id !== prof.id) {
+      const { data: followRow } = await supabase
+        .from("host_followers")
+        .select("host_id")
+        .eq("host_id", prof.id)
+        .eq("follower_id", user.id)
         .maybeSingle();
-      if (custom?.interest) interests.push(custom.interest);
+      isFollowingHost = !!followRow;
+    }
 
-      // GALLERY
-      let gallery: string[] = [];
+    // 3) Intereses
+    const interests: string[] = [];
+    const { data: pcats } = await supabase
+      .from("profile_categories")
+      .select("category_id")
+      .eq("profile_id", prof.id);
+    const catIds = (pcats ?? []).map((c: { category_id: string }) => c.category_id);
+    if (catIds.length) {
+      const { data: cats } = await supabase
+        .from("categories")
+        .select("id,name")
+        .in("id", catIds);
+      interests.push(...((cats ?? []).map((c: { name: string }) => c.name)));
+    }
+
+    const { data: custom } = await supabase
+      .from("profile_custom_interests")
+      .select("interest")
+      .eq("profile_id", prof.id)
+      .maybeSingle();
+    if (custom?.interest) interests.push(custom.interest);
+
+    // 4) Galería (profile_gallery → fallback profile_photos)
+    let gallery: string[] = [];
+    try {
+      const { data: gal1 } = await supabase
+        .from("profile_gallery")
+        .select("url, position, created_at")
+        .eq("profile_id", prof.id)
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: false });
+      gallery = (gal1 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
+    } catch {}
+    if (!gallery.length) {
       try {
-        const { data: gal1 } = await supabase
-          .from("profile_gallery")
+        const { data: gal2 } = await supabase
+          .from("profile_photos")
           .select("url, position, created_at")
           .eq("profile_id", prof.id)
           .order("position", { ascending: true })
           .order("created_at", { ascending: false });
-        gallery = (gal1 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
+        gallery = (gal2 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
       } catch {}
-      if (!gallery.length) {
-        try {
-          const { data: gal2 } = await supabase
-            .from("profile_photos")
-            .select("url, position, created_at")
-            .eq("profile_id", prof.id)
-            .order("position", { ascending: true })
-            .order("created_at", { ascending: false });
-          gallery = (gal2 ?? []).map((g: { url: string }) => g.url).filter(Boolean);
-        } catch {}
-      }
-
-      setOpenProfile({
-        username,
-        data: { ...(preview as ProfilePreview), interests, gallery },
-      });
-      return;
     }
 
-    setOpenProfile(preview ? { username, data: { ...preview, interests } } : { username });
+    setOpenProfile({
+      username,
+      data: { ...preview, interests, gallery },
+      isFollowingHost,
+    });
+  }
+
+  async function toggleHostFollow() {
+    if (!openProfile?.data || !openProfile.data.is_host || !user) return;
+
+    const hostId = openProfile.data.id;
+    if (!hostId || hostId === user.id) return;
+
+    const currently = openProfile.isFollowingHost === true;
+
+    try {
+      if (currently) {
+        await supabase
+          .from("host_followers")
+          .delete()
+          .match({ host_id: hostId, follower_id: user.id });
+      } else {
+        await supabase
+          .from("host_followers")
+          .upsert({ host_id: hostId, follower_id: user.id });
+      }
+
+      // Actualizar estado del popup
+      setOpenProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              isFollowingHost: !currently,
+            }
+          : prev
+      );
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo actualizar el seguimiento de la anfitriona.");
+    }
   }
 
   function renderText(body: string) {
@@ -2147,7 +2226,7 @@ export default function GroupPage({
         </DialogContent>
       </Dialog>
 
-      {/* Profile quick-view */}
+            {/* Profile quick-view */}
       <Dialog open={!!openProfile} onOpenChange={() => setOpenProfile(null)}>
         <DialogContent className="max-w-sm bg-white rounded-2xl p-5">
           <DialogHeader>
@@ -2155,6 +2234,7 @@ export default function GroupPage({
               Perfil
             </DialogTitle>
           </DialogHeader>
+
           {!openProfile?.data ? (
             <p>Cargando…</p>
           ) : (
@@ -2162,65 +2242,143 @@ export default function GroupPage({
               <div className="flex items-start gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={
-                    openProfile.data.avatar_url ?? "/placeholder-avatar.png"
-                  }
+                  src={openProfile.data.avatar_url ?? "/placeholder-avatar.png"}
                   alt=""
                   className="w-12 h-12 rounded-full object-cover"
                 />
+
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  {/* Cabecera + botón seguir anfitriona */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="font-semibold">
                       @{openProfile.data.username}
                     </div>
-                    {openProfile.data.favorite_emoji ? (
+                    {openProfile.data.favorite_emoji && (
                       <span className="text-xl leading-none">
                         {openProfile.data.favorite_emoji}
                       </span>
-                    ) : null}
+                    )}
+
+                    {openProfile.data.is_host &&
+                      openProfile.data.id !== user?.id && (
+                        <button
+                          type="button"
+                          onClick={toggleHostFollow}
+                          className="ml-auto rounded-full border px-3 py-0.5 text-xs shadow-sm hover:opacity-90"
+                        >
+                          {openProfile.isFollowingHost
+                            ? "Dejar de seguir"
+                            : "Seguir anfitriona"}
+                        </button>
+                      )}
                   </div>
 
+                  {/* Bio básica */}
                   <div className="text-sm opacity-80">
                     {openProfile.data.bio ?? "—"}
                   </div>
 
-                  {openProfile.data.quote ? (
+                  {openProfile.data.quote && (
                     <div className="mt-2 text-sm italic opacity-90">
                       “{openProfile.data.quote}”
                     </div>
-                  ) : null}
+                  )}
 
-                  {openProfile.data.interests &&
-                    openProfile.data.interests.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {openProfile.data.interests.map((name, i) => (
-                          <span
-                            key={i}
-                            className="text-xs border rounded-full px-2 py-0.5"
-                          >
-                            {name}
-                          </span>
-                        ))}
+                  {/* Bloque anfitriona (solo si es host) */}
+                  {openProfile.data.is_host && (
+                    <div className="mt-3 pt-3 border-t text-sm">
+                      <h3 className="font-dmserif text-lg mb-1">
+                        Perfil como anfitriona
+                      </h3>
+
+                      {openProfile.data.host_title && (
+                        <p className="font-semibold">
+                          {openProfile.data.host_title}
+                        </p>
+                      )}
+
+                      {openProfile.data.host_bio && (
+                        <p className="mt-1 opacity-80 whitespace-pre-wrap">
+                          {openProfile.data.host_bio}
+                        </p>
+                      )}
+
+                      <div className="mt-2 space-y-1">
+                        {openProfile.data.host_website && (
+                          <p>
+                            🌐{" "}
+                            <a
+                              href={openProfile.data.host_website}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline break-all"
+                            >
+                              {openProfile.data.host_website}
+                            </a>
+                          </p>
+                        )}
+
+                        {openProfile.data.host_shop_url && (
+                          <p>
+                            🛍️{" "}
+                            <span className="break-all">
+                              {openProfile.data.host_shop_url}
+                            </span>
+                          </p>
+                        )}
+
+                        {openProfile.data.host_contact && (
+                          <p>
+                            💌{" "}
+                            <span className="break-all">
+                              {openProfile.data.host_contact}
+                            </span>
+                          </p>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                  {openProfile.data.gallery &&
-                    openProfile.data.gallery.length > 0 && (
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {openProfile.data.gallery
-                          .slice(0, 6)
-                          .map((url, i) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={i}
-                              src={url}
-                              alt=""
-                              className="w-full aspect-square object-cover rounded-xl border"
-                            />
-                          ))}
-                      </div>
-                    )}
+                  {/* ──────────────────────────────────── */}
+{/* Separador antes de intereses/galería */}
+{/* ──────────────────────────────────── */}
+{(openProfile.data.interests?.length ||
+  openProfile.data.gallery?.length) ? (
+  <hr className="mt-4 mb-3 border-t border-black/10" />
+) : null}
 
+{/* Intereses */}
+{openProfile.data.interests &&
+  openProfile.data.interests.length > 0 && (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {openProfile.data.interests.map((name, i) => (
+        <span
+          key={i}
+          className="text-xs border rounded-full px-2 py-0.5"
+        >
+          {name}
+        </span>
+      ))}
+    </div>
+  )}
+
+{/* Galería */}
+{openProfile.data.gallery &&
+  openProfile.data.gallery.length > 0 && (
+    <div className="mt-3 grid grid-cols-3 gap-2">
+      {openProfile.data.gallery.slice(0, 6).map((url, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={i}
+          src={url}
+          alt=""
+          className="w-full aspect-square object-cover rounded-xl border"
+        />
+      ))}
+    </div>
+  )}
+
+                  {/* CTA mensaje privado */}
                   {openProfile.data.id &&
                     openProfile.data.username &&
                     openProfile.data.id !== user?.id && (
@@ -2239,6 +2397,7 @@ export default function GroupPage({
           )}
         </DialogContent>
       </Dialog>
+
     </main>
   );
 }
