@@ -68,8 +68,14 @@ export default function CategoryEventsPage({
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // eventos de grupos que sigues
   const [events, setEvents] = useState<EventRow[]>([]);
+  // eventos de anfitrionas que sigues
+  const [hostEvents, setHostEvents] = useState<EventRow[]>([]);
+  // todos los grupos de esta ciudad + categoría (para mostrar nombre/slug)
   const [groups, setGroups] = useState<Record<string, GroupLite>>({});
+  // ids de grupos seguidos dentro de esta categoría
+  const [followedGroupIds, setFollowedGroupIds] = useState<string[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
   // popup perfil creadora
@@ -100,11 +106,13 @@ export default function CategoryEventsPage({
 
         if (!city?.id || !cat?.id) {
           setEvents([]);
+          setHostEvents([]);
           setGroups({});
+          setFollowedGroupIds([]);
           return;
         }
 
-        // 2) my followed group ids
+        // 2) ids de grupos que sigues (membership)
         const { data: mems } = await supabase
           .from("group_members")
           .select("group_id")
@@ -113,46 +121,60 @@ export default function CategoryEventsPage({
         const followedIds = (mems ?? []).map(
           (m: { group_id: string }) => m.group_id
         );
-        if (!followedIds.length) {
-          setEvents([]);
-          setGroups({});
-          return;
-        }
 
-        // 3) limit to followed groups in this category+city and approved
-        const { data: gRows } = await supabase
+        // 3) todos los grupos de esta ciudad + categoría (aprobados)
+        const { data: allGroups } = await supabase
           .from("groups")
           .select("id,name,slug")
-          .in("id", followedIds)
           .eq("city_id", city.id)
           .eq("category_id", cat.id)
           .eq("is_approved", true);
 
-        const validGroupIds = (gRows ?? []).map((g: GroupLite) => g.id);
-        if (!validGroupIds.length) {
+        if (!allGroups?.length) {
           setEvents([]);
+          setHostEvents([]);
           setGroups({});
+          setFollowedGroupIds([]);
           return;
         }
 
+        const allGroupIds = (allGroups ?? []).map(
+          (g: GroupLite) => g.id
+        );
+
+        const validGroupIds = allGroupIds.filter((id) =>
+          followedIds.includes(id)
+        );
+        setFollowedGroupIds(validGroupIds);
+
         const gMap: Record<string, GroupLite> = {};
-        (gRows ?? []).forEach((g: GroupLite) => {
+        (allGroups ?? []).forEach((g: GroupLite) => {
           gMap[g.id] = g;
         });
         setGroups(gMap);
 
-        // 4) events for those groups
+        // 4) anfitrionas que sigo
+        const { data: hostFollows } = await supabase
+          .from("host_followers")
+          .select("host_id")
+          .eq("follower_id", user.id);
+
+        const followedHostIds = (hostFollows ?? []).map(
+          (r: { host_id: string }) => r.host_id
+        );
+
+        // 5) eventos de todos los grupos de esta categoría/ciudad
         const { data: evs } = await supabase
           .from("community_events")
           .select(
             "id,title,description,location,starts_at,is_approved,creator_id,group_id,cover_image_url"
           )
-          .in("group_id", validGroupIds)
+          .in("group_id", allGroupIds)
           .order("starts_at", { ascending: true });
 
         const dbRows = (evs ?? []) as EventRowDB[];
 
-        // map creadoras → username
+        // 6) map creadoras → username
         const creatorIds = Array.from(
           new Set(
             dbRows
@@ -160,6 +182,7 @@ export default function CategoryEventsPage({
               .filter((id): id is string => Boolean(id))
           )
         );
+
         let creatorMap: Record<string, string | null> = {};
         if (creatorIds.length) {
           const { data: creators } = await supabase
@@ -174,7 +197,7 @@ export default function CategoryEventsPage({
           );
         }
 
-        const enriched: EventRow[] = dbRows.map((e) => ({
+        const enrichedAll: EventRow[] = dbRows.map((e) => ({
           id: e.id,
           title: e.title,
           description: e.description,
@@ -189,7 +212,26 @@ export default function CategoryEventsPage({
             : null,
         }));
 
-        setEvents(enriched);
+        // eventos de grupos que sigues
+        const eventsForGroups = enrichedAll.filter((ev) =>
+          validGroupIds.includes(ev.group_id)
+        );
+
+        // eventos de anfitrionas que sigues (en esta categoría/ciudad)
+        let eventsForHosts = enrichedAll.filter(
+          (ev) =>
+            ev.creator_id &&
+            followedHostIds.includes(ev.creator_id)
+        );
+
+        // evita duplicar si un evento ya aparece como "de grupos que sigues"
+        const groupEventIds = new Set(eventsForGroups.map((e) => e.id));
+        eventsForHosts = eventsForHosts.filter(
+          (e) => !groupEventIds.has(e.id)
+        );
+
+        setEvents(eventsForGroups);
+        setHostEvents(eventsForHosts);
       } finally {
         setLoadingData(false);
       }
@@ -227,7 +269,9 @@ export default function CategoryEventsPage({
       .from("profile_categories")
       .select("category_id")
       .eq("profile_id", prof.id);
-    const catIds = (pcats ?? []).map((c: { category_id: string }) => c.category_id);
+    const catIds = (pcats ?? []).map(
+      (c: { category_id: string }) => c.category_id
+    );
     if (catIds.length) {
       const { data: cats } = await supabase
         .from("categories")
@@ -312,16 +356,28 @@ export default function CategoryEventsPage({
   }
 
   const now = new Date();
-  const upcoming = events.filter(
+
+  const upcomingGroups = events.filter(
     (e) => new Date(e.starts_at).getTime() >= now.getTime()
   );
-  const past = events
-    .filter((e) => new Date(e.starts_at).getTime() < now.getTime())
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime()
-    );
+  const pastGroups = events.filter(
+    (e) => new Date(e.starts_at).getTime() < now.getTime()
+  );
+
+  const upcomingHosts = hostEvents.filter(
+    (e) => new Date(e.starts_at).getTime() >= now.getTime()
+  );
+  const pastHosts = hostEvents.filter(
+    (e) => new Date(e.starts_at).getTime() < now.getTime()
+  );
+
+  // mezcla de planes pasados (grupos + anfitrionas)
+  const pastMixed = [...pastGroups, ...pastHosts].sort(
+    (a, b) =>
+      new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime()
+  );
+
+  const hasAnyEvents = events.length > 0 || hostEvents.length > 0;
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
@@ -337,19 +393,19 @@ export default function CategoryEventsPage({
           </Link>
         </header>
 
-        {events.length === 0 ? (
+        {!hasAnyEvents ? (
           <p className="opacity-70">
             No hay planes de tus grupos seguidos todavía. Sigue grupos en esta
-            categoría para ver aquí sus planes ✨
+            categoría (y anfitrionas) para ver aquí sus planes ✨
           </p>
         ) : (
           <>
-            {/* Próximos planes */}
-            {upcoming.length > 0 && (
+            {/* Próximos planes de grupos que sigues */}
+            {upcomingGroups.length > 0 && (
               <section className="mb-10">
                 <h2 className="font-dmserif text-xl mb-4">Próximos planes</h2>
                 <div className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-2 no-scrollbar">
-                  {upcoming.map((ev) => {
+                  {upcomingGroups.map((ev) => {
                     const when = new Date(ev.starts_at);
                     const g = groups[ev.group_id];
 
@@ -442,12 +498,122 @@ export default function CategoryEventsPage({
               </section>
             )}
 
-            {/* Planes pasados */}
-            {past.length > 0 && (
+            {/* Planes de las anfitrionas que sigues · Próximos planes */}
+            <section className="mb-10">
+              <h2 className="font-dmserif text-xl mb-1">
+                Planes de las anfitrionas que sigues
+              </h2>
+
+              {upcomingHosts.length === 0 ? (
+                <p className="text-sm opacity-70 mb-4">
+                  Sigue a las anfitrionas que resuenen contigo para ver sus planes aquí ✨
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm opacity-70 mb-4">Próximos planes</p>
+                  <div className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-2 no-scrollbar">
+                    {upcomingHosts.map((ev) => {
+                      const when = new Date(ev.starts_at);
+                      const g = groups[ev.group_id];
+
+                      return (
+                        <div
+                          key={ev.id}
+                          className="relative shrink-0 w-[260px] snap-start rounded-2xl overflow-hidden shadow-md bg-white flex flex-col justify-between"
+                        >
+                          {/* Botón compartir */}
+                          <button
+                            type="button"
+                            onClick={() => shareEvent(ev)}
+                            className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-[#50415b]/90 flex items-center justify-center shadow-md hover:opacity-90"
+                            aria-label="Compartir plan"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src="/icons/share-ios.svg"
+                              alt=""
+                              className="w-5 h-5"
+                            />
+                          </button>
+
+                          {ev.image_url && (
+                            <div className="w-full">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={ev.image_url}
+                                alt={ev.title}
+                                className="w-full h-40 object-cover"
+                              />
+                            </div>
+                          )}
+
+                          <div className="p-4">
+                            <div className="text-xs uppercase tracking-wide opacity-70 mb-1">
+                              {when.toLocaleDateString("es-ES", {
+                                weekday: "short",
+                                day: "numeric",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </div>
+                            <h3 className="font-dmserif text-lg mb-1">
+                              {ev.title}
+                            </h3>
+
+                            {ev.location && (
+                              <p className="text-sm mb-1">📍 {ev.location}</p>
+                            )}
+
+                            {g && (
+                              <p className="text-xs opacity-80 mb-1">
+                                Grupo:{" "}
+                                <Link
+                                  href={`/valencia/${category}/group/${g.slug}/events`}
+                                  className="underline"
+                                >
+                                  {g.name}
+                                </Link>
+                              </p>
+                            )}
+
+                            {ev.description && (
+                              <p className="text-sm opacity-80 line-clamp-3">
+                                {ev.description}
+                              </p>
+                            )}
+
+                            {ev.creator_username && (
+                              <div className="mt-2 text-xs opacity-80">
+                                Creado por{" "}
+                                <button
+                                  type="button"
+                                  className="underline font-semibold hover:opacity-80"
+                                  onClick={() =>
+                                    openUserSheet(ev.creator_username!)
+                                  }
+                                >
+                                  @{ev.creator_username}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </section>
+
+            {/* Planes pasados (mix grupos + anfitrionas) */}
+            {pastMixed.length > 0 && (
               <section>
-                <h2 className="font-dmserif text-xl mb-4">Planes pasados</h2>
+                <h2 className="font-dmserif text-xl mb-4">
+                  Planes pasados
+                </h2>
                 <div className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-2 no-scrollbar">
-                  {past.map((ev) => {
+                  {pastMixed.map((ev) => {
                     const when = new Date(ev.starts_at);
                     const g = groups[ev.group_id];
 
@@ -552,9 +718,11 @@ export default function CategoryEventsPage({
 
       {/* Popup perfil creadora */}
       <Dialog open={!!openProfile} onOpenChange={() => setOpenProfile(null)}>
-        <DialogContent className="max-w-sm bg-white rounded-2xl p-5">
+        <DialogContent className="max-w-sm bg.white rounded-2xl p-5">
           <DialogHeader>
-            <DialogTitle className="font-dmserif text-2xl">Perfil</DialogTitle>
+            <DialogTitle className="font-dmserif text-2xl">
+              Perfil
+            </DialogTitle>
           </DialogHeader>
           {!openProfile?.data ? (
             <p>Cargando…</p>

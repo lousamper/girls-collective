@@ -138,7 +138,7 @@ export const DICT = {
           },
           {
             q: "¿Cómo empiezo?",
-            a: "Crea tu cuenta, completa tu perfil, entra a tu ciudad y explora los distintos grupos (o crea uno tú misma) para conocer a otras girls.",
+            a: "Crea tu cuenta, completa tu perfil, entra a tu ciudad y explora los distintos grupos (o crea uno tú misma) para conocer a otras girls. Encuentra planes o publica los que quieras.”",
           },
           {
             q: "¿Cuánto cuesta?",
@@ -841,7 +841,7 @@ privacy: {
           },
           {
             q: "How do I start?",
-            a: "Create your account, complete your profile, go to your city and explore the different groups (or create your own) to meet other girls.",
+            a: "Create your account, complete your profile, go to your city and explore the different groups (or create your own) to meet other girls. You can also join existing plans or host your own.",
           },
           {
             q: "How much does it cost?",
