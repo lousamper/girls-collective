@@ -72,6 +72,8 @@ export default function CategoryEventsPage({
   const [events, setEvents] = useState<EventRow[]>([]);
   // eventos de anfitrionas que sigues
   const [hostEvents, setHostEvents] = useState<EventRow[]>([]);
+  // 🔹 eventos de otros grupos de la categoría/ciudad (Planes para ti)
+  const [recommendedEvents, setRecommendedEvents] = useState<EventRow[]>([]);
   // todos los grupos de esta ciudad + categoría (para mostrar nombre/slug)
   const [groups, setGroups] = useState<Record<string, GroupLite>>({});
   // ids de grupos seguidos dentro de esta categoría
@@ -107,6 +109,7 @@ export default function CategoryEventsPage({
         if (!city?.id || !cat?.id) {
           setEvents([]);
           setHostEvents([]);
+          setRecommendedEvents([]);
           setGroups({});
           setFollowedGroupIds([]);
           return;
@@ -133,6 +136,7 @@ export default function CategoryEventsPage({
         if (!allGroups?.length) {
           setEvents([]);
           setHostEvents([]);
+          setRecommendedEvents([]);
           setGroups({});
           setFollowedGroupIds([]);
           return;
@@ -230,8 +234,14 @@ export default function CategoryEventsPage({
           (e) => !groupEventIds.has(e.id)
         );
 
+        // 🔹 eventos de otros grupos (no seguidos) = candidatos a "Planes para ti"
+        const recommended = enrichedAll.filter(
+          (ev) => !validGroupIds.includes(ev.group_id)
+        );
+
         setEvents(eventsForGroups);
         setHostEvents(eventsForHosts);
+        setRecommendedEvents(recommended);
       } finally {
         setLoadingData(false);
       }
@@ -371,13 +381,19 @@ export default function CategoryEventsPage({
     (e) => new Date(e.starts_at).getTime() < now.getTime()
   );
 
+  // 🔹 solo los próximos recomendados (“Planes para ti”)
+  const upcomingRecommended = recommendedEvents.filter(
+    (e) => new Date(e.starts_at).getTime() >= now.getTime()
+  );
+
   // mezcla de planes pasados (grupos + anfitrionas)
   const pastMixed = [...pastGroups, ...pastHosts].sort(
     (a, b) =>
       new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime()
   );
 
-  const hasAnyEvents = events.length > 0 || hostEvents.length > 0;
+  const hasAnyOwnEvents = events.length > 0 || hostEvents.length > 0;
+  const hasAnyRecommended = recommendedEvents.length > 0;
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
@@ -393,7 +409,7 @@ export default function CategoryEventsPage({
           </Link>
         </header>
 
-        {!hasAnyEvents ? (
+        {!hasAnyOwnEvents && !hasAnyRecommended ? (
           <p className="opacity-70">
             No hay planes de tus grupos seguidos todavía. Sigue grupos en esta
             categoría (y anfitrionas) para ver aquí sus planes ✨
@@ -497,6 +513,111 @@ export default function CategoryEventsPage({
                 </div>
               </section>
             )}
+
+            {/* 🔹 Planes para ti (recomendados de otros grupos) */}
+            <section className="mb-10">
+              <h2 className="font-dmserif text-xl mb-4">
+                Planes para ti
+              </h2>
+
+              {upcomingRecommended.length === 0 ? (
+                <p className="text-sm opacity-70">
+                  Cuando haya nuevos planes que encajen contigo, los verás aquí ✨
+                </p>
+              ) : (
+                <div className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-2 no-scrollbar">
+                  {upcomingRecommended.map((ev) => {
+                    const when = new Date(ev.starts_at);
+                    const g = groups[ev.group_id];
+
+                    return (
+                      <div
+                        key={ev.id}
+                        className="relative shrink-0 w-[260px] snap-start rounded-2xl overflow-hidden shadow-md bg-white flex flex-col justify-between"
+                      >
+                        {/* Botón compartir */}
+                        <button
+                          type="button"
+                          onClick={() => shareEvent(ev)}
+                          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-[#50415b]/90 flex items-center justify-center shadow-md hover:opacity-90"
+                          aria-label="Compartir plan"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src="/icons/share-ios.svg"
+                            alt=""
+                            className="w-5 h-5"
+                          />
+                        </button>
+
+                        {ev.image_url && (
+                          <div className="w-full">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={ev.image_url}
+                              alt={ev.title}
+                              className="w-full h-40 object-cover"
+                            />
+                          </div>
+                        )}
+
+                        <div className="p-4">
+                          <div className="text-xs uppercase tracking-wide opacity-70 mb-1">
+                            {when.toLocaleDateString("es-ES", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                          <h3 className="font-dmserif text-lg mb-1">
+                            {ev.title}
+                          </h3>
+
+                          {ev.location && (
+                            <p className="text-sm mb-1">📍 {ev.location}</p>
+                          )}
+
+                          {g && (
+                            <p className="text-xs opacity-80 mb-1">
+                              Grupo:{" "}
+                              <Link
+                                href={`/valencia/${category}/group/${g.slug}/events`}
+                                className="underline"
+                              >
+                                {g.name}
+                              </Link>
+                            </p>
+                          )}
+
+                          {ev.description && (
+                            <p className="text-sm opacity-80 line-clamp-3">
+                              {ev.description}
+                            </p>
+                          )}
+
+                          {ev.creator_username && (
+                            <div className="mt-2 text-xs opacity-80">
+                              Creado por{" "}
+                              <button
+                                type="button"
+                                className="underline font-semibold hover:opacity-80"
+                                onClick={() =>
+                                  openUserSheet(ev.creator_username!)
+                                }
+                              >
+                                @{ev.creator_username}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
 
             {/* Planes de las anfitrionas que sigues · Próximos planes */}
             <section className="mb-10">
