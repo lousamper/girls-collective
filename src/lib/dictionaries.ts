@@ -138,7 +138,7 @@ export const DICT = {
           },
           {
             q: "¿Cómo empiezo?",
-            a: "Crea tu cuenta, completa tu perfil, entra a tu ciudad y explora los distintos grupos (o crea uno tú misma) para conocer a otras girls. Encuentra planes o publica los que quieras.”",
+            a: "Crea tu cuenta, completa tu perfil, entra a tu ciudad y explora los distintos grupos (o crea uno tú misma) para conocer a otras girls. Encuentra planes o publica los que quieras.",
           },
           {
             q: "¿Cuánto cuesta?",
