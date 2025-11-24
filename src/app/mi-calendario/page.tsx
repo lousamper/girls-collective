@@ -96,32 +96,33 @@ export default function MyCalendarPage() {
         const dbRows = (evs ?? []) as EventRowDB[];
 
         // 4) grupos relacionados
-        const groupIds = Array.from(
-          new Set(
-            dbRows
-              .map((e) => e.group_id)
-              .filter((id): id is string => Boolean(id))
-          )
-        );
-        let groupMap: Record<string, GroupRow> = {};
-        if (groupIds.length) {
-          const { data: groups } = await supabase
-            .from("groups")
-            .select("id,name,slug,city_id,category_id")
-            .in("id", groupIds);
-          (groups ?? []).forEach((g: GroupRow) => (groupMap[g.id] = g));
-        }
+const groupIds = Array.from(
+  new Set(
+    dbRows
+      .map((e) => e.group_id)
+      .filter((id): id is string => Boolean(id))
+  )
+);
+const groupMap: Record<string, GroupRow> = {};
+if (groupIds.length) {
+  const { data: groups } = await supabase
+    .from("groups")
+    .select("id,name,slug,city_id,category_id")
+    .in("id", groupIds);
+  (groups ?? []).forEach((g: GroupRow) => (groupMap[g.id] = g));
+}
 
-        // 5) cities + categories
-        const cityIds = Array.from(
-          new Set(Object.values(groupMap).map((g) => g.city_id))
-        );
-        const categoryIds = Array.from(
-          new Set(Object.values(groupMap).map((g) => g.category_id))
-        );
+// 5) cities + categories
+const cityIds = Array.from(
+  new Set(Object.values(groupMap).map((g) => g.city_id))
+);
+const categoryIds = Array.from(
+  new Set(Object.values(groupMap).map((g) => g.category_id))
+);
 
-        let cityMap: Record<string, CityRow> = {};
-        let categoryMap: Record<string, CategoryRow> = {};
+const cityMap: Record<string, CityRow> = {};
+const categoryMap: Record<string, CategoryRow> = {};
+
 
         if (cityIds.length) {
           const { data: cities } = await supabase
@@ -387,10 +388,10 @@ export default function MyCalendarPage() {
                               )}
                             </div>
 
-                            {/* MOBILE: card rectangular con hora + estrella */}
+                            {/* MOBILE: card rectangular vertical, pequeño y centrado */}
 <div className="md:hidden flex justify-center">
-  <div className="rounded-xl bg-white shadow-md px-2 py-1.5 min-w-[60px] flex flex-col items-center justify-center text-[11px] font-semibold text-[#50415b] hover:opacity-95 leading-tight">
-    <span>{timeLabel}</span>
+  <div className="rounded-xl bg-white shadow-md px-1.5 py-1 min-w-[46px] max-w-[46px] flex flex-col items-center justify-center text-[10px] font-semibold text-[#50415b] hover:opacity-95 leading-tight">
+    <span className="text-[10px]">{timeLabel}</span>
     <Star
       className="w-3 h-3 mt-0.5 text-[#c197d2]"
       fill="currentColor"
