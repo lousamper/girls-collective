@@ -46,6 +46,12 @@ type ProfileRowDB = {
   avatar_url: string | null;
   favorite_emoji: string | null;
   quote: string | null;
+  is_host: boolean | null;
+  host_title: string | null;
+  host_bio: string | null;
+  host_website: string | null;
+  host_shop_url: string | null;
+  host_contact: string | null;
 };
 
 type ProfilePreview = {
@@ -57,6 +63,12 @@ type ProfilePreview = {
   quote?: string | null;
   interests?: string[];
   gallery?: string[];
+  is_host?: boolean | null;
+  host_title?: string | null;
+  host_bio?: string | null;
+  host_website?: string | null;
+  host_shop_url?: string | null;
+  host_contact?: string | null;
 };
 
 export default function CategoryEventsPage({
@@ -82,7 +94,7 @@ export default function CategoryEventsPage({
 
   // popup perfil creadora
   const [openProfile, setOpenProfile] =
-    useState<null | { username: string; data?: ProfilePreview }>(null);
+    useState<null | { username: string; data?: ProfilePreview; isFollowingHost?: boolean }>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push("/auth");
@@ -252,11 +264,14 @@ export default function CategoryEventsPage({
     return "Planes de los grupos que sigues";
   }, []);
 
-  async function openUserSheet(username: string) {
+    async function openUserSheet(username: string) {
     setOpenProfile({ username });
+
     const { data: prof } = await supabase
       .from("profiles")
-      .select("id,username,bio,avatar_url,favorite_emoji,quote")
+      .select(
+        "id,username,bio,avatar_url,favorite_emoji,quote,is_host,host_title,host_bio,host_website,host_shop_url,host_contact"
+      )
       .ilike("username", username)
       .maybeSingle<ProfileRowDB>();
 
@@ -272,8 +287,15 @@ export default function CategoryEventsPage({
       avatar_url: prof.avatar_url,
       favorite_emoji: prof.favorite_emoji ?? null,
       quote: prof.quote ?? null,
+      is_host: prof.is_host ?? false,
+      host_title: prof.host_title,
+      host_bio: prof.host_bio,
+      host_website: prof.host_website,
+      host_shop_url: prof.host_shop_url,
+      host_contact: prof.host_contact,
     };
 
+    // intereses
     const interests: string[] = [];
     const { data: pcats } = await supabase
       .from("profile_categories")
@@ -296,6 +318,7 @@ export default function CategoryEventsPage({
       .maybeSingle();
     if (custom?.interest) interests.push(custom.interest);
 
+    // galería
     let gallery: string[] = [];
     try {
       const { data: gal1 } = await supabase
@@ -318,11 +341,58 @@ export default function CategoryEventsPage({
       } catch {}
     }
 
+    // ¿la usuaria actual sigue a esta host?
+    let isFollowingHost = false;
+    if (prof.is_host && user) {
+      const { data: followRow } = await supabase
+        .from("host_followers")
+        .select("host_id")
+        .eq("host_id", prof.id)
+        .eq("follower_id", user.id)
+        .maybeSingle();
+      isFollowingHost = !!followRow;
+    }
+
     setOpenProfile({
       username,
       data: { ...preview, interests, gallery },
+      isFollowingHost,
     });
   }
+
+    async function toggleHostFollow() {
+    if (!user || !openProfile?.data?.id || !openProfile.data.is_host) return;
+
+    const hostId = openProfile.data.id;
+    const currentlyFollowing = !!openProfile.isFollowingHost;
+
+    try {
+      if (currentlyFollowing) {
+        await supabase
+          .from("host_followers")
+          .delete()
+          .match({ host_id: hostId, follower_id: user.id });
+      } else {
+        await supabase
+          .from("host_followers")
+          .insert({ host_id: hostId, follower_id: user.id });
+      }
+
+      setOpenProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              isFollowingHost: !currentlyFollowing,
+            }
+          : prev
+      );
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo actualizar el seguimiento de la anfitriona.");
+    }
+  }
+
+
 
   // 🔗 compartir plan (usa Web Share API si existe, si no copia el link)
   async function shareEvent(ev: EventRow) {
@@ -398,16 +468,38 @@ export default function CategoryEventsPage({
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
       <div className="max-w-6xl mx-auto px-6 py-10">
-        <header className="mb-6 flex items-start justify-between">
-          <h1 className="font-dmserif text-2xl md:text-3xl">{title}</h1>
-          {/* Desktop: link arriba */}
-          <Link
-            href={`/valencia/${category}`}
-            className="underline hidden md:inline"
-          >
-            Volver a la categoría
-          </Link>
-        </header>
+                <header className="mb-4 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+  {/* Título + Ver calendario (desktop) */}
+  <div className="flex flex-wrap items-baseline gap-3">
+    <h1 className="font-dmserif text-2xl md:text-3xl">
+      {title}
+    </h1>
+    <Link
+      href="/mi-calendario"
+      className="underline text-sm hidden md:inline"
+    >
+      Ver calendario
+    </Link>
+  </div>
+
+  {/* Volver a la categoría (desktop) */}
+  <Link
+    href={`/valencia/${category}`}
+    className="underline hidden md:inline text-sm"
+  >
+    Volver a la categoría
+  </Link>
+</header>
+
+
+        {/* Ver calendario en mobile, pegadito al título */}
+<div className="md:hidden mt-0.5 mb-2 text-sm">
+  <Link href="/mi-calendario" className="underline">
+    Ver calendario
+  </Link>
+</div>
+
+
 
         {!hasAnyOwnEvents && !hasAnyRecommended ? (
           <p className="opacity-70">
@@ -837,76 +929,170 @@ export default function CategoryEventsPage({
         </Link>
       </div>
 
-      {/* Popup perfil creadora */}
+            {/* Popup perfil creadora / anfitriona */}
       <Dialog open={!!openProfile} onOpenChange={() => setOpenProfile(null)}>
-        <DialogContent className="max-w-sm bg.white rounded-2xl p-5">
+        <DialogContent className="max-w-sm bg-white rounded-2xl p-5">
           <DialogHeader>
             <DialogTitle className="font-dmserif text-2xl">
               Perfil
             </DialogTitle>
           </DialogHeader>
+
           {!openProfile?.data ? (
             <p>Cargando…</p>
           ) : (
-            <div className="flex items-start gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={
-                  openProfile.data.avatar_url ?? "/placeholder-avatar.png"
-                }
-                alt=""
-                className="w-12 h-12 rounded-full object-cover"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="font-semibold">
-                    @{openProfile.data.username}
-                  </div>
-                  {openProfile.data.favorite_emoji ? (
-                    <span className="text-xl leading-none">
-                      {openProfile.data.favorite_emoji}
-                    </span>
-                  ) : null}
-                </div>
+            <div>
+              <div className="flex items-start gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={openProfile.data.avatar_url ?? "/placeholder-avatar.png"}
+                  alt=""
+                  className="w-12 h-12 rounded-full object-cover"
+                />
 
-                <div className="text-sm opacity-80">
-                  {openProfile.data.bio ?? "—"}
-                </div>
+                <div className="flex-1">
+                  {/* Cabecera + botón seguir anfitriona */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-semibold">
+                      @{openProfile.data.username}
+                    </div>
+                    {openProfile.data.favorite_emoji && (
+                      <span className="text-xl leading-none">
+                        {openProfile.data.favorite_emoji}
+                      </span>
+                    )}
 
-                {openProfile.data.quote && (
-                  <div className="mt-2 text-sm italic opacity-90">
-                    “{openProfile.data.quote}”
-                  </div>
-                )}
-
-                {openProfile.data.interests &&
-                  openProfile.data.interests.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {openProfile.data.interests.map((name, i) => (
-                        <span
-                          key={i}
-                          className="text-xs border rounded-full px-2 py-0.5"
+                    {openProfile.data.is_host &&
+                      openProfile.data.id !== user?.id && (
+                        <button
+                          type="button"
+                          onClick={toggleHostFollow}
+                          className="ml-auto rounded-full border px-3 py-0.5 text-xs shadow-sm hover:opacity-90"
                         >
-                          {name}
-                        </span>
-                      ))}
+                          {openProfile.isFollowingHost
+                            ? "Dejar de seguir"
+                            : "Seguir anfitriona"}
+                        </button>
+                      )}
+                  </div>
+
+                  {/* Bio básica */}
+                  <div className="text-sm opacity-80">
+                    {openProfile.data.bio ?? "—"}
+                  </div>
+
+                  {openProfile.data.quote && (
+                    <div className="mt-2 text-sm italic opacity-90">
+                      “{openProfile.data.quote}”
                     </div>
                   )}
 
-                {openProfile.data.gallery &&
-                  openProfile.data.gallery.length > 0 && (
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      {openProfile.data.gallery.slice(0, 6).map((url, i) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={i}
-                          src={url}
-                          alt=""
-                          className="w-full aspect-square object-cover rounded-xl border"
-                        />
-                      ))}
+                  {/* Bloque anfitriona (solo si es host) */}
+                  {openProfile.data.is_host && (
+                    <div className="mt-3 pt-3 border-t text-sm">
+                      <h3 className="font-dmserif text-lg mb-1">
+                        Perfil como anfitriona
+                      </h3>
+
+                      {openProfile.data.host_title && (
+                        <p className="font-semibold">
+                          {openProfile.data.host_title}
+                        </p>
+                      )}
+
+                      {openProfile.data.host_bio && (
+                        <p className="mt-1 opacity-80 whitespace-pre-wrap">
+                          {openProfile.data.host_bio}
+                        </p>
+                      )}
+
+                      <div className="mt-2 space-y-1">
+                        {openProfile.data.host_website && (
+                          <p>
+                            🌐{" "}
+                            <a
+                              href={openProfile.data.host_website}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline break-all"
+                            >
+                              {openProfile.data.host_website}
+                            </a>
+                          </p>
+                        )}
+
+                        {openProfile.data.host_shop_url && (
+                          <p>
+                            🛍️{" "}
+                            <span className="break-all">
+                              {openProfile.data.host_shop_url}
+                            </span>
+                          </p>
+                        )}
+
+                        {openProfile.data.host_contact && (
+                          <p>
+                            💌{" "}
+                            <span className="break-all">
+                              {openProfile.data.host_contact}
+                            </span>
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
+
+                  {/* Separador antes de intereses/galería */}
+                  {(openProfile.data.interests?.length ||
+                    openProfile.data.gallery?.length) ? (
+                    <hr className="mt-4 mb-3 border-t border-black/10" />
+                  ) : null}
+
+                  {/* Intereses */}
+                  {openProfile.data.interests &&
+                    openProfile.data.interests.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {openProfile.data.interests.map((name, i) => (
+                          <span
+                            key={i}
+                            className="text-xs border rounded-full px-2 py-0.5"
+                          >
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                  {/* Galería */}
+                  {openProfile.data.gallery &&
+                    openProfile.data.gallery.length > 0 && (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {openProfile.data.gallery.slice(0, 6).map((url, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={i}
+                            src={url}
+                            alt=""
+                            className="w-full aspect-square object-cover rounded-xl border"
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                  {/* CTA mensaje privado */}
+                  {openProfile.data.id &&
+                    openProfile.data.username &&
+                    openProfile.data.id !== user?.id && (
+                      <Link
+                        href={`/dm/${encodeURIComponent(
+                          openProfile.data.username
+                        )}`}
+                        className="inline-block mt-3 rounded-full bg-[#50415b] text-[#fef8f4] px-4 py-1.5 text-sm shadow-md hover:opacity-90"
+                      >
+                        Enviar mensaje
+                      </Link>
+                    )}
+                </div>
               </div>
             </div>
           )}
