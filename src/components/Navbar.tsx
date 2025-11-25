@@ -27,15 +27,20 @@ export default function Navbar() {
   const dict = useMemo(() => getDict(lang), [lang]);
   const t = (path: string, fallback?: string) => tt(dict, path, fallback);
 
-  // detectar categoría actual (si estamos en /valencia/[category]/...)
+  // detectar ciudad + categoría actual (si estamos en /valencia/[category]/...)
   const segments = pathname.split("/").filter(Boolean); // ej: ["valencia","arte","group","xxx"]
+  const currentCity = segments[0] === "valencia" ? segments[0] : null;
   const currentCategory =
-    segments[0] === "valencia" && segments[1] ? segments[1] : null;
+    currentCity && segments[1] ? segments[1] : null;
 
   // href para "Mis planes"
-  const myPlansHref = currentCategory
-    ? `/valencia/${currentCategory}/events`
-    : "/find-your-city";
+  const myPlansHref =
+    currentCity && currentCategory
+      ? `/${currentCity}/${currentCategory}/events`
+      : "/find-your-city";
+
+  // href para "Mapa de planes"
+  const mapHref = currentCity ? `/${currentCity}/map` : "/valencia/map";
 
   // admin check
   useEffect(() => {
@@ -265,9 +270,9 @@ export default function Navbar() {
                     >
                       {t("nav.myPlans", "Mis planes")}
                     </Link>
-                    {/* 🔸 NUEVO: mapa de planes (desktop dropdown) */}
+                    {/* 🔸 Mapa de planes (desktop dropdown) */}
                     <Link
-                      href="/valencia/map"
+                      href={mapHref}
                       onClick={() => setAccountOpen(false)}
                       className="block px-4 py-2 text-sm hover:bg-black/5"
                     >
@@ -447,10 +452,10 @@ export default function Navbar() {
                     {t("nav.myPlans", "Mis planes")}
                   </Link>
                 </li>
-                {/* 🔸 NUEVO: mapa de planes (mobile drawer) */}
+                {/* 🔸 Mapa de planes (mobile drawer) */}
                 <li>
                   <Link
-                    href="/valencia/map"
+                    href={mapHref}
                     onClick={closeMenu}
                     className="block rounded-xl px-4 py-3 hover:bg-black/5"
                   >

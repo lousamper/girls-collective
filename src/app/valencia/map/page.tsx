@@ -30,6 +30,7 @@ type EventRowDB = {
   cover_image_url: string | null;
   latitude: number | null;
   longitude: number | null;
+  location: string | null;
   group_id: string | null;
 };
 
@@ -71,7 +72,7 @@ export default function MapPage() {
         const { data: evs, error } = await supabase
           .from("community_events")
           .select(
-            "id,title,starts_at,cover_image_url,latitude,longitude,group_id"
+            "id,title,starts_at,location,cover_image_url,latitude,longitude,group_id"
           )
           .eq("is_approved", true)
           .not("latitude", "is", null)
@@ -96,7 +97,7 @@ export default function MapPage() {
           )
         );
 
-        let groupMap: Record<string, GroupRow> = {};
+        const groupMap: Record<string, GroupRow> = {};
         if (groupIds.length) {
           const { data: groups, error: gErr } = await supabase
             .from("groups")
@@ -120,8 +121,8 @@ export default function MapPage() {
           new Set(Object.values(groupMap).map((g) => g.category_id))
         );
 
-        let cityMap: Record<string, CityRow> = {};
-        let categoryMap: Record<string, CategoryRow> = {};
+        const cityMap: Record<string, CityRow> = {};
+        const categoryMap: Record<string, CategoryRow> = {};
 
         if (cityIds.length) {
           const { data: cities } = await supabase
@@ -309,27 +310,34 @@ export default function MapPage() {
                     position={[ev.latitude, ev.longitude]}
                   >
                     <Popup>
-                      <div className="text-sm">
-                        <strong>{ev.title}</strong>
-                        <br />
-                        {new Date(ev.starts_at).toLocaleString("es-ES", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        <br />
-                        {link && (
-                          <Link
-                            href={link}
-                            className="underline text-[#50415b] font-semibold"
-                          >
-                            Ver plan →
-                          </Link>
-                        )}
-                      </div>
-                    </Popup>
+  <div className="text-sm">
+    <strong>{ev.title}</strong>
+    <br />
+    {new Date(ev.starts_at).toLocaleString("es-ES", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    })}
+    {ev.location && (
+      <>
+        <br />
+        📍 {ev.location}
+      </>
+    )}
+    <br />
+    {link && (
+      <Link
+        href={link}
+        className="underline text-[#50415b] font-semibold"
+      >
+        Ver plan →
+      </Link>
+    )}
+  </div>
+</Popup>
+
                   </Marker>
                 );
               })}
