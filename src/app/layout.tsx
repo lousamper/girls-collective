@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { Montserrat, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";

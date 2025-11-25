@@ -265,6 +265,14 @@ export default function Navbar() {
                     >
                       {t("nav.myPlans", "Mis planes")}
                     </Link>
+                    {/* 🔸 NUEVO: mapa de planes (desktop dropdown) */}
+                    <Link
+                      href="/valencia/map"
+                      onClick={() => setAccountOpen(false)}
+                      className="block px-4 py-2 text-sm hover:bg-black/5"
+                    >
+                      {t("nav.map", "Mapa de planes")}
+                    </Link>
                     <Link
                       href="/dm"
                       onClick={() => setAccountOpen(false)}
@@ -437,6 +445,16 @@ export default function Navbar() {
                     className="block rounded-xl px-4 py-3 hover:bg-black/5"
                   >
                     {t("nav.myPlans", "Mis planes")}
+                  </Link>
+                </li>
+                {/* 🔸 NUEVO: mapa de planes (mobile drawer) */}
+                <li>
+                  <Link
+                    href="/valencia/map"
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
+                    {t("nav.map", "Mapa de planes")}
                   </Link>
                 </li>
                 <li>
