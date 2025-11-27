@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
@@ -23,6 +23,7 @@ type EventRow = {
   creator_id: string | null;
   image_url: string | null;
   creator_username: string | null;
+  is_cancelled: boolean;
 };
 
 type EventRowDB = {
@@ -34,6 +35,7 @@ type EventRowDB = {
   is_approved: boolean;
   creator_id: string | null;
   cover_image_url: string | null;
+  is_cancelled: boolean | null;
 };
 
 type ProfileRowDB = {
@@ -81,6 +83,10 @@ export default function EventsPage({
   const [editLoc, setEditLoc] = useState("");
   const [editWhen, setEditWhen] = useState("");
 
+  // edición de imagen
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [imageEventId, setImageEventId] = useState<string | null>(null);
+
   // popup de perfil
   const [openProfile, setOpenProfile] =
     useState<null | { username: string; data?: ProfilePreview }>(null);
@@ -127,7 +133,7 @@ export default function EventsPage({
       const { data: rows } = await supabase
         .from("community_events")
         .select(
-          "id,title,description,location,starts_at,is_approved,creator_id,cover_image_url"
+          "id,title,description,location,starts_at,is_approved,creator_id,cover_image_url,is_cancelled"
         )
         .eq("group_id", g.id)
         .order("starts_at", { ascending: true });
@@ -175,6 +181,7 @@ export default function EventsPage({
           creator_username: ev.creator_id
             ? creatorMap[ev.creator_id] ?? null
             : null,
+          is_cancelled: ev.is_cancelled ?? false,
         }));
 
       setEvents(filtered);
@@ -253,9 +260,38 @@ export default function EventsPage({
     }
   }
 
-  async function toggleGoing(id: string, isApproved: boolean) {
+  async function cancelEvent(id: string) {
     if (!user) return;
-    if (!isApproved) return;
+    if (!confirm("¿Cancelar este evento?")) return;
+    setBusy(`cancel-${id}`);
+    setMsg("");
+    try {
+      const updateQuery = supabase
+        .from("community_events")
+        .update({ is_cancelled: true })
+        .eq("id", id);
+
+      const { error } = await updateQuery;
+      if (error) throw error;
+
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === id ? { ...e, is_cancelled: true } : e
+        )
+      );
+      setMsg("Evento cancelado ❌");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo cancelar el evento.";
+      setMsg(message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function toggleGoing(id: string, isApproved: boolean, isCancelled: boolean) {
+    if (!user) return;
+    if (!isApproved || isCancelled) return;
     setBusy(`going-${id}`);
     try {
       const going = goingMap[id] === true;
@@ -343,6 +379,67 @@ export default function EventsPage({
     } finally {
       setBusy(null);
     }
+  }
+
+  async function updateEventImage(eventId: string, file: File) {
+    if (!user) return;
+    setBusy(`img-${eventId}`);
+    setMsg("");
+    try {
+      const ext =
+        file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `events/${user.id}/${eventId}-${Date.now()}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("Avatars")
+        .upload(path, file, {
+          upsert: true,
+          cacheControl: "3600",
+          contentType: file.type || "image/jpeg",
+        });
+      if (upErr) throw upErr;
+
+      const pub = supabase.storage.from("Avatars").getPublicUrl(path);
+      const image_url = pub?.data?.publicUrl ?? null;
+
+      const { error } = await supabase
+        .from("community_events")
+        .update({ cover_image_url: image_url })
+        .eq("id", eventId)
+        .eq("creator_id", user.id);
+      if (error) throw error;
+
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === eventId ? { ...e, image_url } : e
+        )
+      );
+      setMsg("Imagen actualizada ✅");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo actualizar la imagen.";
+      setMsg(message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function handleImageClick(eventId: string, canChange: boolean) {
+    if (!canChange) return;
+    setImageEventId(eventId);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    }
+  }
+
+  async function handleImageFileChange(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+    if (!file || !imageEventId) return;
+    await updateEventImage(imageEventId, file);
+    setImageEventId(null);
   }
 
   async function openUserSheet(username: string) {
@@ -497,6 +594,10 @@ export default function EventsPage({
                       isAdmin || (user && ev.creator_id === user.id);
                     const canApprove = isAdmin && !ev.is_approved;
                     const canEdit = user && ev.creator_id === user.id;
+                    const canCancel =
+                      isAdmin || (user && ev.creator_id === user.id);
+                    const canChangeImage =
+                      user && (ev.creator_id === user.id || isAdmin);
                     const going = goingMap[ev.id] === true;
                     const count = countMap[ev.id] ?? 0;
                     const isEditing = editingId === ev.id;
@@ -515,6 +616,15 @@ export default function EventsPage({
                                 src={ev.image_url}
                                 alt={ev.title}
                                 className="w-full h-40 object-cover"
+                                onClick={() =>
+                                  handleImageClick(
+                                    ev.id,
+                                    Boolean(canChangeImage)
+                                  )
+                                }
+                                style={{
+                                  cursor: canChangeImage ? "pointer" : "default",
+                                }}
                               />
                               <button
                                 type="button"
@@ -570,218 +680,9 @@ export default function EventsPage({
                                     Borrador
                                   </span>
                                 )}
-                              </div>
-                              <div className="text-sm opacity-80">
-                                {when.toLocaleDateString()} •{" "}
-                                {when.toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </div>
-                              {ev.location && (
-                                <div className="text-sm opacity-80 mt-1">
-                                  📍 {ev.location}
-                                </div>
-                              )}
-                              {ev.description && (
-                                <p className="mt-3 text-sm">
-                                  {ev.description}
-                                </p>
-                              )}
-                              {ev.creator_username && (
-                                <div className="mt-2 text-xs opacity-80">
-                                  Creado por{" "}
-                                  <button
-                                    type="button"
-                                    className="underline font-semibold hover:opacity-80"
-                                    onClick={() =>
-                                      openUserSheet(ev.creator_username!)
-                                    }
-                                  >
-                                    @{ev.creator_username}
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-
-                        <div className="mt-4 flex items-center justify-between">
-                          <div className="text-sm opacity-80">
-                            {count} {count === 1 ? "asistencia" : "asistencias"}
-                          </div>
-                          <div className="flex flex-wrap gap-3 justify-end">
-                            <button
-                              onClick={() => toggleGoing(ev.id, ev.is_approved)}
-                              disabled={
-                                busy === `going-${ev.id}` || !ev.is_approved
-                              }
-                              className={`rounded-full px-4 py-1.5 text-sm border shadow-sm hover:opacity-90 ${
-                                going ? "bg-gcBackgroundAlt2" : "bg-white"
-                              } ${
-                                !ev.is_approved
-                                  ? "opacity-60 cursor-not-allowed"
-                                  : ""
-                              }`}
-                              title={
-                                ev.is_approved
-                                  ? going
-                                    ? "Cancelar asistencia"
-                                    : "Confirmar asistencia"
-                                  : "Pendiente de aprobación"
-                              }
-                            >
-                              {busy === `going-${ev.id}`
-                                ? "…"
-                                : going
-                                ? "Ya vas"
-                                : "Asistiré"}
-                            </button>
-
-                            {isEditing && canEdit ? (
-                              <>
-                                <button
-                                  onClick={() => saveEdit(ev.id)}
-                                  disabled={busy === `edit-${ev.id}`}
-                                  className="underline text-sm"
-                                >
-                                  {busy === `edit-${ev.id}`
-                                    ? "Guardando…"
-                                    : "Guardar"}
-                                </button>
-                                <button
-                                  onClick={() => setEditingId(null)}
-                                  className="underline text-sm"
-                                >
-                                  Cancelar
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                {canEdit && (
-                                  <button
-                                    onClick={() => startEdit(ev)}
-                                    className="underline text-sm"
-                                  >
-                                    Editar
-                                  </button>
-                                )}
-                                {canApprove && (
-                                  <button
-                                    onClick={() => approveEvent(ev.id)}
-                                    disabled={busy === `approve-${ev.id}`}
-                                    className="underline text-sm"
-                                  >
-                                    {busy === `approve-${ev.id}`
-                                      ? "Aprobando…"
-                                      : "Aprobar"}
-                                  </button>
-                                )}
-                                {canDelete && (
-                                  <button
-                                    onClick={() => deleteEvent(ev.id)}
-                                    disabled={busy === ev.id}
-                                    className="underline text-sm"
-                                  >
-                                    {busy === ev.id
-                                      ? "Eliminando…"
-                                      : "Eliminar"}
-                                  </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-
-            {/* Eventos pasados */}
-            {past.length > 0 && (
-              <>
-                <h2 className="font-dmserif text-xl mb-4">
-                  Planes pasados
-                </h2>
-                <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {past.map((ev) => {
-                    const when = new Date(ev.starts_at);
-                    const canDelete =
-                      isAdmin || (user && ev.creator_id === user.id);
-                    const canApprove = isAdmin && !ev.is_approved;
-                    const canEdit = user && ev.creator_id === user.id;
-                    const going = goingMap[ev.id] === true;
-                    const count = countMap[ev.id] ?? 0;
-                    const isEditing = editingId === ev.id;
-
-                    return (
-                      <li
-                        key={ev.id}
-                        id={ev.id}
-                        className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between opacity-90"
-                      >
-                        <div>
-                          {ev.image_url && (
-                            <div className="-mx-4 -mt-4 mb-3 rounded-t-2xl overflow-hidden relative">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={ev.image_url}
-                                alt={ev.title}
-                                className="w-full h-40 object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleShare(ev)}
-                                className="absolute top-2 right-2 inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#c197d2] text-white shadow-md hover:opacity-90"
-                                aria-label="Compartir plan"
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src="/icons/share-ios.png"
-                                  alt=""
-                                  className="w-4 h-4"
-                                />
-                              </button>
-                            </div>
-                          )}
-
-                          {isEditing ? (
-                            <div className="space-y-2">
-                              <input
-                                className="w-full rounded-xl border p-2 text-sm"
-                                value={editTitle}
-                                onChange={(e) => setEditTitle(e.target.value)}
-                                placeholder="Título"
-                              />
-                              <textarea
-                                className="w-full rounded-xl border p-2 text-sm"
-                                rows={3}
-                                value={editDesc}
-                                onChange={(e) => setEditDesc(e.target.value)}
-                                placeholder="Descripción"
-                              />
-                              <input
-                                className="w-full rounded-xl border p-2 text-sm"
-                                value={editLoc}
-                                onChange={(e) => setEditLoc(e.target.value)}
-                                placeholder="Ubicación"
-                              />
-                              <input
-                                type="datetime-local"
-                                className="w-full rounded-xl border p-2 text-sm"
-                                value={editWhen}
-                                onChange={(e) => setEditWhen(e.target.value)}
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold">{ev.title}</h3>
-                                {!ev.is_approved && (
-                                  <span className="text-xs border px-2 py-0.5 rounded-full">
-                                    Borrador
+                                {ev.is_cancelled && (
+                                  <span className="text-xs border px-2 py-0.5 rounded-full bg-red-50 border-red-200 text-red-700">
+                                    Cancelado
                                   </span>
                                 )}
                               </div>
@@ -820,92 +721,340 @@ export default function EventsPage({
                           )}
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between">
-                          <div className="text-sm opacity-80">
-                            {count} {count === 1 ? "asistencia" : "asistencias"}
-                          </div>
-                          <div className="flex flex-wrap gap-3 justify-end">
-                            <button
-                              onClick={() => toggleGoing(ev.id, ev.is_approved)}
-                              disabled={
-                                busy === `going-${ev.id}` || !ev.is_approved
-                              }
-                              className={`rounded-full px-4 py-1.5 text-sm border shadow-sm hover:opacity-90 ${
-                                going ? "bg-gcBackgroundAlt2" : "bg-white"
-                              } ${
-                                !ev.is_approved
-                                  ? "opacity-60 cursor-not-allowed"
-                                  : ""
-                              }`}
-                              title={
-                                ev.is_approved
-                                  ? going
-                                    ? "Cancelar asistencia"
-                                    : "Confirmar asistencia"
-                                  : "Pendiente de aprobación"
-                              }
-                            >
-                              {busy === `going-${ev.id}`
-                                ? "…"
-                                : going
-                                ? "Ya vas"
-                                : "Asistiré"}
-                            </button>
+                        <div className="mt-4 space-y-2">
+  {/* fila 1: emoji + número / botón Asistiré */}
+  <div className="flex items-center justify-between">
+    <div className="text-sm opacity-80 flex items-center gap-1">
+      <span>👥</span>
+      <span>{count}</span>
+    </div>
 
-                            {isEditing && canEdit ? (
-                              <>
-                                <button
-                                  onClick={() => saveEdit(ev.id)}
-                                  disabled={busy === `edit-${ev.id}`}
-                                  className="underline text-sm"
-                                >
-                                  {busy === `edit-${ev.id}`
-                                    ? "Guardando…"
-                                    : "Guardar"}
-                                </button>
-                                <button
-                                  onClick={() => setEditingId(null)}
-                                  className="underline text-sm"
-                                >
-                                  Cancelar
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                {canEdit && (
-                                  <button
-                                    onClick={() => startEdit(ev)}
-                                    className="underline text-sm"
-                                  >
-                                    Editar
-                                  </button>
+    <button
+      onClick={() => toggleGoing(ev.id, ev.is_approved, ev.is_cancelled)}
+      disabled={
+        busy === `going-${ev.id}` || !ev.is_approved || ev.is_cancelled
+      }
+      className={`rounded-full px-4 py-1.5 text-sm border shadow-sm hover:opacity-90 ${
+        going ? "bg-gcBackgroundAlt2" : "bg-white"
+      } ${
+        !ev.is_approved || ev.is_cancelled
+          ? "opacity-60 cursor-not-allowed"
+          : ""
+      }`}
+      title={
+        ev.is_cancelled
+          ? "Este plan está cancelado"
+          : ev.is_approved
+          ? going
+            ? "Cancelar asistencia"
+            : "Confirmar asistencia"
+          : "Pendiente de aprobación"
+      }
+    >
+      {busy === `going-${ev.id}`
+        ? "…"
+        : ev.is_cancelled
+        ? "Cancelado"
+        : going
+        ? "Ya vas"
+        : "Asistiré"}
+    </button>
+  </div>
+
+  {/* fila 2: Editar / Cancelar / Eliminar (y Aprobar si aplica) */}
+  <div className="flex flex-wrap gap-3 justify-end text-sm">
+    {isEditing && canEdit ? (
+      <>
+        <button
+          onClick={() => saveEdit(ev.id)}
+          disabled={busy === `edit-${ev.id}`}
+          className="underline"
+        >
+          {busy === `edit-${ev.id}` ? "Guardando…" : "Guardar"}
+        </button>
+        <button
+          onClick={() => setEditingId(null)}
+          className="underline"
+        >
+          Cancelar
+        </button>
+      </>
+    ) : (
+      <>
+        {canEdit && (
+          <button
+            onClick={() => startEdit(ev)}
+            className="underline"
+          >
+            Editar
+          </button>
+        )}
+        {canCancel && !ev.is_cancelled && (
+          <button
+            onClick={() => cancelEvent(ev.id)}
+            disabled={busy === `cancel-${ev.id}`}
+            className="underline"
+          >
+            {busy === `cancel-${ev.id}` ? "Cancelando…" : "Cancelar plan"}
+          </button>
+        )}
+        {canDelete && (
+          <button
+            onClick={() => deleteEvent(ev.id)}
+            disabled={busy === ev.id}
+            className="underline"
+          >
+            {busy === ev.id ? "Eliminando…" : "Eliminar"}
+          </button>
+        )}
+        {canApprove && (
+          <button
+            onClick={() => approveEvent(ev.id)}
+            disabled={busy === `approve-${ev.id}`}
+            className="underline"
+          >
+            {busy === `approve-${ev.id}` ? "Aprobando…" : "Aprobar"}
+          </button>
+        )}
+      </>
+    )}
+  </div>
+</div>
+
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+
+            {/* Eventos pasados */}
+            {past.length > 0 && (
+              <>
+                <h2 className="font-dmserif text-xl mb-4">
+                  Planes pasados
+                </h2>
+                <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {past.map((ev) => {
+                    const when = new Date(ev.starts_at);
+                    const canDelete =
+                      isAdmin || (user && ev.creator_id === user.id);
+                    const canApprove = isAdmin && !ev.is_approved;
+                    const canEdit = user && ev.creator_id === user.id;
+                    const canCancel =
+                      isAdmin || (user && ev.creator_id === user.id);
+                    const canChangeImage =
+                      user && (ev.creator_id === user.id || isAdmin);
+                    const going = goingMap[ev.id] === true;
+                    const count = countMap[ev.id] ?? 0;
+                    const isEditing = editingId === ev.id;
+
+                    return (
+                      <li
+                        key={ev.id}
+                        id={ev.id}
+                        className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between opacity-90"
+                      >
+                        <div>
+                          {ev.image_url && (
+  <div className="-mx-4 -mt-4 mb-3 rounded-t-2xl overflow-hidden">
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img
+      src={ev.image_url}
+      alt={ev.title}
+      className="w-full h-40 object-cover"
+      onClick={() =>
+        handleImageClick(
+          ev.id,
+          Boolean(canChangeImage)
+        )
+      }
+      style={{
+        cursor: canChangeImage ? "pointer" : "default",
+      }}
+    />
+  </div>
+)}
+
+
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <input
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                placeholder="Título"
+                              />
+                              <textarea
+                                className="w-full rounded-xl border p-2 text-sm"
+                                rows={3}
+                                value={editDesc}
+                                onChange={(e) => setEditDesc(e.target.value)}
+                                placeholder="Descripción"
+                              />
+                              <input
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editLoc}
+                                onChange={(e) => setEditLoc(e.target.value)}
+                                placeholder="Ubicación"
+                              />
+                              <input
+                                type="datetime-local"
+                                className="w-full rounded-xl border p-2 text-sm"
+                                value={editWhen}
+                                onChange={(e) => setEditWhen(e.target.value)}
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold">{ev.title}</h3>
+                                {!ev.is_approved && (
+                                  <span className="text-xs border px-2 py-0.5 rounded-full">
+                                    Borrador
+                                  </span>
                                 )}
-                                {canApprove && (
-                                  <button
-                                    onClick={() => approveEvent(ev.id)}
-                                    disabled={busy === `approve-${ev.id}`}
-                                    className="underline text-sm"
-                                  >
-                                    {busy === `approve-${ev.id}`
-                                      ? "Aprobando…"
-                                      : "Aprobar"}
-                                  </button>
+                                {ev.is_cancelled && (
+                                  <span className="text-xs border px-2 py-0.5 rounded-full bg-red-50 border-red-200 text-red-700">
+                                    Cancelado
+                                  </span>
                                 )}
-                                {canDelete && (
+                              </div>
+                              <div className="text-sm opacity-80">
+                                {when.toLocaleDateString()} •{" "}
+                                {when.toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </div>
+                              {ev.location && (
+                                <div className="text-sm opacity-80 mt-1">
+                                  📍 {ev.location}
+                                </div>
+                              )}
+                              {ev.description && (
+                                <p className="mt-3 text-sm">
+                                  {ev.description}
+                                </p>
+                              )}
+                              {ev.creator_username && (
+                                <div className="mt-2 text-xs opacity-80">
+                                  Creado por{" "}
                                   <button
-                                    onClick={() => deleteEvent(ev.id)}
-                                    disabled={busy === ev.id}
-                                    className="underline text-sm"
+                                    type="button"
+                                    className="underline font-semibold hover:opacity-80"
+                                    onClick={() =>
+                                      openUserSheet(ev.creator_username!)
+                                    }
                                   >
-                                    {busy === ev.id
-                                      ? "Eliminando…"
-                                      : "Eliminar"}
+                                    @{ev.creator_username}
                                   </button>
-                                )}
-                              </>
-                            )}
-                          </div>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
+
+                        <div className="mt-4 space-y-2">
+  {/* fila 1: emoji + número / botón Asistiré */}
+  <div className="flex items-center justify-between">
+    <div className="text-sm opacity-80 flex items-center gap-1">
+      <span>👥</span>
+      <span>{count}</span>
+    </div>
+
+    <button
+      onClick={() => toggleGoing(ev.id, ev.is_approved, ev.is_cancelled)}
+      disabled={
+        busy === `going-${ev.id}` || !ev.is_approved || ev.is_cancelled
+      }
+      className={`rounded-full px-4 py-1.5 text-sm border shadow-sm hover:opacity-90 ${
+        going ? "bg-gcBackgroundAlt2" : "bg-white"
+      } ${
+        !ev.is_approved || ev.is_cancelled
+          ? "opacity-60 cursor-not-allowed"
+          : ""
+      }`}
+      title={
+        ev.is_cancelled
+          ? "Este plan está cancelado"
+          : ev.is_approved
+          ? going
+            ? "Cancelar asistencia"
+            : "Confirmar asistencia"
+          : "Pendiente de aprobación"
+      }
+    >
+      {busy === `going-${ev.id}`
+        ? "…"
+        : ev.is_cancelled
+        ? "Cancelado"
+        : going
+        ? "Ya vas"
+        : "Asistiré"}
+    </button>
+  </div>
+
+  {/* fila 2: Editar / Cancelar / Eliminar (y Aprobar si aplica) */}
+  <div className="flex flex-wrap gap-3 justify-end text-sm">
+    {isEditing && canEdit ? (
+      <>
+        <button
+          onClick={() => saveEdit(ev.id)}
+          disabled={busy === `edit-${ev.id}`}
+          className="underline"
+        >
+          {busy === `edit-${ev.id}` ? "Guardando…" : "Guardar"}
+        </button>
+        <button
+          onClick={() => setEditingId(null)}
+          className="underline"
+        >
+          Cancelar
+        </button>
+      </>
+    ) : (
+      <>
+        {canEdit && (
+          <button
+            onClick={() => startEdit(ev)}
+            className="underline"
+          >
+            Editar
+          </button>
+        )}
+        {canCancel && !ev.is_cancelled && (
+          <button
+            onClick={() => cancelEvent(ev.id)}
+            disabled={busy === `cancel-${ev.id}`}
+            className="underline"
+          >
+            {busy === `cancel-${ev.id}` ? "Cancelando…" : "Cancelar plan"}
+          </button>
+        )}
+        {canDelete && (
+          <button
+            onClick={() => deleteEvent(ev.id)}
+            disabled={busy === ev.id}
+            className="underline"
+          >
+            {busy === ev.id ? "Eliminando…" : "Eliminar"}
+          </button>
+        )}
+        {canApprove && (
+          <button
+            onClick={() => approveEvent(ev.id)}
+            disabled={busy === `approve-${ev.id}`}
+            className="underline"
+          >
+            {busy === `approve-${ev.id}` ? "Aprobando…" : "Aprobar"}
+          </button>
+        )}
+      </>
+    )}
+  </div>
+</div>
+
                       </li>
                     );
                   })}
@@ -925,6 +1074,15 @@ export default function EventsPage({
           </Link>
         </div>
       </div>
+
+      {/* input oculto para cambiar imagen */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageFileChange}
+      />
 
       {/* Popup de perfil */}
       <Dialog open={!!openProfile} onOpenChange={() => setOpenProfile(null)}>
