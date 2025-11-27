@@ -166,7 +166,7 @@ export default function GroupPage({
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const [pollMsg, setPollMsg] = useState("");
 
-  // events (create modal)
+    // events (create modal)
   const [openEvent, setOpenEvent] = useState(false);
   const [evTitle, setEvTitle] = useState("");
   const [evDesc, setEvDesc] = useState("");
@@ -175,6 +175,12 @@ export default function GroupPage({
   const [evMsg, setEvMsg] = useState("");
   const [evImageFile, setEvImageFile] = useState<File | null>(null);
   const [evImagePreview, setEvImagePreview] = useState<string | null>(null);
+
+  // 🔍 Coordenadas para el mapa + estado de verificación
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [locStatus, setLocStatus] = useState<string>("");
+
 
   const [events, setEvents] = useState<CommunityEventRow[]>([]);
   const [eventGoingMap, setEventGoingMap] = useState<Record<string, boolean>>({});
@@ -896,17 +902,20 @@ const [openProfile, setOpenProfile] = useState<
     setPolls(Object.values(byPoll));
   }
 
-  async function loadEvents(groupId: string) {
+    async function loadEvents(groupId: string) {
     if (!user) {
       setEvents([]);
       setEventGoingMap({});
       setEventCountMap({});
       return;
     }
+
     const nowIso = new Date().toISOString();
     const { data, error } = await supabase
       .from("community_events")
-      .select("id, title, description, location, starts_at, cover_image_url, creator_id, is_approved")
+      .select(
+        "id, title, description, location, starts_at, cover_image_url, creator_id, is_approved"
+      )
       .eq("group_id", groupId)
       .gte("starts_at", nowIso)
       .order("starts_at", { ascending: true });
@@ -946,7 +955,9 @@ const [openProfile, setOpenProfile] = useState<
     }
 
     // usernames de creadoras
-    const creatorIds = Array.from(new Set(approved.map((e) => e.creator_id))).filter(Boolean);
+    const creatorIds = Array.from(
+      new Set(approved.map((e) => e.creator_id))
+    ).filter(Boolean);
     const creatorMap: Record<string, string | null> = {};
     if (creatorIds.length) {
       const { data: profs } = await supabase
@@ -973,6 +984,60 @@ const [openProfile, setOpenProfile] = useState<
     setEventCountMap(countMap);
     setEventGoingMap(goingMap);
   }
+
+  // 🔍 Verificar ubicación con la API de geocoding
+async function handleVerifyLocation() {
+  const trimmedLoc = evLoc.trim();
+  if (!trimmedLoc) {
+    setLocStatus("Añade primero una ubicación.");
+    setLatitude(null);
+    setLongitude(null);
+    return;
+  }
+
+  setLocStatus("Buscando ubicación…");
+
+  try {
+    const res = await fetch("/api/geocode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: trimmedLoc,
+        city: "Valencia, España", // luego lo haremos dinámico
+      }),
+    });
+
+    // 👉 si la API responde con error (status 4xx/5xx)
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Geocode failed", res.status, text);
+      setLocStatus("No se encontró la ubicación 😕");
+      setLatitude(null);
+      setLongitude(null);
+      return;
+    }
+
+    const data = await res.json();
+    console.log("GEOCODE DATA →", data);
+
+    if (typeof data.lat === "number" && typeof data.lng === "number") {
+      setLatitude(data.lat);
+      setLongitude(data.lng);
+      setLocStatus("Ubicación verificada ✅");
+    } else {
+      setLatitude(null);
+      setLongitude(null);
+      setLocStatus("No se pudo verificar la ubicación 😕");
+    }
+  } catch (e) {
+    console.error("Error al geocodificar:", e);
+    setLatitude(null);
+    setLongitude(null);
+    setLocStatus("Error al buscar la ubicación 😕");
+  }
+}
+
+
 
   function changePollOptionText(idx: number, text: string) {
     const copy = [...pollOptions];
@@ -1087,15 +1152,20 @@ const [openProfile, setOpenProfile] = useState<
         image_url = pub?.data?.publicUrl ?? null;
       }
 
+      const trimmedLoc = evLoc.trim();
+
       const { error } = await supabase.from("community_events").insert({
         group_id: group.id,
         creator_id: user.id,
         title: evTitle.trim(),
         description: evDesc.trim() || null,
-        location: evLoc.trim() || null,
+        location: trimmedLoc || null,
         starts_at,
         cover_image_url: image_url,
         is_approved: false,
+        // 🗺️ Nuevas columnas para el mapa (pueden ser null si no se verificó)
+        latitude,
+        longitude,
       });
       if (error) throw error;
 
@@ -1106,44 +1176,49 @@ const [openProfile, setOpenProfile] = useState<
       setEvWhen("");
       setEvImageFile(null);
       setEvImagePreview(null);
+      setLatitude(null);
+      setLongitude(null);
+      setLocStatus("");
       await loadEvents(group.id);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "No se pudo crear el evento.";
+      const msg =
+        err instanceof Error ? err.message : "No se pudo crear el evento.";
       setEvMsg(msg);
     }
   }
 
-  async function toggleEventGoing(eventId: string) {
-    if (!user) return;
-    setEventBusy(eventId);
-    try {
-      const going = eventGoingMap[eventId] === true;
-      if (going) {
-        const { error } = await supabase
-          .from("community_event_attendees")
-          .delete()
-          .match({ event_id: eventId, profile_id: user.id });
-        if (error) throw error;
-        setEventGoingMap((prev) => ({ ...prev, [eventId]: false }));
-        setEventCountMap((prev) => ({
-          ...prev,
-          [eventId]: Math.max(0, (prev[eventId] ?? 1) - 1),
-        }));
-      } else {
-        const { error } = await supabase
-          .from("community_event_attendees")
-          .insert({ event_id: eventId, profile_id: user.id });
-        if (error) throw error;
-        setEventGoingMap((prev) => ({ ...prev, [eventId]: true }));
-        setEventCountMap((prev) => ({
-          ...prev,
-          [eventId]: (prev[eventId] ?? 0) + 1,
-        }));
-      }
-    } finally {
-      setEventBusy(null);
+async function toggleEventGoing(eventId: string) {
+  if (!user) return;
+  setEventBusy(eventId);
+  try {
+    const going = eventGoingMap[eventId] === true;
+    if (going) {
+      const { error } = await supabase
+        .from("community_event_attendees")
+        .delete()
+        .match({ event_id: eventId, profile_id: user.id });
+      if (error) throw error;
+      setEventGoingMap((prev) => ({ ...prev, [eventId]: false }));
+      setEventCountMap((prev) => ({
+        ...prev,
+        [eventId]: Math.max(0, (prev[eventId] ?? 1) - 1),
+      }));
+    } else {
+      const { error } = await supabase
+        .from("community_event_attendees")
+        .insert({ event_id: eventId, profile_id: user.id });
+      if (error) throw error;
+      setEventGoingMap((prev) => ({ ...prev, [eventId]: true }));
+      setEventCountMap((prev) => ({
+        ...prev,
+        [eventId]: (prev[eventId] ?? 0) + 1,
+      }));
     }
+  } finally {
+    setEventBusy(null);
   }
+}
+
 
   // marcar leído cuando estamos al fondo
   useEffect(() => {
@@ -2056,14 +2131,32 @@ const [openProfile, setOpenProfile] = useState<
                 placeholder="Trae algo para compartir 💜"
               />
             </div>
-            <div>
+                        <div>
               <label className="block text-sm mb-1">Ubicación</label>
-              <input
-                className="w-full rounded-xl border p-3"
-                value={evLoc}
-                onChange={(e) => setEvLoc(e.target.value)}
-                placeholder="Parque del Turia, Puente de las Flores"
-              />
+              <div className="flex gap-2 items-start">
+                <input
+                  className="flex-1 rounded-xl border p-3"
+                  value={evLoc}
+                  onChange={(e) => {
+                    setEvLoc(e.target.value);
+                    // si cambia el texto, limpiamos el estado de verificación
+                    setLocStatus("");
+                    setLatitude(null);
+                    setLongitude(null);
+                  }}
+                  placeholder="Parque del Turia, Puente de las Flores"
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyLocation}
+                  className="rounded-full bg-[#50415b] text-[#fef8f4] px-3 py-1.5 text-xs shadow-md hover:opacity-90 whitespace-nowrap"
+                >
+                  Verificar
+                </button>
+              </div>
+              {locStatus && (
+                <p className="mt-1 text-xs opacity-70">{locStatus}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm mb-1">Fecha y hora *</label>

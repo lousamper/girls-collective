@@ -5,6 +5,10 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabaseClient";
 
+// ✅ Leaflet: solo CSS + tipos (no ejecuta código en SSR)
+import type { DivIcon } from "leaflet";
+import "leaflet/dist/leaflet.css";
+
 // Import dinámico para evitar errores de SSR con react-leaflet
 const MapContainer = dynamic(
   () => import("react-leaflet").then((m) => m.MapContainer),
@@ -60,6 +64,37 @@ export default function MapPage() {
   const [dayFilter, setDayFilter] = useState<"all" | "today" | "week" | "month">(
     "all"
   );
+
+  // 🟣 Icono violeta (se crea solo en cliente)
+  const [violetIcon, setVioletIcon] = useState<DivIcon | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadIcon() {
+      const L = await import("leaflet");
+
+      const icon = L.divIcon({
+        className: "",
+        html: `
+          <svg width="34" height="46" viewBox="0 0 24 24" fill="#50415b" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5S10.6 6.5 12 6.5s2.5 1.1 2.5 2.5S13.4 11.5 12 11.5z"/>
+          </svg>
+        `,
+        iconSize: [34, 46],
+        iconAnchor: [17, 46], // punta del marcador
+        popupAnchor: [0, -46],
+      });
+
+      if (mounted) setVioletIcon(icon);
+    }
+
+    loadIcon();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -296,7 +331,7 @@ export default function MapPage() {
               />
 
               {filteredEvents.map((ev) => {
-                if (!ev.latitude || !ev.longitude) return null;
+                if (ev.latitude == null || ev.longitude == null) return null;
 
                 const link =
                   ev.city_slug &&
@@ -308,36 +343,36 @@ export default function MapPage() {
                   <Marker
                     key={ev.id}
                     position={[ev.latitude, ev.longitude]}
+                    icon={violetIcon ?? undefined}
                   >
                     <Popup>
-  <div className="text-sm">
-    <strong>{ev.title}</strong>
-    <br />
-    {new Date(ev.starts_at).toLocaleString("es-ES", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    })}
-    {ev.location && (
-      <>
-        <br />
-        📍 {ev.location}
-      </>
-    )}
-    <br />
-    {link && (
-      <Link
-        href={link}
-        className="underline text-[#50415b] font-semibold"
-      >
-        Ver plan →
-      </Link>
-    )}
-  </div>
-</Popup>
-
+                      <div className="text-sm">
+                        <strong>{ev.title}</strong>
+                        <br />
+                        {new Date(ev.starts_at).toLocaleString("es-ES", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {ev.location && (
+                          <>
+                            <br />
+                            📍 {ev.location}
+                          </>
+                        )}
+                        <br />
+                        {link && (
+                          <Link
+                            href={link}
+                            className="underline text-[#50415b] font-semibold"
+                          >
+                            Ver plan →
+                          </Link>
+                        )}
+                      </div>
+                    </Popup>
                   </Marker>
                 );
               })}
@@ -355,3 +390,4 @@ export default function MapPage() {
     </main>
   );
 }
+
