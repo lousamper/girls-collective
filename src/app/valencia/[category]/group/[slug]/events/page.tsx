@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useRef } from "react";
+import { use, useEffect, useState, useRef, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
@@ -433,9 +433,7 @@ export default function EventsPage({
     }
   }
 
-  async function handleImageFileChange(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
+  async function handleImageFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !imageEventId) return;
     await updateEventImage(imageEventId, file);
