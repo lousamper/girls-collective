@@ -47,7 +47,7 @@ export const DICT = {
     home: {
       // keep simple keys (already used)
       tagline: "where girls connect, thrive & vibe✨",
-      heroTitle: "Tu espacio seguro para encontrar tu tribu en esa nueva ciudad.",
+      heroTitle: "Tu espacio seguro para hacer amigas, planes y conectar con la ciudad en la qué estás.",
 
       // optional richer hero block
       hero: {
@@ -707,6 +707,44 @@ privacy: {
         lastUpdated: "Última actualización",
       },
     },
+
+    hosts: {
+  title: "Organiza esos planes que amas",
+  intro: "¿Ya creas experiencias… o llevas tiempo pensando en hacerlo?",
+  brand: "Girls Collective",
+  brandPrefix: "En",
+  p1: "damos espacio a planes con alma: visibilidad, apoyo y una comunidad que valora el cuidado, la intención y los detalles.",
+  p2: "Aquí no se trata de cantidad, sino de crear momentos que realmente importan.",
+  cta1: "Conviértete en anfitriona",
+  cta1_aria: "Conviértete en anfitriona",
+  how: {
+    title: "Cómo funciona💫",
+    1: {
+      title: "Crea tu perfil",
+      text: "Cuéntanos quién eres, qué te gusta crear y qué tipo de experiencias te representan.",
+    },
+    2: {
+      title: "Diseña planes alineados con tu vibra",
+      text1: "Propón planes dentro de los grupos que mejor encajen contigo.",
+      text2:
+        "Cada semana destacamos los planes de la semana, rotando entre anfitrionas para dar visibilidad a todas.",
+    },
+    3: {
+      title: "Conecta con las asistentes",
+      text:
+        "El día del plan se abre un chat privado para compartir detalles, resolver dudas y facilitar la experiencia.",
+    },
+    4: {
+      title: "Recibe valoraciones",
+      text:
+        "Las opiniones de las asistentes nos ayudan a cuidar la calidad de los planes y a construir una comunidad segura y de confianza.",
+    },
+  },
+  cta2: "Empieza a crear planes",
+  cta2_aria: "Empieza a crear planes",
+  backHome: "Volver a la home",
+},
+
   
   },
 
@@ -754,7 +792,7 @@ privacy: {
     home: {
       // keep simple keys
       tagline: "where girls connect, thrive & vibe✨",
-      heroTitle: "Your safe space to find your tribe in that new city.",
+      heroTitle: "Your safe space to make friends, share plans and connect with the city you call home.",
 
       // optional richer hero block
       hero: {
@@ -1402,6 +1440,44 @@ footer: {
         lastUpdated: "Last updated",
       },
     },
+
+    hosts: {
+  title: "Host the plans you love",
+  intro: "Are you already creating experiences… or have you been thinking about it for a while?",
+  brand: "Girls Collective",
+  brandPrefix: "At",
+  p1: "gives you visibility, support, and a community that values intention, care and well-thought-out experiences over chaos.",
+  p2: "It’s not about quantity — it’s about creating moments that truly matter.",
+  cta1: "Become a host",
+  cta1_aria: "Become a host",
+  how: {
+    title: "How hosting works💫",
+    1: {
+      title: "Create your profile",
+      text: "Tell us who you are, what you love to create, and what kind of experiences represent you.",
+    },
+    2: {
+      title: "Design plans aligned with your vibe",
+      text1: "Propose plans inside the groups that match you best.",
+      text2:
+        "Each week we highlight the *Plans of the week*, rotating between hosts to give visibility to everyone.",
+    },
+    3: {
+      title: "Connect with attendees",
+      text:
+        "On the day of the plan, a private chat opens to share details, answer questions, and make the experience smoother.",
+    },
+    4: {
+      title: "Receive reviews",
+      text:
+        "Attendees’ feedback helps us maintain quality and build a safe, trusted community.",
+    },
+  },
+  cta2: "Start hosting plans",
+  cta2_aria: "Start hosting plans",
+  backHome: "Back to home",
+},
+
     
   },
 } as const;

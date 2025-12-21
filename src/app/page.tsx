@@ -145,7 +145,7 @@ export default function HomePage() {
               <h1 className="font-montserrat font-bold text-2xl md:text-4xl mb-6 leading-relaxed md:leading-tight">
                 {t(
                   "home.heroTitle",
-                  "Tu espacio seguro para encontrar tu tribu en esa nueva ciudad."
+                  "Tu espacio seguro para hacer amigas, planes y conectar con la ciudad en la qué estás."
                 )}
               </h1>
 
