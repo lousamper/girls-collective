@@ -289,7 +289,14 @@ export default function HomePage() {
       {/* ======================== */}
 {/* City-by-city philosophy */}
 {/* ======================== */}
-<div className="mt-10 md:mt-14 mb-12 md:mb-20 text-center max-w-2xl mx-auto">
+<h2 className="sr-only">
+  {t(
+    "home.seoClaim",
+    "Plataforma y comunidad local para mujeres, para hacer amigas y encontrar planes locales."
+  )}
+</h2>
+
+<div className="mt-10 md:mt-14 mb-12 md:mb-20 text-center max-w-2xl mx-auto px-6 md:px-0">
   <p className="font-dmserif text-base md:text-lg text-gcCTA mb-3">
     {t(
       "home.cityPhilosophy.title",
@@ -343,7 +350,7 @@ export default function HomePage() {
           <h2 className="font-dmserif text-1xl md:text-2xl mb-3">
             {t("home.contact.title", "¿Quieres sumar tu energía a esta comunidad?")}
           </h2>
-        <p className="text-base leading-relaxed">
+        <p className="text-sm md:text-base leading-relaxed">
             {t(
               "home.contact.text",
               "Tanto si eres una marca con ganas de colaborar, una organizadora con planes en mente o simplemente una girl con dudas o ideas... \nEscríbenos y te respondemos pronto 💌"
