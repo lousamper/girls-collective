@@ -149,16 +149,25 @@ export default function HomePage() {
                 )}
               </h1>
 
-              <div className="flex justify-center">
-                <Link
-                  href={ctaHref} // ← dynamic target
-                  onClick={() => track("cta_join_click", { page: "home" })}
-                  className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
-                  aria-label={t("home.hero.ctaAria", "{Encuentra tu ciudad}")}
-                >
-                  {t("home.hero.cta", "¡ÚNETE!")}
-                </Link>
-              </div>
+              <div className="flex items-center justify-center gap-4">
+  <Link
+    href={ctaHref}
+    onClick={() => track("cta_join_click", { page: "home" })}
+    className="rounded-full bg-gcText text-[#fef8f4] font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
+    aria-label={t("home.hero.ctaAria", "{Encuentra tu ciudad}")}
+  >
+    {t("home.hero.cta", "¡ÚNETE!")}
+  </Link>
+
+  <Link
+    href="/anfitrionas"
+    onClick={() => track("cta_hosts_inline_click", { page: "home_hero" })}
+    className="text-sm underline opacity-80 hover:opacity-100"
+  >
+    {t("home.hero.hostsInline", "¿Eres anfitriona?")}
+  </Link>
+</div>
+
             </div>
           </div>
         </div>
@@ -235,17 +244,34 @@ export default function HomePage() {
             </span>
           </p>
 
-          <div className="mt-6">
-            {/* ← dynamic second CTA */}
-            <Link
-              href={ctaHref}
-              onClick={() => track("cta_find_city_click", { page: "home" })}
-              className="rounded-full bg-gcCTA text-gcText font-dmserif px-7 py-2.5 text-lg shadow-md hover:opacity-90"
-              aria-label={t("home.find_city_cta_aria", "Encuentra tu ciudad")}
-            >
-              {t("home.find_city_cta", "Encuentra tu ciudad")}
-            </Link>
-          </div>
+          <div className="mt-6 flex gap-3 flex-nowrap md:gap-4 md:flex-wrap">
+  <Link
+    href={ctaHref}
+    onClick={() => track("cta_find_city_click", { page: "home" })}
+    className="
+      rounded-full bg-gcCTA text-gcText font-dmserif shadow-md hover:opacity-90
+      px-4 py-2 text-sm
+      md:px-7 md:py-2.5 md:text-lg
+    "
+    aria-label={t("home.find_city_cta_aria", "Encuentra tu ciudad")}
+  >
+    {t("home.find_city_cta", "Encuentra tu ciudad")}
+  </Link>
+
+  <Link
+    href="/anfitrionas"
+    onClick={() => track("cta_hosts_secondary_click", { page: "home" })}
+    className="
+      rounded-full bg-gcText text-[#fef8f4] font-dmserif shadow-md hover:opacity-90
+      px-4 py-2 text-sm
+      md:px-7 md:py-2.5 md:text-lg
+    "
+  >
+    {t("home.hosts.secondaryCta", "Hazte anfitriona")}
+  </Link>
+</div>
+
+
         </div>
 
         {/* Image SECOND on mobile, FIRST on desktop */}
@@ -259,6 +285,40 @@ export default function HomePage() {
           />
         </div>
       </section>
+
+      {/* ======================== */}
+{/* City-by-city philosophy */}
+{/* ======================== */}
+<div className="mt-10 md:mt-14 mb-12 md:mb-20 text-center max-w-2xl mx-auto">
+  <p className="font-dmserif text-base md:text-lg text-gcCTA mb-3">
+    {t(
+      "home.cityPhilosophy.title",
+      "Curada ciudad por ciudad, con intención 🌻"
+    )}
+  </p>
+
+  <p className="text-sm md:text-base leading-relaxed opacity-90">
+    {t(
+      "home.cityPhilosophy.p1",
+      "Creemos que la comunidad funciona mejor cuando es local, cercana y humana."
+    )}
+  </p>
+
+  <p className="text-sm md:text-base leading-relaxed opacity-90 mt-1">
+    {t(
+      "home.cityPhilosophy.p2",
+      "Por eso Girls Collective crece ciudad a ciudad, cuidando cada espacio para que las conexiones se sientan reales."
+    )}
+  </p>
+
+  <p className="mt-6 font-dmserif text-base md:text-lg">
+    {t(
+      "home.cityPhilosophy.closing",
+      "Encuentra tu tribu. Vive tu ciudad."
+    )}
+  </p>
+</div>
+
 
       {/* ======================== */}
       {/* Section 4: Vibes hero */}

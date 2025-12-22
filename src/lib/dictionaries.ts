@@ -55,7 +55,13 @@ export const DICT = {
         title: "Tu espacio seguro para encontrar tu tribu en esa nueva ciudad.",
         cta: "¡ÚNETE!",
         ctaAria: "Únete",
+        hostsInline: "¿Eres anfitriona?",
       },
+
+      hosts: {
+    secondaryCta: "Hazte anfitriona",
+  },
+      
 
       // ⬇️ NEW: button text + aria for “find your city”
       find_city_cta: "Encuentra tu ciudad",
@@ -127,6 +133,14 @@ export const DICT = {
         // optional alias if you ever need it
         mailtoPrefix: "O escríbenos a",
       },
+
+      cityPhilosophy: {
+  title: "Curada ciudad por ciudad, con intención 🌻",
+  p1: "Creemos que la comunidad funciona mejor cuando es local, cercana y humana.",
+  p2: "Por eso Girls Collective crece ciudad a ciudad, cuidando cada espacio para que las conexiones se sientan reales.",
+  closing: "Encuentra tu tribu. Vive tu ciudad.",
+},
+
 
       // NEW: FAQ content (i18n)
       faq: {
@@ -800,7 +814,12 @@ privacy: {
         title: "Your safe space to find your tribe in that new city.",
         cta: "JOIN!",
         ctaAria: "Join",
+        hostsInline: "Are you a host?",
       },
+
+      hosts: {
+    secondaryCta: "Become a host",
+  },
 
       // ⬇️ NEW: button text + aria for “find your city”
       find_city_cta: "Find your city",
@@ -868,6 +887,14 @@ privacy: {
         error: "Couldn't send. Please try again.",
         mailtoPrefix: "Or write to",
       },
+
+      cityPhilosophy: {
+  title: "Built city by city. Grown with care.",
+  p1: "We believe community works best when it’s local, familiar and human.",
+  p2: "That’s why Girls Collective grows one city at a time, creating spaces where faces become familiar and connections last.",
+  closing: "Find your people. Feel at home in your city.",
+},
+
 
       // NEW: FAQ content (i18n)
       faq: {
