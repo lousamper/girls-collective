@@ -84,7 +84,7 @@ export default function AnfitrionasPage() {
   <strong>{t("hosts.brand", "Girls Collective")}</strong>{" "}
   {t(
     "hosts.p1",
-    "damos espacio a planes con alma: visibilidad, apoyo y una comunidad que valora el cuidado, la intención y los detalles."
+    "damos espacio a planes con alma: visibilidad, apoyo y una comunidad de mujeres que valora el cuidado, la intención y los detalles."
   )}
 </p>
 

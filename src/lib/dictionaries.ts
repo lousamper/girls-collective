@@ -727,7 +727,7 @@ privacy: {
   intro: "¿Ya creas experiencias… o llevas tiempo pensando en hacerlo?",
   brand: "Girls Collective",
   brandPrefix: "En",
-  p1: "damos espacio a planes con alma: visibilidad, apoyo y una comunidad que valora el cuidado, la intención y los detalles.",
+  p1: "damos espacio a planes con alma: visibilidad, apoyo y una comunidad de mujeres que valora el cuidado, la intención y los detalles.",
   p2: "Aquí no se trata de cantidad, sino de crear momentos que realmente importan.",
   cta1: "Conviértete en anfitriona",
   cta1_aria: "Conviértete en anfitriona",
