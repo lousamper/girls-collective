@@ -1169,6 +1169,27 @@ async function handleVerifyLocation() {
       });
       if (error) throw error;
 
+      // ✅ avisar a admin (server-side bridge) — no bloqueante
+fetch("/api/notify-approval", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  keepalive: true,
+  body: JSON.stringify({
+    type: "event",
+    subject: "Nuevo evento para aprobar",
+    adminUrl: "https://girls-collective.com/admin/groups?tab=events",
+    item: {
+      title: evTitle.trim(),
+      city: "valencia",
+      group_id: group.id,
+      starts_at,
+    },
+  }),
+}).catch(() => {});
+
+
+
+
       setOpenEvent(false);
       setEvTitle("");
       setEvDesc("");

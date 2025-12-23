@@ -186,6 +186,25 @@ export default function CategoryPage({
       });
       if (insErr) throw insErr;
 
+      fetch("/api/notify-approval", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  keepalive: true,
+  body: JSON.stringify({
+    type: "group",
+    subject: "Nuevo grupo para aprobar",
+    adminUrl: "https://girls-collective.com/admin/groups?tab=groups",
+    item: {
+      title: gName.trim(),
+      city: "valencia",
+      category,
+      slug: newSlug,
+    },
+  }),
+}).catch(() => {});
+
+
+
       setSubmitMsg(t("category.create.thanks", "¡Gracias! Revisaremos tu grupo y lo publicaremos si todo está OK."));
       setGName("");
       setGDesc("");

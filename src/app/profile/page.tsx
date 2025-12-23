@@ -581,6 +581,22 @@ export default function ProfilePage() {
     });
 
     if (!error) {
+
+      // ✅ avisar a admin (server-side bridge)
+    fetch("/api/notify-approval", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  keepalive: true,
+  body: JSON.stringify({
+    type: "host_request",
+    subject: "Nueva solicitud de anfitriona",
+    adminUrl: "https://girls-collective.com/admin/groups?tab=hosts",
+    item: { email },
+  }),
+}).catch(() => {});
+
+
+    
       alert(
         t(
           "profile.host.requestOk",
