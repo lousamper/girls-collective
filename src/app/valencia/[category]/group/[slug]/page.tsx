@@ -1840,7 +1840,7 @@ async function toggleEventGoing(eventId: string) {
           <form onSubmit={sendMessage} className="mt-2 flex flex-col gap-3">
             {!following && (
               <div className="rounded-xl bg-[#EBDCF5]/70 backdrop-blur p-2 text-sm text-center">
-                Únete al grupo para ver y publicar todos los mensajes.{" "}
+                Únete al grupo para poder publicar mensajes.{" "}
                 <button
                   type="button"
                   onClick={toggleFollow}

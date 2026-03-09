@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Menu, Bell, User } from "lucide-react";
+import { Menu, Bell } from "lucide-react";
 import { getLang, setLang as setLangCookie, getDict, t as tt } from "@/lib/i18n";
 import type { Lang } from "@/lib/dictionaries";
 
@@ -16,7 +16,7 @@ export default function Navbar() {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0); // placeholder badge
+  const [unreadCount, setUnreadCount] = useState(0);
   const [accountOpen, setAccountOpen] = useState(false);
 
   // language
@@ -27,11 +27,10 @@ export default function Navbar() {
   const dict = useMemo(() => getDict(lang), [lang]);
   const t = (path: string, fallback?: string) => tt(dict, path, fallback);
 
-  // detectar ciudad + categoría actual (si estamos en /valencia/[category]/...)
-  const segments = pathname.split("/").filter(Boolean); // ej: ["valencia","arte","group","xxx"]
+  // detectar ciudad + categoría actual
+  const segments = pathname.split("/").filter(Boolean);
   const currentCity = segments[0] === "valencia" ? segments[0] : null;
-  const currentCategory =
-    currentCity && segments[1] ? segments[1] : null;
+  const currentCategory = currentCity && segments[1] ? segments[1] : null;
 
   // href para "Mis planes"
   const myPlansHref =
@@ -41,6 +40,9 @@ export default function Navbar() {
 
   // href para "Mapa de planes"
   const mapHref = currentCity ? `/${currentCity}/map` : "/valencia/map";
+
+  // href para "Mi ciudad"
+  const myCityHref = currentCity ? `/${currentCity}` : "/valencia";
 
   // admin check
   useEffect(() => {
@@ -62,7 +64,7 @@ export default function Navbar() {
     };
   }, [user]);
 
-  // load unread count once (no Realtime) + react to localStorage signal
+  // unread count
   useEffect(() => {
     let cancelled = false;
 
@@ -84,15 +86,12 @@ export default function Navbar() {
 
     load();
 
-    // light polling every 30s
     const iv = setInterval(load, 30_000);
 
-    // refresh cuando tab visible
     const onVis = () => {
       if (document.visibilityState === "visible") load();
     };
 
-    // listen for notif updates signaled via localStorage
     const onStorage = (e: StorageEvent) => {
       if (e.key === "notif-refresh") load();
     };
@@ -130,7 +129,6 @@ export default function Navbar() {
 
   const closeMenu = () => setMobileOpen(false);
 
-  // shared button so icons align perfectly
   const iconBtn =
     "inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-black/10";
 
@@ -247,6 +245,7 @@ export default function Navbar() {
                   {t("nav.account")}
                   <span className="text-xs">▾</span>
                 </button>
+
                 {accountOpen && (
                   <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white text-gcText shadow-lg border py-2 z-50">
                     <Link
@@ -256,6 +255,15 @@ export default function Navbar() {
                     >
                       {t("nav.accountShort", "Mi perfil")}
                     </Link>
+
+                    <Link
+                      href={myCityHref}
+                      onClick={() => setAccountOpen(false)}
+                      className="block px-4 py-2 text-sm hover:bg-black/5"
+                    >
+                      Mi ciudad
+                    </Link>
+
                     <Link
                       href="/my-groups"
                       onClick={() => setAccountOpen(false)}
@@ -263,6 +271,7 @@ export default function Navbar() {
                     >
                       {t("nav.myGroups", "Mis grupos")}
                     </Link>
+
                     <Link
                       href={myPlansHref}
                       onClick={() => setAccountOpen(false)}
@@ -270,7 +279,7 @@ export default function Navbar() {
                     >
                       {t("nav.myPlans", "Mis planes")}
                     </Link>
-                    {/* 🔸 Mapa de planes (desktop dropdown) */}
+
                     <Link
                       href={mapHref}
                       onClick={() => setAccountOpen(false)}
@@ -278,6 +287,7 @@ export default function Navbar() {
                     >
                       {t("nav.map", "Mapa de planes")}
                     </Link>
+
                     <Link
                       href="/dm"
                       onClick={() => setAccountOpen(false)}
@@ -285,6 +295,7 @@ export default function Navbar() {
                     >
                       {t("nav.messages")}
                     </Link>
+
                     <Link
                       href="/notifications"
                       onClick={() => setAccountOpen(false)}
@@ -295,6 +306,7 @@ export default function Navbar() {
                         <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
                       )}
                     </Link>
+
                     {isAdmin && (
                       <Link
                         href="/admin/groups"
@@ -304,6 +316,7 @@ export default function Navbar() {
                         {t("nav.admin")}
                       </Link>
                     )}
+
                     <div className="border-t mt-2 pt-2">
                       <button
                         type="button"
@@ -327,7 +340,7 @@ export default function Navbar() {
           </li>
         </ul>
 
-        {/* Mobile right: notif + profile icons (aligned) */}
+        {/* Mobile right: only notifications */}
         <div className="md:hidden flex items-center gap-1">
           <Link
             href={user ? "/notifications" : "/auth"}
@@ -340,13 +353,6 @@ export default function Navbar() {
                 <span className="absolute -top-0.5 -right-0.5 inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
               )}
             </span>
-          </Link>
-          <Link
-            href={user ? "/profile" : "/auth"}
-            aria-label={user ? t("nav.accountShort") : t("nav.join")}
-            className={iconBtn}
-          >
-            <User className="w-5 h-5" />
           </Link>
         </div>
       </nav>
@@ -389,40 +395,9 @@ export default function Navbar() {
         </div>
 
         <nav className="p-4">
-          {/* Navegación general */}
-          <ul className="grid gap-1 text-base">
-            <li>
-              <Link
-                href="/#about"
-                onClick={closeMenu}
-                className="block rounded-xl px-4 py-3 hover:bg-black/5"
-              >
-                {t("nav.about")}
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/find-your-city"
-                onClick={closeMenu}
-                className="block rounded-xl px-4 py-3 hover:bg-black/5"
-              >
-                {t("nav.cities")}
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/#contact"
-                onClick={closeMenu}
-                className="block rounded-xl px-4 py-3 hover:bg-black/5"
-              >
-                {t("nav.contact")}
-              </Link>
-            </li>
-          </ul>
-
-          {/* Tu espacio (solo si logueada) */}
+          {/* Tu espacio primero */}
           {user && (
-            <div className="mt-4 border-t pt-4">
+            <div className="border-b pb-4 mb-4">
               <div className="text-xs opacity-60 mb-2 px-1">Tu espacio</div>
               <ul className="grid gap-1 text-base">
                 <li>
@@ -432,6 +407,15 @@ export default function Navbar() {
                     className="block rounded-xl px-4 py-3 hover:bg-black/5"
                   >
                     {t("nav.accountShort", "Mi perfil")}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href={myCityHref}
+                    onClick={closeMenu}
+                    className="block rounded-xl px-4 py-3 hover:bg-black/5"
+                  >
+                    Mi ciudad
                   </Link>
                 </li>
                 <li>
@@ -452,7 +436,6 @@ export default function Navbar() {
                     {t("nav.myPlans", "Mis planes")}
                   </Link>
                 </li>
-                {/* 🔸 Mapa de planes (mobile drawer) */}
                 <li>
                   <Link
                     href={mapHref}
@@ -506,6 +489,37 @@ export default function Navbar() {
               </ul>
             </div>
           )}
+
+          {/* Navegación general debajo */}
+          <ul className="grid gap-1 text-base">
+            <li>
+              <Link
+                href="/#about"
+                onClick={closeMenu}
+                className="block rounded-xl px-4 py-3 hover:bg-black/5"
+              >
+                {t("nav.about")}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/find-your-city"
+                onClick={closeMenu}
+                className="block rounded-xl px-4 py-3 hover:bg-black/5"
+              >
+                {t("nav.cities")}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/#contact"
+                onClick={closeMenu}
+                className="block rounded-xl px-4 py-3 hover:bg-black/5"
+              >
+                {t("nav.contact")}
+              </Link>
+            </li>
+          </ul>
 
           {/* Language inside drawer */}
           <div className="mt-4 border-t pt-4">

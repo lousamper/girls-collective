@@ -91,7 +91,7 @@ export default function ProfilePage() {
   // avatar
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarFileName, setAvatarFileName] = useState<string>(""); // para mostrar nombre
+  const [avatarFileName, setAvatarFileName] = useState<string>("");
 
   // catálogos
   const [cities, setCities] = useState<City[]>([]);
@@ -140,21 +140,18 @@ export default function ProfilePage() {
     (async () => {
       if (!user) return;
 
-      // ciudades
       const { data: cityRows } = await supabase
         .from("cities")
         .select("id,name,slug")
         .order("name");
       setCities(cityRows ?? []);
 
-      // categorías
       const { data: allCats } = await supabase
         .from("categories")
         .select("id,slug,name")
         .order("name");
       setAllCategories(allCats ?? []);
 
-      // perfil (incluye campos host)
       const { data: prof } = await supabase
         .from("profiles")
         .select(
@@ -179,7 +176,6 @@ export default function ProfilePage() {
         setHostContact(prof.host_contact ?? "");
       }
 
-      // intereses del usuario
       const { data: myCats } = await supabase
         .from(PROFILE_CATS_TABLE)
         .select("category_id")
@@ -188,7 +184,6 @@ export default function ProfilePage() {
         (myCats ?? []).map((r: { category_id: string }) => r.category_id)
       );
 
-      // galería existente
       const { data: photos } = await supabase
         .from("profile_photos")
         .select("url, position")
@@ -200,7 +195,6 @@ export default function ProfilePage() {
         setGalleryPreviews([]);
       }
 
-      // memberships → grupos
       const { data: mems } = await supabase
         .from("group_members")
         .select("group_id")
@@ -242,7 +236,6 @@ export default function ProfilePage() {
     })();
   }, [user]);
 
-  // preview avatar
   useEffect(() => {
     if (!avatarFile) return;
     const url = URL.createObjectURL(avatarFile);
@@ -251,7 +244,6 @@ export default function ProfilePage() {
     return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
 
-  // previews galería
   useEffect(() => {
     if (galleryFiles.length === 0) return;
     galleryPreviews.forEach((u) => {
@@ -263,15 +255,11 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [galleryFiles]);
 
-  // unique username
   useEffect(() => {
     if (!user) return;
     if (!username.trim()) {
       setNameError(
-        t(
-          "profile.username.required",
-          "El nombre de usuario es obligatorio."
-        )
+        t("profile.username.required", "El nombre de usuario es obligatorio.")
       );
       return;
     }
@@ -287,10 +275,7 @@ export default function ProfilePage() {
       if (active) {
         if (error)
           setNameError(
-            t(
-              "profile.username.validateFail",
-              "No se pudo validar el nombre."
-            )
+            t("profile.username.validateFail", "No se pudo validar el nombre.")
           );
         else if ((data ?? []).length > 0)
           setNameError(
@@ -318,7 +303,7 @@ export default function ProfilePage() {
       return;
     }
     const okType = ["image/jpeg", "image/png"].includes(f.type);
-    const okSize = f.size <= 2 * 1024 * 1024; // 2MB
+    const okSize = f.size <= 2 * 1024 * 1024;
     if (!okType) {
       alert(t("profile.errors.avatarType", "Debe ser .jpg o .png"));
       return;
@@ -363,7 +348,6 @@ export default function ProfilePage() {
           avatar_url,
           favorite_emoji: favoriteEmoji.trim() || null,
           quote: inspiringQuote.trim() || null,
-          // solo guardamos datos host; is_host se gestiona aparte (manual)
           host_title: isHost ? hostTitle.trim() || null : null,
           host_bio: isHost ? hostBio.trim() || null : null,
           host_website: isHost ? hostWebsite.trim() || null : null,
@@ -385,12 +369,12 @@ export default function ProfilePage() {
     }
   }
 
-  // intereses
   function toggleCat(id: string) {
     setSelectedCatIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }
+
   async function saveInterests() {
     if (!user) return;
     setInterestMsg("");
@@ -412,15 +396,11 @@ export default function ProfilePage() {
       const m =
         e instanceof Error
           ? e.message
-          : t(
-              "profile.interests.err",
-              "No se pudieron actualizar los intereses."
-            );
+          : t("profile.interests.err", "No se pudieron actualizar los intereses.");
       setInterestErr(m);
     }
   }
 
-  // galería
   async function saveGallery() {
     if (!user) return;
     setGalleryOk("");
@@ -428,9 +408,7 @@ export default function ProfilePage() {
     setGallerySaving(true);
     try {
       if (galleryFiles.length === 0) {
-        setGalleryOk(
-          t("profile.gallery.noChanges", "No hay cambios en la galería.")
-        );
+        setGalleryOk(t("profile.gallery.noChanges", "No hay cambios en la galería."));
         setGallerySaving(false);
         return;
       }
@@ -440,22 +418,14 @@ export default function ProfilePage() {
         const okSize = f.size <= 2 * 1024 * 1024;
         if (!okType)
           throw new Error(
-            t(
-              "profile.errors.galleryType",
-              "Las fotos deben ser .jpg o .png"
-            )
+            t("profile.errors.galleryType", "Las fotos deben ser .jpg o .png")
           );
         if (!okSize)
           throw new Error(
-            t(
-              "profile.errors.gallerySize",
-              "Máximo 2MB por foto"
-            )
+            t("profile.errors.gallerySize", "Máximo 2MB por foto")
           );
 
-        const path = `${user.id}/gallery/${Date.now()}_${sanitizeFileName(
-          f.name
-        )}`;
+        const path = `${user.id}/gallery/${Date.now()}_${sanitizeFileName(f.name)}`;
         const { error: upErr } = await supabase.storage
           .from("Avatars")
           .upload(path, f, {
@@ -488,17 +458,13 @@ export default function ProfilePage() {
       const m =
         e instanceof Error
           ? e.message
-          : t(
-              "profile.gallery.err",
-              "No se pudo actualizar la galería."
-            );
+          : t("profile.gallery.err", "No se pudo actualizar la galería.");
       setGalleryErr(m);
     } finally {
       setGallerySaving(false);
     }
   }
 
-  // password
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     setPwdMsg("");
@@ -506,10 +472,7 @@ export default function ProfilePage() {
 
     if (!pwd1 || pwd1 !== pwd2) {
       setPwdErr(
-        t(
-          "profile.password.mismatch",
-          "Las contraseñas no coinciden."
-        )
+        t("profile.password.mismatch", "Las contraseñas no coinciden.")
       );
       return;
     }
@@ -518,26 +481,21 @@ export default function ProfilePage() {
       if (error) throw error;
       setPwd1("");
       setPwd2("");
-      setPwdMsg(
-        t("profile.password.ok", "Contraseña actualizada ✅")
-      );
+      setPwdMsg(t("profile.password.ok", "Contraseña actualizada ✅"));
     } catch (e) {
       const m =
         e instanceof Error
           ? e.message
-          : t(
-              "profile.password.err",
-              "No se pudo actualizar la contraseña."
-            );
+          : t("profile.password.err", "No se pudo actualizar la contraseña.");
       setPwdErr(m);
     }
   }
 
-  // sesiones / seguridad
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/auth");
   }
+
   async function requestDeleteAccount() {
     const {
       data: { user: current },
@@ -551,10 +509,7 @@ export default function ProfilePage() {
     });
     if (!error) {
       alert(
-        t(
-          "profile.security.deleteOk",
-          "Solicitud enviada. Te contactaremos pronto 💌"
-        )
+        t("profile.security.deleteOk", "Solicitud enviada. Te contactaremos pronto 💌")
       );
     } else {
       alert(
@@ -566,7 +521,6 @@ export default function ProfilePage() {
     }
   }
 
-  // 🚀 Solicitud para activar anfitriona
   async function handleHostNotify() {
     const {
       data: { user: current },
@@ -576,27 +530,22 @@ export default function ProfilePage() {
     const { error } = await supabase.from("contact_messages").insert({
       name: "Host Activation Request",
       email,
-      message:
-        "User requests to be marked as host (is_host = true) in profiles.",
+      message: "User requests to be marked as host (is_host = true) in profiles.",
     });
 
     if (!error) {
+      fetch("/api/notify-approval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          type: "host_request",
+          subject: "Nueva solicitud de anfitriona",
+          adminUrl: "https://girls-collective.com/admin/groups?tab=hosts",
+          item: { email },
+        }),
+      }).catch(() => {});
 
-      // ✅ avisar a admin (server-side bridge)
-    fetch("/api/notify-approval", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  keepalive: true,
-  body: JSON.stringify({
-    type: "host_request",
-    subject: "Nueva solicitud de anfitriona",
-    adminUrl: "https://girls-collective.com/admin/groups?tab=hosts",
-    item: { email },
-  }),
-}).catch(() => {});
-
-
-    
       alert(
         t(
           "profile.host.requestOk",
@@ -621,7 +570,6 @@ export default function ProfilePage() {
     );
   }
 
-  // filtramos interés "otro"
   const visibleCategories = allCategories.filter((c) => {
     const name = c.name.toLowerCase();
     const slug = (c.slug || "").toLowerCase();
@@ -635,7 +583,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-gcBackground text-gcText font-montserrat">
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6">
         <h1 className="text-3xl font-dmserif mb-2">
           {t("profile.title", "Mi perfil")}
         </h1>
@@ -645,291 +593,259 @@ export default function ProfilePage() {
 
         {/* ===== Perfil + Host box como dos bloques blancos ===== */}
         <form onSubmit={handleSaveProfile} className="flex flex-col gap-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Bloque 1: datos personales */}
-<div className="bg-white rounded-2xl p-6 shadow-md w-full">
-  <div className="grid gap-6 md:grid-cols-[auto,minmax(0,1fr)] items-start">
-    {/* Avatar */}
-    <div className="shrink-0">
-      <div className="w-28 h-28 rounded-full overflow-hidden bg-gcBackgroundAlt/30 grid place-items-center">
-        {avatarPreview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={avatarPreview}
-            alt="Avatar"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <span className="text-sm opacity-60">
-            {t("profile.avatar.noPhoto", "Sin foto")}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-3">
-        <input
-          id="avatar-input"
-          type="file"
-          accept="image/jpeg,image/png"
-          className="sr-only"
-          onChange={(e) => onAvatarChange(e.target.files?.[0] || null)}
-        />
-        <label
-          htmlFor="avatar-input"
-          className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-4 py-1.5 text-sm shadow-md hover:opacity-90 cursor-pointer"
-        >
-          {t("profile.avatar.button", "Cargar foto")}
-        </label>
-        <div className="text-xs opacity-70 mt-1">
-          {avatarFileName
-            ? avatarFileName
-            : t("profile.avatar.hint", "JPG o PNG · Máx 2MB")}
-        </div>
-      </div>
-    </div>
-
-    {/* Campos básicos */}
-    <div className="grid gap-4 min-w-0 md:pr-4">
-      <div>
-        <label className="block text-xs mb-1">
-          {t("profile.username.label", "Nombre de usuario *")}
-        </label>
-        <input
-          className="w-full rounded-xl border p-2 text-sm md:text-base"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder={t(
-            "profile.username.placeholder",
-            "Tu nombre o apodo"
-          )}
-          required
-        />
-        {nameChecking && (
-          <p className="text-xs opacity-70 mt-1">
-            {t("profile.username.checking", "Comprobando…")}
-          </p>
-        )}
-        {nameError && (
-          <p className="text-xs text-red-600 mt-1">{nameError}</p>
-        )}
-
-        {/* CTA para no-hosts */}
-        {!isHost && (
-          <p className="text-xs mt-1">
-            {t("profile.host.requestPrefix", "¿Eres anfitriona?") + " "}
-            <button
-              type="button"
-              onClick={handleHostNotify}
-              className="underline"
-            >
-              {t("profile.host.requestLink", "Avísanos.")}
-            </button>
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className="block text-xs mb-1">
-          {t("profile.city.label", "Ciudad *")}
-        </label>
-        <select
-          className="w-full rounded-xl border p-2 bg-white text-sm md:text-base"
-          value={cityId}
-          onChange={(e) => setCityId(e.target.value)}
-          required
-        >
-          <option value="">
-            {t("profile.city.placeholder", "Selecciona tu ciudad")}
-          </option>
-          {cities.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-xs mb-1">
-          {t("profile.bio.label", "Bio (opcional)")}
-        </label>
-        <textarea
-          className="w-full rounded-xl border p-2 text-sm md:text-base"
-          rows={3}
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
-          placeholder={t(
-            "profile.bio.placeholder",
-            "Cuéntanos algo sobre ti ✨"
-          )}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
-        <label className="text-xs">
-          {t("profile.emoji.label", "Un emoji de tus favoritos")}
-        </label>
-        <input
-          className="w-32 rounded-xl border p-2 text-center text-xl"
-          value={favoriteEmoji}
-          onChange={(e) => setFavoriteEmoji(e.target.value.slice(0, 2))}
-          placeholder={t("profile.emoji.placeholder", "💌")}
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs mb-1">
-          {t("profile.quote.label", "Una frase de tus favoritas")}
-        </label>
-        <textarea
-          className="w-full rounded-xl border p-2 text-sm md:text-base"
-          rows={2}
-          value={inspiringQuote}
-          onChange={(e) => setInspiringQuote(e.target.value)}
-          placeholder={t(
-            "profile.quote.placeholder",
-            "Una frase cortita que te represente 💫"
-          )}
-        />
-      </div>
-    </div>
-  </div>
-</div>
-
-            {/* Bloque 2: datos como anfitriona */}
-            {isHost && (
-              <aside className="bg-white rounded-2xl p-6 shadow-md self-stretch">
-                <h2 className="font-dmserif text-2xl mb-1">
-                  {t(
-                    "profile.host.cardTitle",
-                    "Perfil como anfitriona"
-                  )}
-                </h2>
-                <p className="text-xs opacity-80 mb-5">
-                  {t(
-                    "profile.host.cardSubtitle",
-                    "Estos datos se mostrarán en tus eventos y en tu perfil público."
-                  )}
-                </p>
-
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <label className="block text-xs mb-1">
-                      {t(
-                        "profile.host.titleLabel",
-                        "Título corto como anfitriona"
+  <div className={`w-full ${isHost ? "max-w-6xl" : "max-w-4xl"}`}>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Bloque 1: datos personales */}
+              <div className="bg-white rounded-2xl p-6 shadow-md w-full">
+                <div className="grid gap-6 md:grid-cols-[auto,minmax(0,1fr)] items-start">
+                  {/* Avatar */}
+                  <div className="shrink-0">
+                    <div className="w-28 h-28 rounded-full overflow-hidden bg-gcBackgroundAlt/30 grid place-items-center">
+                      {avatarPreview ? (
+                        <img
+                          src={avatarPreview}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-sm opacity-60">
+                          {t("profile.avatar.noPhoto", "Sin foto")}
+                        </span>
                       )}
-                    </label>
-                    <input
-                      className="w-full rounded-xl border p-2 text-sm md:text-base"
-                      value={hostTitle}
-                      onChange={(e) =>
-                        setHostTitle(e.target.value)
-                      }
-                      placeholder={t(
-                        "profile.host.titlePlaceholder",
-                        "Ej: Tu nombre | Planes de senderismo"
-                      )}
-                    />
+                    </div>
+
+                    <div className="mt-3">
+                      <input
+                        id="avatar-input"
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        className="sr-only"
+                        onChange={(e) => onAvatarChange(e.target.files?.[0] || null)}
+                      />
+                      <label
+                        htmlFor="avatar-input"
+                        className="inline-block rounded-full bg-[#50415b] text-[#fef8f4] font-montserrat px-4 py-1.5 text-sm shadow-md hover:opacity-90 cursor-pointer"
+                      >
+                        {t("profile.avatar.button", "Cargar foto")}
+                      </label>
+                      <div className="text-xs opacity-70 mt-1">
+                        {avatarFileName
+                          ? avatarFileName
+                          : t("profile.avatar.hint", "JPG o PNG · Máx 2MB")}
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">
-                      {t(
-                        "profile.host.bioLabel",
-                        "Descripción"
+                  {/* Campos básicos */}
+                  <div className="grid gap-4 min-w-0 md:pr-4">
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.username.label", "Nombre de usuario *")}
+                      </label>
+                      <input
+                        className="w-full rounded-xl border p-2 text-sm md:text-base"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder={t("profile.username.placeholder", "Tu nombre o apodo")}
+                        required
+                      />
+                      {nameChecking && (
+                        <p className="text-xs opacity-70 mt-1">
+                          {t("profile.username.checking", "Comprobando…")}
+                        </p>
                       )}
-                    </label>
-                    <textarea
-                      className="w-full rounded-xl border p-2 text-sm md:text-base"
-                      rows={3}
-                      value={hostBio}
-                      onChange={(e) =>
-                        setHostBio(e.target.value)
-                      }
-                      placeholder={t(
-                        "profile.host.bioPlaceholder",
-                        "Cuenta qué tipo de planes organizas."
+                      {nameError && (
+                        <p className="text-xs text-red-600 mt-1">{nameError}</p>
                       )}
-                    />
-                  </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">
-                      {t(
-                        "profile.host.websiteLabel",
-                        "Web principal"
+                      {!isHost && (
+                        <p className="text-xs mt-1">
+                          {t("profile.host.requestPrefix", "¿Eres anfitriona?") + " "}
+                          <button
+                            type="button"
+                            onClick={handleHostNotify}
+                            className="underline"
+                          >
+                            {t("profile.host.requestLink", "Avísanos.")}
+                          </button>
+                        </p>
                       )}
-                    </label>
-                    <input
-                      className="w-full rounded-xl border p-2 text-sm md:text-base"
-                      value={hostWebsite}
-                      onChange={(e) =>
-                        setHostWebsite(e.target.value)
-                      }
-                      placeholder={t(
-                        "profile.host.websitePlaceholder",
-                        "https://tusitio.com"
-                      )}
-                    />
-                  </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">
-                      {t(
-                        "profile.host.shopLabel",
-                        "Red social principal"
-                      )}
-                    </label>
-                    <input
-                      className="w-full rounded-xl border p-2 text-sm md:text-base"
-                      value={hostShopUrl}
-                      onChange={(e) =>
-                        setHostShopUrl(e.target.value)
-                      }
-                      placeholder={t(
-                        "profile.host.shopPlaceholder",
-                        "@tuusuario o enlace directo"
-                      )}
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.city.label", "Ciudad *")}
+                      </label>
+                      <select
+                        className="w-full rounded-xl border p-2 bg-white text-sm md:text-base"
+                        value={cityId}
+                        onChange={(e) => setCityId(e.target.value)}
+                        required
+                      >
+                        <option value="">
+                          {t("profile.city.placeholder", "Selecciona tu ciudad")}
+                        </option>
+                        {cities.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div>
-                    <label className="block text-xs mb-1">
-                      {t(
-                        "profile.host.contactLabel",
-                        "Contacto (email o télefono)"
-                      )}
-                    </label>
-                    <input
-                      className="w-full rounded-xl border p-2 text-sm md:text-base"
-                      value={hostContact}
-                      onChange={(e) =>
-                        setHostContact(e.target.value)
-                      }
-                      placeholder={t(
-                        "profile.host.contactPlaceholder",
-                        "tu@gmail.com"
-                      )}
-                    />
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.bio.label", "Bio (opcional)")}
+                      </label>
+                      <textarea
+                        className="w-full rounded-xl border p-2 text-sm md:text-base"
+                        rows={3}
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        placeholder={t("profile.bio.placeholder", "Cuéntanos algo sobre ti ✨")}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-3 items-center">
+                      <label className="text-xs">
+                        {t("profile.emoji.label", "Un emoji de tus favoritos")}
+                      </label>
+                      <input
+                        className="w-32 rounded-xl border p-2 text-center text-xl"
+                        value={favoriteEmoji}
+                        onChange={(e) => setFavoriteEmoji(e.target.value.slice(0, 2))}
+                        placeholder={t("profile.emoji.placeholder", "💌")}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.quote.label", "Una frase de tus favoritas")}
+                      </label>
+                      <textarea
+                        className="w-full rounded-xl border p-2 text-sm md:text-base"
+                        rows={2}
+                        value={inspiringQuote}
+                        onChange={(e) => setInspiringQuote(e.target.value)}
+                        placeholder={t(
+                          "profile.quote.placeholder",
+                          "Una frase cortita que te represente 💫"
+                        )}
+                      />
+                    </div>
                   </div>
                 </div>
-              </aside>
-            )}
+              </div>
+
+              {/* Bloque 2: datos como anfitriona */}
+              {isHost && (
+                <aside className="bg-white rounded-2xl p-6 shadow-md self-stretch">
+                  <h2 className="font-dmserif text-2xl mb-1">
+                    {t("profile.host.cardTitle", "Perfil como anfitriona")}
+                  </h2>
+                  <p className="text-xs opacity-80 mb-5">
+                    {t(
+                      "profile.host.cardSubtitle",
+                      "Estos datos se mostrarán en tus eventos y en tu perfil público."
+                    )}
+                  </p>
+
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.host.titleLabel", "Título corto como anfitriona")}
+                      </label>
+                      <input
+                        className="w-full rounded-xl border p-2 text-sm md:text-base"
+                        value={hostTitle}
+                        onChange={(e) => setHostTitle(e.target.value)}
+                        placeholder={t(
+                          "profile.host.titlePlaceholder",
+                          "Ej: Tu nombre | Planes de senderismo"
+                        )}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.host.bioLabel", "Descripción")}
+                      </label>
+                      <textarea
+                        className="w-full rounded-xl border p-2 text-sm md:text-base"
+                        rows={3}
+                        value={hostBio}
+                        onChange={(e) => setHostBio(e.target.value)}
+                        placeholder={t(
+                          "profile.host.bioPlaceholder",
+                          "Cuenta qué tipo de planes organizas."
+                        )}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.host.websiteLabel", "Web principal")}
+                      </label>
+                      <input
+                        className="w-full rounded-xl border p-2 text-sm md:text-base"
+                        value={hostWebsite}
+                        onChange={(e) => setHostWebsite(e.target.value)}
+                        placeholder={t(
+                          "profile.host.websitePlaceholder",
+                          "https://tusitio.com"
+                        )}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.host.shopLabel", "Red social principal")}
+                      </label>
+                      <input
+                        className="w-full rounded-xl border p-2 text-sm md:text-base"
+                        value={hostShopUrl}
+                        onChange={(e) => setHostShopUrl(e.target.value)}
+                        placeholder={t(
+                          "profile.host.shopPlaceholder",
+                          "@tuusuario o enlace directo"
+                        )}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-1">
+                        {t("profile.host.contactLabel", "Contacto (email o télefono)")}
+                      </label>
+                      <input
+                        className="w-full rounded-xl border p-2 text-sm md:text-base"
+                        value={hostContact}
+                        onChange={(e) => setHostContact(e.target.value)}
+                        placeholder={t("profile.host.contactPlaceholder", "tu@gmail.com")}
+                      />
+                    </div>
+                  </div>
+                </aside>
+              )}
+            </div>
           </div>
 
           {/* Botón guardar */}
-          <div className="flex gap-3 justify-start md:justify-end">
-            <button
-              type="submit"
-              disabled={!canSave || saving}
-              className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-base md:text-lg shadow-md hover:opacity-90 disabled:opacity-60"
-            >
-              {saving
-                ? t("profile.actions.saving", "Guardando…")
-                : t("profile.actions.save", "Guardar cambios")}
-            </button>
-          </div>
+<div className={`w-full ${isHost ? "max-w-6xl" : "max-w-4xl"}`}>
+  <div className="flex gap-3 justify-start mt-1">
+    <button
+      type="submit"
+      disabled={!canSave || saving}
+      className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-base md:text-lg shadow-md hover:opacity-90 disabled:opacity-60"
+    >
+      {saving
+        ? t("profile.actions.saving", "Guardando…")
+        : t("profile.actions.save", "Guardar cambios")}
+    </button>
+  </div>
+
+  {msg && <p className="text-sm text-green-700 mt-3">{msg}</p>}
+  {err && <p className="text-sm text-red-600 mt-3">{err}</p>}
+</div>
 
           {msg && <p className="text-sm text-green-700">{msg}</p>}
           {err && <p className="text-sm text-red-600">{err}</p>}
@@ -947,12 +863,11 @@ export default function ProfilePage() {
               return (
                 <label
                   key={c.id}
-                  className={`cursor-pointer select-none px-3 py-1.5 rounded-full border text-sm
-                    ${
-                      active
-                        ? "bg-gcBackgroundAlt2 border-gcText"
-                        : "bg-white hover:bg-black/5"
-                    }`}
+                  className={`cursor-pointer select-none px-3 py-1.5 rounded-full border text-sm ${
+                    active
+                      ? "bg-gcBackgroundAlt2 border-gcText"
+                      : "bg-white hover:bg-black/5"
+                  }`}
                 >
                   <input
                     type="checkbox"
@@ -990,47 +905,43 @@ export default function ProfilePage() {
           </h2>
 
           <div className="flex items-center justify-start gap-3">
-  <input
-    id="gallery-input"
-    type="file"
-    accept="image/jpeg,image/png"
-    multiple
-    className="sr-only"
-    onChange={(e) => {
-      const files = Array.from(e.target.files ?? []);
-      const chosen = files.slice(0, 3);
-      setGalleryFiles(chosen);
-      setGalleryMsg(
-        chosen.length
-          ? t(
-              "profile.gallery.selectedCount",
-              "{n} foto(s) seleccionada(s)"
-            ).replace("{n}", String(chosen.length))
-          : ""
-      );
-      setGalleryOk("");
-      setGalleryErr("");
-    }}
-  />
+            <input
+              id="gallery-input"
+              type="file"
+              accept="image/jpeg,image/png"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                const chosen = files.slice(0, 3);
+                setGalleryFiles(chosen);
+                setGalleryMsg(
+                  chosen.length
+                    ? t("profile.gallery.selectedCount", "{n} foto(s) seleccionada(s)").replace(
+                        "{n}",
+                        String(chosen.length)
+                      )
+                    : ""
+                );
+                setGalleryOk("");
+                setGalleryErr("");
+              }}
+            />
 
-  {/* Botón + en círculo como el otro */}
-  <button
-    type="button"
-    onClick={() => document.getElementById("gallery-input")?.click()}
-    className="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center shadow-sm hover:opacity-90"
-  >
-    <PlusCircle className="w-4 h-4" />
-  </button>
+            <button
+              type="button"
+              onClick={() => document.getElementById("gallery-input")?.click()}
+              className="w-9 h-9 rounded-full border border-gray-300 flex items-center justify-center shadow-sm hover:opacity-90"
+            >
+              <PlusCircle className="w-4 h-4" />
+            </button>
 
-  {galleryMsg && (
-    <span className="text-xs opacity-80">{galleryMsg}</span>
-  )}
-</div>
+            {galleryMsg && <span className="text-xs opacity-80">{galleryMsg}</span>}
+          </div>
 
           {galleryPreviews.length > 0 && (
             <div className="mt-3 grid grid-cols-3 gap-3 max-w-lg mx-auto">
               {galleryPreviews.map((src, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={i}
                   src={src}
@@ -1042,10 +953,7 @@ export default function ProfilePage() {
           )}
 
           <p className="text-xs opacity-70 mt-2">
-            {t(
-              "profile.gallery.hint",
-              "Hasta 3 fotos · JPG o PNG · Máx 2MB por foto"
-            )}
+            {t("profile.gallery.hint", "Hasta 3 fotos · JPG o PNG · Máx 2MB por foto")}
           </p>
 
           <div className="mt-4 flex justify-start md:justify-center">
@@ -1060,12 +968,8 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {galleryOk && (
-            <p className="text-sm text-green-700 mt-2">{galleryOk}</p>
-          )}
-          {galleryErr && (
-            <p className="text-sm text-red-600 mt-2">{galleryErr}</p>
-          )}
+          {galleryOk && <p className="text-sm text-green-700 mt-2">{galleryOk}</p>}
+          {galleryErr && <p className="text-sm text-red-600 mt-2">{galleryErr}</p>}
         </section>
 
         {/* ===== Mis grupos ===== */}
@@ -1076,10 +980,7 @@ export default function ProfilePage() {
 
           {myGroups.length === 0 && (
             <p className="opacity-70">
-              {t(
-                "profile.groups.empty",
-                "Todavía no te has unido a ningún grupo."
-              )}
+              {t("profile.groups.empty", "Todavía no te has unido a ningún grupo.")}
             </p>
           )}
 
@@ -1095,32 +996,18 @@ export default function ProfilePage() {
                   className="border rounded-xl p-3 flex items-center justify-between"
                 >
                   <div>
-                    <div className="font-semibold text-sm md:text-base">
-                      {g.name}
-                    </div>
+                    <div className="font-semibold text-sm md:text-base">{g.name}</div>
                     <div className="text-xs opacity-70">
-                      {city?.name ??
-                        t("profile.groups.cityFallback", "Ciudad")}{" "}
-                      •{" "}
-                      {cat?.slug ??
-                        t(
-                          "profile.groups.categoryFallback",
-                          "categoría"
-                        )}
+                      {city?.name ?? t("profile.groups.cityFallback", "Ciudad")} •{" "}
+                      {cat?.slug ?? t("profile.groups.categoryFallback", "categoría")}
                     </div>
                   </div>
                   {cat && city ? (
                     <Link
                       href={href}
-                      aria-label={t(
-                        "profile.groups.goToGroup",
-                        "Ir al grupo"
-                      )}
+                      aria-label={t("profile.groups.goToGroup", "Ir al grupo")}
                       className="rounded-full bg-[#50415b] text-[#fef8f4] p-2.5 shadow-md hover:opacity-90"
-                      title={t(
-                        "profile.groups.goToGroup",
-                        "Ir al grupo"
-                      )}
+                      title={t("profile.groups.goToGroup", "Ir al grupo")}
                     >
                       <ArrowRight className="w-5 h-5" />
                     </Link>
@@ -1133,74 +1020,70 @@ export default function ProfilePage() {
           </ul>
         </section>
 
-        {/* ===== Cambiar contraseña ===== */}
-        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto">
-          <h2 className="font-dmserif text-2xl mb-4">
-            {t("profile.password.title", "Cambiar contraseña")}
-          </h2>
-          <form
-            onSubmit={handleChangePassword}
-            className="grid gap-3 max-w-md mx-auto"
-          >
-            <input
-              type="password"
-              className="w-full rounded-xl border p-2 text-sm md:text-base"
-              placeholder={t(
-                "profile.password.new",
-                "Nueva contraseña"
-              )}
-              value={pwd1}
-              onChange={(e) => setPwd1(e.target.value)}
-              required
-            />
-            <input
-              type="password"
-              className="w-full rounded-xl border p-2 text-sm md:text-base"
-              placeholder={t(
-                "profile.password.confirm",
-                "Confirmar nueva contraseña"
-              )}
-              value={pwd2}
-              onChange={(e) => setPwd2(e.target.value)}
-              required
-            />
-            <div className="flex justify-start md:justify-center">
-              <button
-                type="submit"
-                className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-base md:text-lg shadow-md hover:opacity-90"
-              >
-                {t("profile.password.updateBtn", "Actualizar")}
-              </button>
-            </div>
-          </form>
-          {pwdMsg && (
-            <p className="text-sm text-green-700 mt-2">{pwdMsg}</p>
-          )}
-          {pwdErr && (
-            <p className="text-sm text-red-600 mt-2">{pwdErr}</p>
-          )}
-        </section>
+        {/* ===== Password + Seguridad lado a lado en desktop ===== */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* ===== Cambiar contraseña ===== */}
+          <section className="bg-white rounded-2xl p-6 shadow-md h-full">
+            <h2 className="font-dmserif text-2xl mb-4">
+              {t("profile.password.title", "Cambiar contraseña")}
+            </h2>
+            <form
+              onSubmit={handleChangePassword}
+              className="grid gap-3 max-w-md mx-auto"
+            >
+              <input
+                type="password"
+                className="w-full rounded-xl border p-2 text-sm md:text-base"
+                placeholder={t("profile.password.new", "Nueva contraseña")}
+                value={pwd1}
+                onChange={(e) => setPwd1(e.target.value)}
+                required
+              />
+              <input
+                type="password"
+                className="w-full rounded-xl border p-2 text-sm md:text-base"
+                placeholder={t("profile.password.confirm", "Confirmar nueva contraseña")}
+                value={pwd2}
+                onChange={(e) => setPwd2(e.target.value)}
+                required
+              />
+              <div className="flex justify-start md:justify-center">
+                <button
+                  type="submit"
+                  className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-base md:text-lg shadow-md hover:opacity-90"
+                >
+                  {t("profile.password.updateBtn", "Actualizar")}
+                </button>
+              </div>
+            </form>
+            {pwdMsg && <p className="text-sm text-green-700 mt-2">{pwdMsg}</p>}
+            {pwdErr && <p className="text-sm text-red-600 mt-2">{pwdErr}</p>}
+          </section>
 
-        {/* ===== Zona de seguridad ===== */}
-        <section className="bg-white rounded-2xl p-6 shadow-md mt-6 md:max-w-xl md:mx-auto">
-          <h2 className="font-dmserif text-2xl mb-3">
-            {t("profile.security.title", "Zona de seguridad")}
-          </h2>
-          <div className="flex flex-wrap gap-3 justify-start md:justify-center">
-            <button
-              onClick={handleSignOut}
-              className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-base md:text-lg shadow-md hover:opacity-90"
-            >
-              {t("profile.security.signOut", "Cerrar sesión")}
-            </button>
-            <button
-              onClick={requestDeleteAccount}
-              className="rounded-full bg-red-600 text-white font-montserrat px-6 py-2 text-base md:text-lg shadow-md hover:opacity-90"
-            >
-              {t("profile.security.delete", "Eliminar cuenta")}
-            </button>
-          </div>
-        </section>
+          {/* ===== Zona de seguridad ===== */}
+          <section className="bg-white rounded-2xl p-6 shadow-md h-full flex flex-col">
+  <h2 className="font-dmserif text-2xl mb-3">
+    {t("profile.security.title", "Zona de seguridad")}
+  </h2>
+
+  <div className="flex-1 flex items-center justify-center">
+    <div className="flex flex-wrap gap-3 justify-center items-center">
+      <button
+        onClick={handleSignOut}
+        className="rounded-full bg-[#50415b] text-[#fef8f4] font-dmserif px-6 py-2 text-base md:text-lg shadow-md hover:opacity-90"
+      >
+        {t("profile.security.signOut", "Cerrar sesión")}
+      </button>
+      <button
+        onClick={requestDeleteAccount}
+        className="rounded-full bg-red-600 text-white font-montserrat px-6 py-2 text-base md:text-lg shadow-md hover:opacity-90"
+      >
+        {t("profile.security.delete", "Eliminar cuenta")}
+      </button>
+    </div>
+  </div>
+</section>
+        </div>
       </div>
     </main>
   );

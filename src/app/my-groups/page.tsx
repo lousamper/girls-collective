@@ -121,11 +121,11 @@ export default function MyGroupsPage() {
             {t("myGroupsPage.title", "Mis grupos")}
           </h1>
           <Link
-            href="/find-your-city"
-            className="rounded-full border bg-white px-4 py-1.5 text-sm shadow-sm hover:opacity-90"
-          >
-            {t("myGroupsPage.exploreCities", "Explorar ciudades")}
-          </Link>
+  href="/valencia"
+  className="rounded-full border bg-white px-4 py-1.5 text-sm shadow-sm hover:opacity-90"
+>
+  {t("myGroupsPage.myCity", "Ir a mi ciudad")}
+</Link>
         </div>
 
         {groups.length === 0 ? (
